@@ -2,7 +2,6 @@
 #include "Interface/ILog.h"
 #include "Interface/IMemory.h"
 
-#include <include/EASTL/EAAssert/eaassert.h>
 #include <include/EASTL/utility.h>
 
 namespace SG
@@ -343,7 +342,7 @@ namespace SG
 	void sgfs_get_parent_path(const char* path, char* output)
 	{
 		size_t pathLength = strlen(path);
-		EA_ASSERT(pathLength != 0);
+		ASSERT(pathLength != 0);
 
 		const char directorySeparator = sgfs_get_directory_separator();
 		const char forwardSlash = '/';    // forward slash is accepted on all platforms as a path component.
@@ -371,14 +370,14 @@ namespace SG
 		if (rdInfo->isBundled || !rdInfo->pIO)
 		{
 			SG_LOG_IF(SG_LOG_LEVEL_ERROR, !strlen(rdInfo->path), "Trying to get an unset resource directory '%d', make sure the resourceDirectory is set on start of the application", resourceDir);
-			EA_ASSERT(strlen(rdInfo->path) != 0);
+			ASSERT(strlen(rdInfo->path) != 0);
 		}
 		return rdInfo->path;
 	}
 
 	void sgfs_set_path_for_resource_dir(IFileSystem* pIO, ResourceMount mount, ResourceDirectory resourceDir, const char* bundledFolder)
 	{
-		EA_ASSERT(pIO);
+		ASSERT(pIO);
 		ResourceDirectoryInfo* rdInfo = &gResourceDirectories[resourceDir];
 
 		if (strlen(rdInfo->path) != 0)
@@ -411,7 +410,7 @@ namespace SG
 		const size_t maxPathLength = baseLength + componentLength + 1;    // + 1 due to a possible added directory slash.
 
 		SG_LOG_IF(SG_LOG_LEVEL_ERROR, maxPathLength >= SG_MAX_FILEPATH, "Component path length '%d' greater than FS_MAX_PATH", maxPathLength);
-		EA_ASSERT(maxPathLength < SG_MAX_FILEPATH);
+		ASSERT(maxPathLength < SG_MAX_FILEPATH);
 
 		strncpy(output, basePath, baseLength);
 		size_t newPathLength = baseLength;
@@ -504,7 +503,7 @@ namespace SG
 		const size_t maxPathLength = baseLength + extensionLength + 1;    // + 1 due to a possible added directory slash.
 
 		SG_LOG_IF(SG_LOG_LEVEL_ERROR, maxPathLength >= SG_MAX_FILEPATH, "Extension path length '%d' greater than FS_MAX_PATH", maxPathLength);
-		EA_ASSERT(maxPathLength < SG_MAX_FILEPATH);
+		ASSERT(maxPathLength < SG_MAX_FILEPATH);
 
 		strncpy(output, basePath, baseLength);
 
@@ -520,7 +519,7 @@ namespace SG
 		for (size_t i = 0; i < extensionLength; i += 1)
 		{
 			SG_LOG_IF(SG_LOG_LEVEL_ERROR, newExtension[i] == directorySeparator || newExtension[i] == forwardSlash, "Extension '%s' contains directory specifiers", newExtension);
-			EA_ASSERT(newExtension[i] != directorySeparator && newExtension[i] != forwardSlash);
+			ASSERT(newExtension[i] != directorySeparator && newExtension[i] != forwardSlash);
 		}
 		SG_LOG_IF(SG_LOG_LEVEL_ERROR, newExtension[extensionLength - 1] == '.', "Extension '%s' ends with a '.' character", newExtension);
 

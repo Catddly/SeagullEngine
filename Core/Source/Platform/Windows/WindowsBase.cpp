@@ -6,9 +6,6 @@
 #include <include/EASTL/unordered_map.h>
 #include <include/EASTL/algorithm.h>
 
-//#include <windowsx.h>
-#include <include/EASTL/EAAssert/eaassert.h>
-
 #include "Interface/IOperatingSystem.h"
 #include "Interface/ILog.h"
 //#include "Interface/ITime.h"
@@ -350,7 +347,7 @@ namespace SG
 
 	MonitorDescription* get_monitor(uint32_t index)
 	{
-		EA_ASSERT(gMonitorCount > index);
+		ASSERT(gMonitorCount > index);
 		return &gMonitors[index];
 	}
 
@@ -922,7 +919,7 @@ namespace SG
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_DEBUG, SG_RD_LOG, ""); // TODO: complete the file system
 
 		// logging init
-		//Logger::OnInit(app->GetName());
+		Logger::OnInit(app->GetName());
 		
 		pApp = app;
 		on_window_class_init();
@@ -947,7 +944,7 @@ namespace SG
 		}
 
 		MonitorDescription* monitor = get_monitor(pSettings->monitorIndex);
-		EA_ASSERT(monitor != nullptr);
+		ASSERT(monitor != nullptr);
 
 		gWindow->clientRect =
 		{
@@ -1026,7 +1023,7 @@ namespace SG
 		on_window_class_exit();
 
 		// log terminate
-		//Logger::OnExit();
+		Logger::OnExit();
 
 		sgfs_exit_file_system();
 

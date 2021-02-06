@@ -4,7 +4,6 @@
 #include "Interface/IMemory.h"
 
 #include <time.h>
-#include <include/EASTL/EAAssert/eaassert.h>
 
 namespace SG
 {
@@ -35,29 +34,24 @@ namespace SG
 	void log_write_default(void* user_data, const char* message)
 	{
 		auto* fs = (FileStream*)user_data;
-		EA_ASSERT(fs);
-
+		ASSERT(fs);
 		sgfs_write_to_stream(fs, message, strlen(message));
 		sgfs_flush_stream(fs);
-		SG_LOG_INFO("Log is written to file...(msg: %s)", message);
 	}
 
 	void log_close_default(void* user_data)
 	{
 		auto* fs = (FileStream*)user_data;
-		EA_ASSERT(fs);
+		ASSERT(fs);
 		sgfs_close_stream(fs);
 		sg_free(fs);
-		SG_LOG_INFO("Log filestream closed...");
 	}
 
 	void log_flush_default(void* user_data)
 	{
 		auto* fs = (FileStream*)user_data;
-		EA_ASSERT(fs);
-
+		ASSERT(fs);
 		sgfs_flush_stream(fs);
-		SG_LOG_INFO("Log is flushing...");
 	}
 
 	eastl::string get_timestamp()
@@ -178,12 +172,12 @@ namespace SG
 
 				eastl::string header;
 				if (sLogger->mRecordTimestamp)
-					header += "date       time     ";
+					header += "date           time       ";
 				if (sLogger->mRecordThreadName)
 					header += "[thread name/id ]";
 				if (sLogger->mRecordFile)
 					header += "                   file:line  ";
-				header += "  v |\n";
+				header += "     v |\n";
 				sgfs_write_to_stream(&fs, header.c_str(), header.size());
 				sgfs_flush_stream(&fs);
 			}
@@ -214,10 +208,11 @@ namespace SG
 	{
 		static eastl::pair<uint32_t, const char*> logLevelPrefixes[] =
 		{
-			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_WARNING, "WARN| " },
-			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_INFO,    "INFO| " },
+			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_WARNING, " WARN| " },
+			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_INFO,    " INFO| " },
 			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_DEBUG,   " DEBUG| " },
-			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_ERROR,   " ERR| " }
+			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_ERROR,   " ERROR| " },
+			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_CRITICAL,   " CRIT| " }
 		};
 
 		uint32_t logLevels[SG_LOG_LEVEL_SIZE];

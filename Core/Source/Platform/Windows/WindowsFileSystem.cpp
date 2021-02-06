@@ -1,8 +1,6 @@
 #include "Interface/IFileSystem.h"
 #include "Interface/ILog.h"
 
-#include <include/EASTL/EAAssert/eaassert.h>
-
 #include <ShlObj_core.h>
 
 namespace SG
@@ -135,7 +133,7 @@ namespace SG
 			// logging 
 			return true;
 		}
-		EA_ASSERT(pDesc);
+		ASSERT(pDesc);
 		pSystemFileIO->get_resource_mount = get_resource_mount;
 
 		// get the application directory

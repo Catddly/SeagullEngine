@@ -1,5 +1,5 @@
-#include "../interface/ITime.h"
-#include "../interface/IOperatingSystem.h"
+#include "Interface/ITime.h"
+#include "Interface/IOperatingSystem.h"
 
 #include "Platform/Windows/WindowsTime.h"
 

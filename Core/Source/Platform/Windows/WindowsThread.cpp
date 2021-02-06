@@ -3,8 +3,7 @@
 #include "Interface/IThread.h"
 #include "Interface/IMemory.h"
 
-#include <include/EASTL/EAAssert/eaassert.h>
-#include <stdio.h>
+//#include <stdio.h>
 
 namespace SG
 {
@@ -78,13 +77,13 @@ namespace SG
 	{
 		ThreadHandle handle = CreateThread(0, 0, ThreadFunctionStatic,
 			element, 0, 0);
-		EA_ASSERT(handle != NULL);
+		ASSERT(handle != NULL);
 		return handle;
 	}
 
 	void destroy_thread(ThreadHandle handle)
 	{
-		EA_ASSERT(handle != NULL);
+		ASSERT(handle != NULL);
 		WaitForSingleObject((HANDLE)handle, INFINITE);
 		CloseHandle((HANDLE)handle);
 		handle = nullptr;

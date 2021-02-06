@@ -127,11 +127,11 @@ namespace SG
 		{
 			bool        (*open)(IFileSystem* pIO, const ResourceDirectory resourceDir, const char* fileName, FileMode mode, FileStream* pOut);
 			bool        (*close)(FileStream* pFile);
-			size_t(*read)(FileStream* pFile, void* outputBuffer, size_t bufferSizeInBytes);
-			size_t(*write)(FileStream* pFile, const void* sourceBuffer, size_t byteCount);
+			size_t		(*read)(FileStream* pFile, void* outputBuffer, size_t bufferSizeInBytes);
+			size_t		(*write)(FileStream* pFile, const void* sourceBuffer, size_t byteCount);
 			bool        (*seek)(FileStream* pFile, SeekBaseOffset baseOffset, ssize_t seekOffset);
-			ssize_t(*get_seek_position)(const FileStream* pFile);
-			ssize_t(*get_file_size)(const FileStream* pFile);
+			ssize_t		(*get_seek_position)(const FileStream* pFile);
+			ssize_t		(*get_file_size)(const FileStream* pFile);
 			bool        (*flush)(FileStream* pFile);
 			bool        (*is_at_end)(const FileStream* pFile);
 			const char* (*get_resource_mount)(ResourceMount mount);

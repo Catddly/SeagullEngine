@@ -9,7 +9,6 @@ namespace SG
 	{
 		// if the output stream has been redirected, use fprintf instead of WriteConsoleW,
 		// though it means that proper Unicode output will not work
-
 		FILE* out = error ? stderr : stdout;
 		if (!_isatty(_fileno(out))) // is it a terminal?
 		{
@@ -18,7 +17,7 @@ namespace SG
 		else
 		{
 			if (error)
-				printf("Error: %s", str);
+				printf("%s", str);
 			else
 				printf("%s", str);
 		}

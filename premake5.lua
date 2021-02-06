@@ -125,13 +125,13 @@ project "Sandbox"
     includedirs
     {
         "Core/Source",
+        "%{IncludeDir.eastl}"
     }
 
     -- link libraries
     links
     {
         "Seagull-Core",
-        "eastl"
     }
 
 filter "system:windows"

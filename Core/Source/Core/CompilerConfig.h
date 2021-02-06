@@ -21,15 +21,6 @@
 	typedef SSIZE_T ssize_t;
 #endif
 
-//#ifdef SG_DLL_EXPORT
-//	#define SG_API __declspec(dllexport)
-//#else
-//	#define SG_API __declspec(dllimport)
-//#endif
-
-//#ifdef SG_API
-//#undef SG_API
-//#define SG_API
-//#endif
+#define ASSERT(x) if(!(x)) __debugbreak();
 
 #define SG_COMPILE_ASSERT(exp) static_assert((exp), #exp)

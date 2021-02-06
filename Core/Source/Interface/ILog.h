@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Core/CompilerConfig.h"
-#include <include/EASTL/string.h>
-
 #include "Logging/Log.h"
 
 namespace SG

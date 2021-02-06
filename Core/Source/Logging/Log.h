@@ -115,4 +115,4 @@ namespace SG
 
 }
 
-	eastl::string ToString(const char* formatString, ...);
+// eastl::string ToString(const char* formatString, ...);

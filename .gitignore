@@ -42,3 +42,6 @@ Bin-int/
 *.user
 *.vcxproj
 *.vcxproj.filters
+
+# Log files
+.log
