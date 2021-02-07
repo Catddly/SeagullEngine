@@ -284,10 +284,10 @@ namespace SG
 			if (sLogger->mQuietMode)
 			{
 				if (error)
-					print_unicode(sThreadLocalBuffer, true);
+					print_unicode(sThreadLocalBuffer, level);
 			}
 			else
-				print_unicode(sThreadLocalBuffer, error);
+				print_unicode(sThreadLocalBuffer, level);
 		}
 
 		MutexLock lock{ sLogger->mMutex };

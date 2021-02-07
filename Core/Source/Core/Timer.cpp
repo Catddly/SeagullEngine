@@ -1,85 +1,132 @@
 #include "Interface/ITime.h"
 #include "Interface/IOperatingSystem.h"
 
-#include "Platform/Windows/WindowsTime.h"
-
 namespace SG
 {
 
-	Timer::Timer()
+	Timer::Timer(const eastl::string_view& name)
+		:mName(name), mDeltaTime(-1.0), mSecondsPerCount(0.0),
+		mBaseTime(0.0), mPausedTime(0.0), mStopTime(0.0), mPrevTime(0.0), mCurrTime(0.0), mIsStopped(false)
 	{
-		reset();
+		uint64_t countsPerSeconds;
+		QueryPerformanceFrequency((LARGE_INTEGER*)&countsPerSeconds);
+		mSecondsPerCount = 1.0 / (double)countsPerSeconds;
 	}
 
-	uint32_t Timer::get_millisecond(bool reset)
+	float Timer::GetTotalTime() const
 	{
-		uint32_t currTime = get_system_time();
-		uint32_t elapsedTime = mStartTime - currTime;
-		if (reset)
-			mStartTime = currTime;
+		// If we are stopped, do not count the time that has passed since we stopped.
+		// Moreover, if we previously already had a pause, the distance 
+		// mStopTime - mBaseTime includes paused time, which we do not want to count.
+		// To correct this, we can subtract the paused time from mStopTime:  
+		//
+		//                     |<--paused time-->|
+		// ----*---------------*-----------------*------------*------------*------> time
+		//  mBaseTime       mStopTime        startTime     mStopTime    mCurrTime
 
-		return elapsedTime;
+		if (mIsStopped)
+		{
+			return (float)(((mStopTime - mPausedTime) - mBaseTime) * mSecondsPerCount);
+		}
+
+		// The distance mCurrTime - mBaseTime includes paused time,
+		// which we do not want to count.  To correct this, we can subtract 
+		// the paused time from mCurrTime:  
+		//
+		//  (mCurrTime - mPausedTime) - mBaseTime 
+		//
+		//                     |<--paused time-->|
+		// ----*---------------*-----------------*------------*------> time
+		//  mBaseTime       mStopTime        startTime     mCurrTime
+
+		else
+		{
+			return (float)(((mCurrTime - mPausedTime) - mBaseTime) * mSecondsPerCount);
+		}
 	}
 
-	void Timer::reset()
+	float Timer::GetDeltaTime() const
 	{
-		mStartTime = get_system_time();
+		return (float)mDeltaTime;
 	}
 
-	HiresTimer::HiresTimer()
+	double Timer::GetSecondsPerCount() const
 	{
-		memset(mHistory, 0, sizeof(mHistory));
-		mHistoryIndex = 0;
-		reset();
+		return mSecondsPerCount;
 	}
 
-	int64_t HiresTimer::get_usecond(bool reset)
+	void Timer::Reset()
 	{
-		int64_t currTime = ::get_usecond();
-		int64_t elapsedTime = currTime - mStartTime;
+		__int64 currTime;
+		QueryPerformanceCounter((LARGE_INTEGER*)&currTime);
 
-		// Correct for possible weirdness with changing internal frequency
-		if (elapsedTime < 0)
-			elapsedTime = 0;
-
-		if (reset)
-			mStartTime = currTime;
-
-		mHistory[mHistoryIndex] = elapsedTime;
-		mHistoryIndex = (mHistoryIndex + 1) % LENGTH_OF_HISTORY;
-
-		return elapsedTime;
+		mCurrTime = currTime;
+		mBaseTime = currTime;
+		mPrevTime = currTime;
+		mStopTime = 0;
+		mIsStopped = false;
 	}
 
-	int64_t HiresTimer::get_usecond_average()
+	void Timer::Start()
 	{
-		int64_t elapsedTime = 0;
-		for (uint32_t i = 0; i < LENGTH_OF_HISTORY; ++i)
-			elapsedTime += mHistory[i];
-		elapsedTime /= LENGTH_OF_HISTORY;
+		// Accumulate the time elapsed between stop and start pairs.
+		//
+		//                     |<-------d------->|
+		// ----*---------------*-----------------*------------> time
+		//  mBaseTime       mStopTime        startTime     
+		__int64 startTime = 0;
+		QueryPerformanceCounter((LARGE_INTEGER*)&startTime);
 
-		// Correct for overflow
-		if (elapsedTime < 0)
-			elapsedTime = 0;
+		if (mIsStopped)
+		{
+			mPausedTime += (startTime - mStopTime);
 
-		return elapsedTime;
+			mPrevTime = startTime;
+			mStopTime = 0;
+			mIsStopped = false;
+		}
 	}
 
-	float HiresTimer::get_seconds(bool reset)
+	void Timer::Stop()
 	{
-		return float(get_usecond(reset) / 1e6);
+		if (!mIsStopped)
+		{
+			__int64 currTime;
+			QueryPerformanceCounter((LARGE_INTEGER*)&currTime);
+
+			mStopTime = currTime;
+			mIsStopped = true;
+		}
 	}
 
-	float HiresTimer::get_seconds_average()
+	void Timer::Tick()
 	{
-		return float(get_usecond_average() / 1e6);
-	}
+		if (mIsStopped) // If is stopped, we don't Tick
+		{
+			mDeltaTime = 0.0;
+			return;
+		}
 
-	void HiresTimer::reset()
-	{
-		mStartTime = get_system_time();
-	}
+		// GetCurrTime
+		__int64 currTime;
+		QueryPerformanceCounter((LARGE_INTEGER*)&currTime);
+		mCurrTime = currTime;
 
-	const uint32_t HiresTimer::LENGTH_OF_HISTORY;
+		// Time difference between this frame and the previous.
+		mDeltaTime = (mCurrTime - mPrevTime) * mSecondsPerCount;
+
+		// Prepare for next frame.
+		mPrevTime = mCurrTime;
+
+		// force nonnegative. The DXSDK's CDXUTTimer mentions that if the 
+		// processor goes into a power save mode or we get shuffled to another
+		// processor, then mDeltaTime can be negative.
+		if (mDeltaTime < 0.0)
+			mDeltaTime = 0.0;
+
+		// if framerate appears to drop below about 6, assume we're at a breakpoint and simulate 20fps.
+		if (mDeltaTime > 0.15f)
+			mDeltaTime = 0.05f;
+	}
 
 }

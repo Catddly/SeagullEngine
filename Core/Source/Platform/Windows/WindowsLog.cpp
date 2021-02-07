@@ -38,7 +38,7 @@ namespace SG
 			}
 			else if (logLevel & SG_LOG_LEVEL_DEBUG)
 			{
-				SetConsoleTextAttribute(handle, BACKGROUND_GREEN | BACKGROUND_BLUE);
+				SetConsoleTextAttribute(handle, FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_BLUE);
 				printf("%s", str);
 				SetConsoleTextAttribute(handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 			}

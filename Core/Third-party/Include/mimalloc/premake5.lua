@@ -3,7 +3,7 @@ project "mimalloc"
 	language "C"
 	staticruntime "on"
 
-	targetdir ("bin/")
+	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
 	objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
 
 	files
@@ -12,32 +12,21 @@ project "mimalloc"
 		"src/stats.c",
 		"src/random.c",
 		"src/os.c",
-		"src/arena.c",
 		"src/region.c",
 		"src/segment.c",
 		"src/page.c",
-		-- "src/page-queue.c",
 		"src/alloc.c",
 		"src/alloc-aligned.c",
-		-- "src/alloc-override.c",
 		"src/alloc-posix.c",
+		"src/arena.c",
 		"src/heap.c",
 		"src/options.c",
 		"src/init.c"
-	}
-	
-	defines
-	{
 	}
 
 	includedirs
 	{
 		"include"
-	}
-
-	links
-	{
-		"bin/mimalloc-redirect"
 	}
 
 	filter "system:windows"

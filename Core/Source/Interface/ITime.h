@@ -1,42 +1,36 @@
 #pragma once
 
-#include "Core/CompilerConfig.h"
-#include <stdint.h>
+#include <include/EASTL/string.h>
 
 namespace SG
 {
 
-	/// low res timer
 	class Timer
 	{
 	public:
-		Timer();
+		Timer(const eastl::string_view& name);
 
-		uint32_t  get_millisecond(bool reset);
-		void      reset();
+		float GetTotalTime() const; // in seconds
+		float GetDeltaTime() const; // in seconds
+		double GetSecondsPerCount() const;
+
+		void Reset(); // Call before message loop.
+		void Start(); // Call when unpaused.
+		void Stop();  // Call when paused.
+		void Tick();  // Call every frame.
 	private:
-		uint32_t  mStartTime = 0;
-	};
+		eastl::string_view mName;
 
-	// high res timer
-	class HiresTimer
-	{
-	public:
-		HiresTimer();
+		double mDeltaTime;
+		double mSecondsPerCount;
 
-		int64_t get_usecond(bool reset);
-		int64_t get_usecond_average();
+		__int64 mBaseTime;       // timer start time
+		__int64 mPausedTime;     // total time we paused
+		__int64 mStopTime;       // last time when we stopped
+		__int64 mPrevTime;       // last frame duration
+		__int64 mCurrTime;       // curr frame duration
 
-		float   get_seconds(bool reset);
-		float   get_seconds_average();
-
-		void    reset();
-	private:
-		int64_t mStartTime;
-
-		static const uint32_t LENGTH_OF_HISTORY = 60;
-		int64_t               mHistory[LENGTH_OF_HISTORY];
-		uint32_t              mHistoryIndex;
+		bool mIsStopped;
 	};
 
 }

@@ -1,5 +1,3 @@
-#include <stdlib.h>
-
 #include "Seagull.h"
 
 using namespace SG;
@@ -15,6 +13,7 @@ void ThreadTestFunc(void* data)
 	MutexLock lck(mMutex);
 	while (!ready)
 		cv.Wait(mMutex);
+
 	char num[4];
 	itoa(gCounter, num, 10);
 	char msg[64] = "WorkerThread-";
@@ -97,14 +96,20 @@ public:
 private:
 	void MemoryTest()
 	{
+		Timer t("MemoryTestTimer");
+		t.Reset();
 		auto* ptr = (int*)sg_malloc(sizeof(int));
 		*ptr = 54;
 		SG_LOG_DEBUG("dynamic malloc ptr = %d", *ptr);
 		sg_free(ptr);
+		t.Tick();
+		SG_LOG_DEBUG("Memory test duration: (%.4f ms)", t.GetTotalTime() * 1000.0f);
 	}
 
 	void ThreadTest()
 	{
+		Timer t("ThreadTestTimer");
+		t.Reset();
 		mMutex.Init();
 		cv.Init();
 		Thread::set_main_thread();
@@ -133,11 +138,51 @@ private:
 		Thread::get_curr_thread_name(threadName, SG_MAX_THREAD_NAME_LENGTH);
 		SG_LOG_DEBUG("Thread: %s", threadName);
 		SG_LOG_DEBUG("%d", gCounter);
+		t.Tick();
+		SG_LOG_DEBUG("Thread test duration: (%.4f ms)", t.GetTotalTime() * 1000.0f);
 	}
 private:
 	const char* mName = "Example";
 	int* nums[6];
 	ThreadHandle mThreads[6];
+};
+
+class DummyApp : public IApp
+{
+	virtual bool OnInit() override
+	{
+		return true;
+	}
+
+	virtual void OnExit() override
+	{
+	}
+
+	virtual bool Load() override
+	{
+		return true;
+	}
+
+	virtual bool Unload() override
+	{
+		return true;
+	}
+
+	virtual bool OnUpdate(float deltaTime) override
+	{
+		//SG_LOG_INFO("Frame: %.1f", 1.0f / deltaTime);
+		return true;
+	}
+
+	virtual bool OnDraw() override
+	{
+		return true;
+	}
+
+	virtual const char* GetName() override
+	{
+		return "DummyApp";
+	}
 };
 
 SG_DEFINE_APPLICATION_MAIN(ExampleApp)

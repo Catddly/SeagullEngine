@@ -8,13 +8,11 @@
 
 #include "Interface/IOperatingSystem.h"
 #include "Interface/ILog.h"
-//#include "Interface/ITime.h"
+#include "Interface/ITime.h"
 #include "Interface/IThread.h"
 #include "Interface/IApp.h"
 #include "Interface/IFileSystem.h"
 #include "Interface/IMemory.h"
-
-#include "Platform/Windows/WindowsTime.h"
 
 #define SG_WINDOW_CLASS L"Seagull Engine"
 #define MAX_KEYS 256
@@ -971,54 +969,56 @@ namespace SG
 		pApp->mCommandLine = GetCommandLineA();
 		// app initialization
 		{
-			//Timer t;
+			//Timer t("Init Timer");
 			if (!pApp->OnInit())
 				return EXIT_FAILURE;
+			//SG_LOG_INFO("App initialization: (%fms)", t.GetTotalTime());
 
 			pSettings->initialized = true;
 
 			if (!pApp->Load())
 				return EXIT_FAILURE;
-			// logging( App init)
+			//SG_LOG_INFO("App loading: (%fms)", t.GetTotalTime());
 		}
 
 		// main loop
 		bool quit = false;
-		//int64_t lastCounter = get_usecond();
+		Timer GlobalTimer("AppGlobalTimer");
+		GlobalTimer.Reset();
+		//SG_LOG_INFO("Start Time: (%.2f s)", GlobalTimer.GetTotalTime());
 		while (!quit)
 		{
-			//int64_t counter = get_usecond();
-			//float deltaTime = counter_to_seconds_elapsed(lastCounter, counter);
-			//lastCounter = counter;
-
-			// if framerate appears to drop below about 6, assume we're at a breakpoint and simulate 20fps.
-			//if (deltaTime > 0.15f)
-			//	deltaTime = 0.05f;
+			GlobalTimer.Tick();
 
 			quit = handle_messages() || pSettings->quit;
 
 			// If window is minimized let other processes take over
 			if (gWindow->minimized)
 			{
+				//GlobalTimer.Stop();
 				Thread::sleep(1);
 				continue;
 			}
 
-			pApp->OnUpdate(0.15f);
+			pApp->OnUpdate(GlobalTimer.GetDeltaTime());
 			pApp->OnDraw();
 
 			// Graphics reset in cases where device has to be re-created.
 			if (pApp->mSettings.resetGraphic)
 			{
+				GlobalTimer.Stop();
 				pApp->Unload();
 				pApp->Load();
 				pApp->mSettings.resetGraphic = false;
+				GlobalTimer.Start();
 			}
 		}
 
 		pApp->mSettings.quit = true;
 		pApp->Unload();
 		pApp->OnExit();
+
+		GlobalTimer.Stop();
 
 		on_window_class_exit();
 
