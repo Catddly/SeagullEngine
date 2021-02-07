@@ -9,7 +9,7 @@ namespace SG
 	void output_debug_string(const char* str, ...);
 	void output_debug_string_v(const char* str, va_list args);
 
-	void print_unicode(const char* str, bool error = false);
+	void print_unicode(const char* str, uint32_t logLevel);
 
 #define SG_LOG_RAW(log_level, ...) Logger::WriteRaw((log_level), false, __VA_ARGS__)
 

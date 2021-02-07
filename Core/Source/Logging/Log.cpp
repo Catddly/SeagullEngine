@@ -212,7 +212,7 @@ namespace SG
 			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_INFO,    " INFO| " },
 			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_DEBUG,   " DEBUG| " },
 			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_ERROR,   " ERROR| " },
-			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_CRITICAL,   " CRIT| " }
+			eastl::pair<uint32_t, const char*>{ LogLevel::SG_LOG_LEVEL_CRITICAL," CRIT| " }
 		};
 
 		uint32_t logLevels[SG_LOG_LEVEL_SIZE];
@@ -255,11 +255,11 @@ namespace SG
 				if (sLogger->mQuietMode)
 				{
 					if (level & SG_LOG_LEVEL_ERROR)
-						print_unicode(sThreadLocalBuffer, true);
+						print_unicode(sThreadLocalBuffer, level);
 				}
 				else
 				{
-					print_unicode(sThreadLocalBuffer, level & SG_LOG_LEVEL_ERROR);
+					print_unicode(sThreadLocalBuffer, level);
 				}
 			}
 

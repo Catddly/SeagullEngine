@@ -5,10 +5,11 @@
 namespace SG
 {
 
-	void print_unicode(const char* str, bool error)
+	void print_unicode(const char* str, uint32_t logLevel)
 	{
 		// if the output stream has been redirected, use fprintf instead of WriteConsoleW,
 		// though it means that proper Unicode output will not work
+		bool error = logLevel & (SG_LOG_LEVEL_CRITICAL | SG_LOG_LEVEL_ERROR);
 		FILE* out = error ? stderr : stdout;
 		if (!_isatty(_fileno(out))) // is it a terminal?
 		{
@@ -16,10 +17,31 @@ namespace SG
 		}
 		else
 		{
+			HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
 			if (error)
+			{
+				SetConsoleTextAttribute(handle, FOREGROUND_INTENSITY | FOREGROUND_RED);
 				printf("%s", str);
-			else
+				SetConsoleTextAttribute(handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+			}
+			else if (logLevel & SG_LOG_LEVEL_INFO)
+			{
+				SetConsoleTextAttribute(handle, FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 				printf("%s", str);
+				SetConsoleTextAttribute(handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+			}
+			else if (logLevel & SG_LOG_LEVEL_WARNING)
+			{
+				SetConsoleTextAttribute(handle, FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN);
+				printf("%s", str);
+				SetConsoleTextAttribute(handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+			}
+			else if (logLevel & SG_LOG_LEVEL_DEBUG)
+			{
+				SetConsoleTextAttribute(handle, BACKGROUND_GREEN | BACKGROUND_BLUE);
+				printf("%s", str);
+				SetConsoleTextAttribute(handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+			}
 		}
 	}
 
