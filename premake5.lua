@@ -15,6 +15,9 @@ IncludeDir["eastl"] = "Seagull-Core/Core/Third-party/Include/eastl"
 IncludeDir["mimalloc"] = "Seagull-Core/Core/Third-party/Include/mimalloc"
 IncludeDir["glm"] = "Seagull-Core/Core/Third-party/Include/glm"
 
+-- Renderers
+IncludeDir["RendererVulkan"] = "Seagull-Core/Renderer/Vulkan"
+
 copyfiledir = "\"$(SolutionDir)Bin\\" .. outputdir .. "\\%{prj.name}\\$(ProjectName).dll\""
 copylibdir  = "\"$(ProjectDir)bin\\"
 copydstdir  = "\"$(SolutionDir)Bin\\" .. outputdir .. "\\Sandbox\\\""
@@ -37,8 +40,6 @@ project "Seagull-Core"
     targetdir ("Bin/" .. outputdir .. "/%{prj.name}")
     -- bin-int/Debug-windows-x64/Seagull Core
     objdir    ("Bin-int/" .. outputdir .. "/%{prj.name}")
-
-    -- precompile header
 
     -- include files
     files
@@ -109,81 +110,7 @@ group "Renderer"
             "Seagull-Core/Renderer/IRenderer/Include/**.h"
         }
 
-        -- includedirs
-        -- {
-        --     "Seagull-Core/Core/Source/"
-        -- }
-
-    project "RendererVulkan"
-        location "Seagull-Core/Renderer/Vulkan"
-        kind "StaticLib"
-        language "C++"
-        cppdialect "C++17"
-        staticruntime "on"
-
-        -- bin/Debug-windows-x64/Seagull Core
-        targetdir ("Bin/" .. outputdir .. "/%{prj.name}")
-        -- bin-int/Debug-windows-x64/Seagull Core
-        objdir    ("Bin-int/" .. outputdir .. "/%{prj.name}")
-
-        -- include files
-        files
-        {
-            "Source/**.h",
-            "Source/**.cpp",
-        }
-
-        -- define macros
-        defines
-        {
-            "_CRT_SECURE_NO_WARNINGS"
-        }
-
-        -- include directories
-        includedirs
-        {
-            "%{IncludeDir.eastl}",
-            "%{IncludeDir.glm}"
-        }
-        
-        -- link libraries
-        links
-        {
-            "eastl"
-        }
-
-    filter "system:windows"
-        systemversion "latest"
-        defines
-        {
-            "SG_PLATFORM_WINDOWS",
-            "SG_GRAPHIC_API_VULKAN"
-        }
-
-    filter "configurations:Debug"
-        defines 
-        {
-            "SG_DEBUG",
-            "SG_ENABLE_ASSERT",
-        }
-        -- postbuildcommands
-        -- {
-        --     ("copy /Y " .. copyfiledir .. " " .. copydstdir .."")
-        -- }
-        runtime "Debug"
-        symbols "on"
-
-    filter "configurations:Release"
-        defines 
-        {
-            "SG_RELEASE",
-        }
-        -- postbuildcommands
-        -- {
-        --     ("copy /Y " .. copyfiledir .. " " .. copydstdir .."")
-        -- }
-        runtime "Release"
-        optimize "on"
+    include "Seagull-Core/Renderer/Vulkan"
 
 group ""
 
@@ -210,13 +137,15 @@ project "Sandbox"
     includedirs
     {
         "Seagull-Core/Core/Source/",
-        "%{IncludeDir.eastl}"
+        "%{IncludeDir.eastl}",
+        "%{IncludeDir.RendererVulkan}"
     }
 
     -- link libraries
     links
     {
         "Seagull-Core",
+        "RendererVulkan"
     }
 
 filter "system:windows"

@@ -2,6 +2,18 @@
 
 #include <stdint.h>
 
+// for getting rid of unreferenced parameter warnings
+#ifdef _MSC_VER    //If on Visual Studio
+#define UNREF_PARAM(x) (x)
+#elif defined(ORBIS) || defined(PROSPERO)
+#define UNREF_PARAM(x) ((void)(x))
+#elif defined(__APPLE__)
+#define UNREF_PARAM(x) ((void)(x))
+#else
+// add more compilers and platforms as we need them
+#define UNREF_PARAM(x)
+#endif
+
 #if   INTPTR_MAX == 0x7FFFFFFFFFFFFFFFLL // 64-bit
 	#define PTR_SIZE 8
 #elif INTPTR_MAX == 0x7FFFFFFF           // 32-bit
@@ -14,6 +26,12 @@
 	#define SG_CONSTEXPR constexpr
 #else
 	#define SG_CONSTEXPR 
+#endif
+
+#ifdef _MSC_VER
+	#define SG_ALIGNAS(x) __declspec( align( x ) ) 
+#else
+	#define SG_ALIGNAS(x)  __attribute__ ((aligned( x )))
 #endif
 
 #ifdef __cplusplus
