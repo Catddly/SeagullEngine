@@ -14,6 +14,8 @@
 #define SG_MAKE_ENUM_FLAG(TYPE, ENUM_TYPE)
 #endif
 
+typedef struct VmaAllocator_T* VmaAllocator;
+
 // default levels for renderer to use
 #if !defined(SG_RENDERER_CUSTOM_MAX_CONFIG)
 enum
@@ -682,7 +684,8 @@ namespace SG
 		uint32_t**						pAvailableQueueCount;
 		uint32_t**						pUsedQueueCount;
 		struct DescriptorPool*			pDescriptorPool;
-		//struct VmaAllocator_T*			pVmaAllocator;
+		//struct VmaAllocator_T*	    pVmaAllocator;
+		VmaAllocator					vmaAllocator;
 		uint32_t                        raytracingExtension : 1;
 		union
 		{

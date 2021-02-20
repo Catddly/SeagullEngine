@@ -1,29 +1,45 @@
+#define VMA_IMPLEMENTATION
 #include "Core/CompilerConfig.h"
 
 #include "Interface/ILog.h"
-#include "Interface/IMemory.h"
-//#include "Interface/IThread.h"
-
-//#include <include/EASTL/vector.h>
+#include "Interface/IThread.h"
 
 //#include <include/tinyimageformat_base.h>
 //#include <include/tinyimageformat_apis.h>
 //#include <include/tinyimageformat_query.h>
 
-//#include <include/VulkanMemoryAllocator.h>
-
 //#define VK_NO_PROTOTYPES
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_win32.h>
 
-#include "IRendererTest.h"
+#include "IRenderer.h"
+
+#if defined(SG_PLATFORM_WINDOWS)
+// pull in minimal Windows headers
+#if !defined(NOMINMAX)
+#define NOMINMAX
+#endif
+#if !defined(WIN32_LEAN_AND_MEAN)
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <Windows.h>
+#endif
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability-completeness"
+#endif
+#include <vulkanMemoryAllocator/vk_mem_alloc.h>
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 // GPUConfig.h still have some issues on <regex>
 #include "Core/GPUConfig.h"
 #include "VulkanCapsBuilder.h"
 //#include "HelperFunc.h"
 
-//#include <include/EASTL/string_hash_map.h>
+#include "Interface/IMemory.h"
 
 #define SG_ENABLE_GRAPHICS_DEBUG
 
@@ -1278,7 +1294,6 @@ VkQueueFlags util_to_vk_queue_flags(QueueType queueType)
 				wantedInstanceExtensions[initialCount + i] = pDesc->ppInstanceExtensions[i];
 			}
 			const uint32_t wantedExtensionCount = (uint32_t)wantedInstanceExtensions.size();
-
 
 			//#if defined(NX64)
 			//	loadExtensionsNX(pRenderer->pVkInstance);
@@ -3096,8 +3111,6 @@ VkQueueFlags util_to_vk_queue_flags(QueueType queueType)
 			//		}
 			//#endif
 
-			//SG_LOG_ERROR("Failed to initialize vulkan!");
-
 			create_instance(appName, pDesc, instanceLayerCount, instanceLayers, pRenderer);
 //#endif
 		
@@ -3119,11 +3132,11 @@ VkQueueFlags util_to_vk_queue_flags(QueueType queueType)
 				// remove device and any memory we allocated in just above as this is the first function called
 				// when initializing the forge
 #if !defined(VK_USE_DISPATCH_TABLES)
-				//remove_device(pRenderer);
+				remove_device(pRenderer);
 				remove_instance(pRenderer);
 				SG_SAFE_FREE(pRenderer);
-				SG_LOG_INFO("Selected GPU has an Office Preset in gpu.cfg.");
-				SG_LOG_INFO("Office preset is not supported by The Forge.");
+				SG_LOG_INFO("Selected GPU has an Office Preset in gpu.cfg");
+				SG_LOG_INFO("Office preset is not supported by The Seagull Engine");
 #endif
 
 				// return NULL pRenderer so that client can gracefully handle exit
@@ -3133,41 +3146,48 @@ VkQueueFlags util_to_vk_queue_flags(QueueType queueType)
 			}
 
 			/// Vma Memory allocator
-			//VmaAllocatorCreateInfo createInfo = { 0 };
-			//createInfo.device = pRenderer->pVkDevice;
-			//createInfo.physicalDevice = pRenderer->pVkActiveGPU;
-			//createInfo.instance = pRenderer->pVkInstance;
+			SG_DECLARE_ZERO(VmaAllocatorCreateInfo, createInfo);
+			createInfo.device = pRenderer->pVkDevice;
+			createInfo.physicalDevice = pRenderer->pVkActiveGPU;
+			createInfo.instance = pRenderer->pVkInstance;
+#ifdef ANDROID
+			createInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+#else
+			createInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+#endif
 
-			//// Render Doc Capture currently does not support use of this extension
-			//if (gDedicatedAllocationExtension && !gRenderDocLayerEnabled)
-			//{
-			//	createInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
-			//}
+			// Render Doc Capture currently does not support use of this extension
+			if (gDedicatedAllocationExtension && !gRenderDocLayerEnabled)
+			{
+				createInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+			}
 
-			//VmaVulkanFunctions vulkanFunctions = {};
-			//vulkanFunctions.vkAllocateMemory = vkAllocateMemory;
-			//vulkanFunctions.vkBindBufferMemory = vkBindBufferMemory;
-			//vulkanFunctions.vkBindImageMemory = vkBindImageMemory;
-			//vulkanFunctions.vkCreateBuffer = vkCreateBuffer;
-			//vulkanFunctions.vkCreateImage = vkCreateImage;
-			//vulkanFunctions.vkDestroyBuffer = vkDestroyBuffer;
-			//vulkanFunctions.vkDestroyImage = vkDestroyImage;
-			//vulkanFunctions.vkFreeMemory = vkFreeMemory;
-			//vulkanFunctions.vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements;
-			//vulkanFunctions.vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2KHR;
-			//vulkanFunctions.vkGetImageMemoryRequirements = vkGetImageMemoryRequirements;
-			//vulkanFunctions.vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2KHR;
-			//vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties;
-			//vulkanFunctions.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
-			//vulkanFunctions.vkMapMemory = vkMapMemory;
-			//vulkanFunctions.vkUnmapMemory = vkUnmapMemory;
-			//vulkanFunctions.vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges;
-			//vulkanFunctions.vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges;
-			//vulkanFunctions.vkCmdCopyBuffer = vkCmdCopyBuffer;
+			VmaVulkanFunctions vulkanFunctions = {};
+			vulkanFunctions.vkAllocateMemory = vkAllocateMemory;
+			vulkanFunctions.vkBindBufferMemory = vkBindBufferMemory;
+			vulkanFunctions.vkBindImageMemory = vkBindImageMemory;
+			vulkanFunctions.vkCreateBuffer = vkCreateBuffer;
+			vulkanFunctions.vkCreateImage = vkCreateImage;
+			vulkanFunctions.vkDestroyBuffer = vkDestroyBuffer;
+			vulkanFunctions.vkDestroyImage = vkDestroyImage;
+			vulkanFunctions.vkFreeMemory = vkFreeMemory;
+			vulkanFunctions.vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements;
+			vulkanFunctions.vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2;
+			vulkanFunctions.vkGetImageMemoryRequirements = vkGetImageMemoryRequirements;
+			vulkanFunctions.vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2;
+			vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties;
+			vulkanFunctions.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
+			vulkanFunctions.vkMapMemory = vkMapMemory;
+			vulkanFunctions.vkUnmapMemory = vkUnmapMemory;
+			vulkanFunctions.vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges;
+			vulkanFunctions.vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges;
+			vulkanFunctions.vkCmdCopyBuffer = vkCmdCopyBuffer;
 
-			//createInfo.pVulkanFunctions = &vulkanFunctions;
-			//createInfo.pAllocationCallbacks = &gVkAllocationCallbacks;
-			//vmaCreateAllocator(&createInfo, &pRenderer->pVmaAllocator);
+			createInfo.pVulkanFunctions = &vulkanFunctions;
+			createInfo.pAllocationCallbacks = nullptr;
+			vmaCreateAllocator(&createInfo, &pRenderer->vmaAllocator);
+
+			SG_LOG_INFO("VmaAllocator initialized successfully!");
 		}
 
 //		VkDescriptorPoolSize descriptorPoolSizes[SG_DESCRIPTOR_TYPE_RANGE_SIZE] =
@@ -3250,13 +3270,13 @@ VkQueueFlags util_to_vk_queue_flags(QueueType queueType)
 		//		remove_framebuffer(pRenderer, it.second);
 
 		// Destroy the Vulkan bits
-		//vmaDestroyAllocator(pRenderer->pVmaAllocator);
+		vmaDestroyAllocator(pRenderer->vmaAllocator);
 
-//#if defined(VK_USE_DISPATCH_TABLES)
-//#else
-//		remove_device(pRenderer);
-//		remove_instance(pRenderer);
-//#endif
+#if defined(VK_USE_DISPATCH_TABLES)
+#else
+		remove_device(pRenderer);
+		remove_instance(pRenderer);
+#endif
 
 		//nvapiExit();
 		//agsExit();
@@ -3269,16 +3289,16 @@ VkQueueFlags util_to_vk_queue_flags(QueueType queueType)
 		//SG_SAFE_FREE(gRenderPassMap);
 		//SG_SAFE_FREE(gFrameBufferMap);
 
-		//for (uint32_t i = 0; i < pRenderer->linkedNodeCount; ++i)
-		//{
-		//	SG_SAFE_FREE(pRenderer->pAvailableQueueCount[i]);
-		//	SG_SAFE_FREE(pRenderer->pUsedQueueCount[i]);
-		//}
+		for (uint32_t i = 0; i < pRenderer->linkedNodeCount; ++i)
+		{
+			SG_SAFE_FREE(pRenderer->pAvailableQueueCount[i]);
+			SG_SAFE_FREE(pRenderer->pUsedQueueCount[i]);
+		}
 
 		// free all the renderer components!
-		//SG_SAFE_FREE(pRenderer->pAvailableQueueCount);
-		//SG_SAFE_FREE(pRenderer->pUsedQueueCount);
-		//SG_SAFE_FREE(pRenderer->pCapBits);
+		SG_SAFE_FREE(pRenderer->pAvailableQueueCount);
+		SG_SAFE_FREE(pRenderer->pUsedQueueCount);
+		SG_SAFE_FREE(pRenderer->pCapBits);
 		SG_SAFE_FREE(pRenderer->name);
 		SG_SAFE_FREE(pRenderer);
 	}

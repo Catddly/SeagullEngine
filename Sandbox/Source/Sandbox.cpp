@@ -3,7 +3,7 @@
 #include "../../Seagull-Core/Renderer/Vulkan/include/vulkan/vulkan_core.h"
 
 #define SG_GRAPHIC_API_VULKAN
-#include "../../Seagull-Core/Renderer/IRenderer/Include/IRendererTest.h"
+#include "../../Seagull-Core/Renderer/IRenderer/Include/IRenderer.h"
 
 using namespace SG;
 

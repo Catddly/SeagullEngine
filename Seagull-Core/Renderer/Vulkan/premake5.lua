@@ -9,20 +9,16 @@ project "RendererVulkan"
 
 	files
 	{
-		-- "Source/**.h",
-		-- "Source/**.cpp"
-		"Source/VulkanCapsBuilder.h",
-		"Source/RendererTest.cpp"
+		"Source/**.h",
+		"Source/**.cpp"
 	}
 
 	includedirs
 	{
-		"include",
+		"Include",
 		"../IRenderer/Include/",
         "../../Core/Third-party/Include/eastl/",
         "../../Core/Third-party/Include/tinyImageFormat/",
-		-- "%{IncludeDir.glm}",
-		"../Third-party/VulkanMemoryAllocator/",
 		-- "../../Core/Third-party/Include",
 		"../../Core/Source/"
 	}

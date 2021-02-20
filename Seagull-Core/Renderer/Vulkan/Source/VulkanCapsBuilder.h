@@ -4,7 +4,7 @@
 
 #include "Interface/IMemory.h"
 
-#include "../../Renderer/IRenderer/Include/IRendererTest.h"
+#include "../../Renderer/IRenderer/Include/IRenderer.h"
 
 namespace SG
 {
