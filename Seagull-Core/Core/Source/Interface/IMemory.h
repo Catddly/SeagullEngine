@@ -13,6 +13,7 @@ namespace SG
 	void* sg_calloc_internal(size_t count, size_t size, const char* file, int line, const char* srcFunc);
 	void* sg_calloc_memory_align_internal(size_t count, size_t align, size_t size, const char* file, int line, const char* srcFunc);
 	void* sg_realloc_internal(void* ptr, size_t size, const char* file, int line, const char* srcFunc);
+	void* sg_realloc_align_internal(void* ptr, size_t align, size_t size, const char* file, int line, const char* srcFunc);
 	void  sg_free_internal(void* ptr, const char* file, int line, const char* srcFunc);
 
 	/// type* memory = sg_placement_new(ptr)(constructor)
@@ -45,7 +46,7 @@ namespace SG
 #endif	
 #ifndef sg_memalign
 #define sg_memalign(align,size) sg_memory_align_internal(align, size, __FILE__, __LINE__, __FUNCTION__)
-#endif	
+#endif
 #ifndef sg_calloc
 #define sg_calloc(count,size) sg_calloc_internal(count, size, __FILE__, __LINE__, __FUNCTION__)
 #endif	
@@ -54,6 +55,9 @@ namespace SG
 #endif	
 #ifndef sg_realloc
 #define sg_realloc(ptr,size) sg_realloc_internal(ptr, size, __FILE__, __LINE__, __FUNCTION__)
+#endif
+#ifndef sg_realloc_align
+#define sg_realloc_align(ptr,align,size) sg_realloc_align_internal(ptr, align, size, __FILE__, __LINE__, __FUNCTION__)
 #endif	
 #ifndef sg_free
 #define sg_free(ptr) sg_free_internal(ptr,  __FILE__, __LINE__, __FUNCTION__)

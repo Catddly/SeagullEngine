@@ -1,5 +1,10 @@
 #include "Seagull.h"
 
+#include "../../Seagull-Core/Renderer/Vulkan/include/vulkan/vulkan_core.h"
+
+#define SG_GRAPHIC_API_VULKAN
+#include "../../Seagull-Core/Renderer/IRenderer/Include/IRendererTest.h"
+
 using namespace SG;
 
 int gCounter = 0;
@@ -32,13 +37,23 @@ public:
 		//Logger::SetQuiet(true);
 
 		SG_LOG_INFO("OnInit()");
+
+		//renderer_test_func("test");
+		//renderer_add_func(7, 9);
+		//renderer_end_func("end", true);
+
+		SG_LOG_INFO("|*************************  Begin Renderer Test  ************************|");
+		RendererTest();
+		SG_LOG_INFO("|*************************  End   Renderer Test  ************************|");
+
 		SG_LOG_INFO("|*************************  Begin Memory Test  ************************|");
 		MemoryTest();						  
 		SG_LOG_INFO("|*************************  End   Memory Test  ************************|");
+
 		SG_LOG_INFO("|*************************  Begin Thread Test  ************************|");
 		ThreadTest();						  
 		SG_LOG_INFO("|*************************  End   Thread Test  ************************|");
-		
+
 		SG_LOG_ERROR("Error Test!");
 		SG_LOG_WARING("Warning Test!");
 		SG_LOG_CRITICAL("Critical Test!");
@@ -141,10 +156,45 @@ private:
 		t.Tick();
 		SG_LOG_DEBUG("Thread test duration: (%.4f ms)", t.GetTotalTime() * 1000.0f);
 	}
+
+	void RendererTest()
+	{
+		RendererCreateDesc desc{};
+		desc.api = SG_RENDERER_API_VULKAN;
+		desc.gpuMode = SG_GPU_MODE_SINGLE;
+		desc.pLogFn = CustomLogFunc;
+		desc.shaderTarget = sg_shader_target_6_0;
+		
+		desc.ppInstanceLayers = nullptr;
+		desc.instanceLayerCount = 0;
+
+		desc.ppDeviceExtensions = const_cast<const char**>(mRequiredDeviceExtensions.data());
+		desc.deviceExtensionCount = static_cast<uint32_t>(mRequiredDeviceExtensions.size());
+
+		desc.ppInstanceExtensions = nullptr;
+		desc.instanceExtensionCount = 0;
+
+		desc.requestAllAvailableQueues = false;
+
+		init_renderer_test("Vulkan Test", &desc, &mRenderer);
+
+		SG_LOG_INFO("Renderer Iniialized successfully!");
+	}
+
+	static void CustomLogFunc(LogType type, const char* t, const char* msg)
+	{
+		SG_LOG(type, "%s :(%s)", t, msg);
+	}
 private:
 	const char* mName = "Example";
 	int* nums[6];
 	ThreadHandle mThreads[6];
+
+	Renderer* mRenderer = nullptr;
+
+	const eastl::vector<const char*> mRequiredDeviceExtensions = {
+		"VK_KHR_swapchain"
+	};
 };
 
 class DummyApp : public IApp

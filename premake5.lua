@@ -67,7 +67,7 @@ project "Seagull-Core"
     links
     {
         "mimalloc",
-        "eastl"
+        "eastl",
     }
 
 filter "system:windows"

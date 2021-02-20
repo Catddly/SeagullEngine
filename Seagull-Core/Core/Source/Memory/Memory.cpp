@@ -74,6 +74,12 @@ namespace SG
 		return p;
 	}
 
+	void* sg_realloc_align(void* ptr, size_t align, size_t size)
+	{
+		void* p = mi_realloc_aligned(ptr, size, align);
+		return p;
+	}
+
 	void sg_free(void* ptr)
 	{
 		mi_free(ptr);
@@ -84,6 +90,7 @@ namespace SG
 	void* sg_calloc_internal(size_t count, size_t size, const char* file, int line, const char* srcFunc) { return sg_calloc(count, size); }
 	void* sg_calloc_memory_align_internal(size_t count, size_t align, size_t size, const char* file, int line, const char* srcFunc) { return sg_calloc_memalign(count, align, size); }
 	void* sg_realloc_internal(void* ptr, size_t size, const char* file, int line, const char* srcFunc) { return sg_realloc(ptr, size); }
+	void* sg_realloc_align_internal(void* ptr, size_t align, size_t size, const char* file, int line, const char* srcFunc) { return sg_realloc_align(ptr, align, size); }
 	void  sg_free_internal(void* ptr, const char* file, int line, const char* srcFunc) { sg_free(ptr); }
 
 }

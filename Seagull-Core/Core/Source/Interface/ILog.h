@@ -12,6 +12,7 @@ namespace SG
 	void print_unicode(const char* str, uint32_t logLevel);
 
 #define SG_LOG_RAW(log_level, ...) Logger::WriteRaw((log_level), false, __VA_ARGS__)
+#define SG_LOG(log_level, ...)     Logger::Write((log_level), __FILE__, __LINE__, __VA_ARGS__)
 
 #define SG_LOG_INFO(...)           Logger::Write(SG_LOG_LEVEL_INFO, __FILE__, __LINE__, __VA_ARGS__)
 #define SG_LOG_DEBUG(...)          Logger::Write(SG_LOG_LEVEL_DEBUG, __FILE__, __LINE__, __VA_ARGS__)

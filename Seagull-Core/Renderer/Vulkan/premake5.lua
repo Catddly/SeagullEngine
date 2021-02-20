@@ -9,25 +9,28 @@ project "RendererVulkan"
 
 	files
 	{
-		"Source/**.h",
-		"Source/**.cpp"
+		-- "Source/**.h",
+		-- "Source/**.cpp"
+		"Source/VulkanCapsBuilder.h",
+		"Source/RendererTest.cpp"
 	}
 
 	includedirs
 	{
 		"include",
 		"../IRenderer/Include/",
-		"%{IncludeDir.eastl}",
-		"%{IncludeDir.glm}",
+        "../../Core/Third-party/Include/eastl/",
+        "../../Core/Third-party/Include/tinyImageFormat/",
+		-- "%{IncludeDir.glm}",
 		"../Third-party/VulkanMemoryAllocator/",
-		"../../Core/Third-party/Include",
+		-- "../../Core/Third-party/Include",
 		"../../Core/Source/"
 	}
 
 	-- link libraries
 	links
 	{
-		-- "eastl"
+		"libs/vulkan-1.lib"
 	}
 
 	filter "system:windows"
@@ -42,7 +45,8 @@ project "RendererVulkan"
 	filter "configurations:Debug"
 		defines
 		{
-			"SG_DEBUG"
+			"SG_DEBUG",
+			"SG_VULKAN_USE_DEBUG_UTILS_EXTENSION"
 		}
 		runtime "Debug"
 		symbols "on"

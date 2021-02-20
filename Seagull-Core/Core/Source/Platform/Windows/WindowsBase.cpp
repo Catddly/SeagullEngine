@@ -22,6 +22,8 @@
 	#pragma comment(lib, "shlwapi.lib")
 #endif
 
+#include "../../../../Renderer/IRenderer/Include/IRendererTest.h"
+
 #define GETX(n) ((int)LOWORD(n))
 #define GETY(n) ((int)HIWORD(n))
 
@@ -980,6 +982,10 @@ namespace SG
 				return EXIT_FAILURE;
 			//SG_LOG_INFO("App loading: (%fms)", t.GetTotalTime());
 		}
+
+		//renderer_test_func("test");
+		//renderer_add_func(7, 9);
+		//renderer_end_func("end", true);
 
 		// main loop
 		bool quit = false;
