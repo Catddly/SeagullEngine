@@ -38,10 +38,6 @@ public:
 
 		SG_LOG_INFO("OnInit()");
 
-		//renderer_test_func("test");
-		//renderer_add_func(7, 9);
-		//renderer_end_func("end", true);
-
 		SG_LOG_INFO("|*************************  Begin Renderer Test  ************************|");
 		RendererTest();
 		SG_LOG_INFO("|*************************  End   Renderer Test  ************************|");
@@ -65,6 +61,8 @@ public:
 	{
 		mMutex.Destroy();
 		cv.Destroy();
+
+		remove_renderer(mRenderer);
 
 		for (int i = 0; i < 6; i++)
 		{
@@ -176,7 +174,7 @@ private:
 
 		desc.requestAllAvailableQueues = false;
 
-		init_renderer_test("Vulkan Test", &desc, &mRenderer);
+		init_renderer("Vulkan Test", &desc, &mRenderer);
 
 		SG_LOG_INFO("Renderer Iniialized successfully!");
 	}
