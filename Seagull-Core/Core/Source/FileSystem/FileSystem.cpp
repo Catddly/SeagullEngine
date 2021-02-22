@@ -54,7 +54,7 @@ namespace SG
 	{
 		if (!(pFile->mode & SG_FM_READ))
 		{
-			SG_LOG_WARING("Attempting to read to write-only buffer");
+			SG_LOG_WARNING("Attempting to read to write-only buffer");
 			return 0;
 		}
 
@@ -68,7 +68,7 @@ namespace SG
 	{
 		if (!(pFile->mode & SG_FM_WRITE))
 		{
-			SG_LOG_WARING("Attempting to write to read-only buffer");
+			SG_LOG_WARNING("Attempting to write to read-only buffer");
 			return 0;
 		}
 
@@ -171,7 +171,7 @@ namespace SG
 	{
 		if (!(pFile->mode & SG_FM_READ))
 		{
-			SG_LOG_WARING("Attempting to read to a unreadable file!(with mode %u)", pFile->mode);
+			SG_LOG_WARNING("Attempting to read to a unreadable file!(with mode %u)", pFile->mode);
 			return 0;
 		}
 
@@ -180,7 +180,7 @@ namespace SG
 		{
 			if (ferror(pFile->file) != 0)
 			{
-				SG_LOG_WARING("Error reading from system FileStream: %s", strerror(errno));
+				SG_LOG_WARNING("Error reading from system FileStream: %s", strerror(errno));
 			}
 		}
 		return bytesRead;
@@ -190,7 +190,7 @@ namespace SG
 	{
 		if ((pFile->mode & (SG_FM_WRITE | SG_FM_APPEND)) == 0)
 		{
-			SG_LOG_WARING("Writing to FileStream with mode %u", pFile->mode);
+			SG_LOG_WARNING("Writing to FileStream with mode %u", pFile->mode);
 			return 0;
 		}
 
@@ -199,7 +199,7 @@ namespace SG
 		{
 			if (ferror(pFile->file) != 0)
 			{
-				SG_LOG_WARING("Error writing to system FileStream: %s", strerror(errno));
+				SG_LOG_WARNING("Error writing to system FileStream: %s", strerror(errno));
 			}
 		}
 		return bytesWritten;
@@ -209,7 +209,7 @@ namespace SG
 	{
 		if ((pFile->mode & SG_FM_BINARY) == 0 && baseOffset != SG_SBO_START_OF_FILE)
 		{
-			SG_LOG_WARING("Text-mode FileStreams only support SBO_START_OF_FILE");
+			SG_LOG_WARNING("Text-mode FileStreams only support SBO_START_OF_FILE");
 			return false;
 		}
 
@@ -229,7 +229,7 @@ namespace SG
 		long int result = ftell(pFile->file);
 		if (result == -1L)
 		{
-			SG_LOG_WARING("Error getting seek position in FileStream: %i", errno);
+			SG_LOG_WARNING("Error getting seek position in FileStream: %i", errno);
 		}
 		return result;
 	}
@@ -243,7 +243,7 @@ namespace SG
 	{
 		if (fflush(pFile->file) == EOF)
 		{
-			SG_LOG_WARING("Error flushing system FileStream: %s", strerror(errno));
+			SG_LOG_WARNING("Error flushing system FileStream: %s", strerror(errno));
 			return false;
 		}
 		return true;
@@ -382,7 +382,7 @@ namespace SG
 
 		if (strlen(rdInfo->path) != 0)
 		{
-			SG_LOG_WARING("Resource directory {%d} already set on:'%s'", resourceDir, rdInfo->path);
+			SG_LOG_WARNING("Resource directory {%d} already set on:'%s'", resourceDir, rdInfo->path);
 			return;
 		}
 

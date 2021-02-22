@@ -9,7 +9,7 @@ namespace SG
 
 	typedef enum TextureDimension
 	{
-		SG_TEXTURE_DIM_1D,
+		SG_TEXTURE_DIM_1D = 0,
 		SG_TEXTURE_DIM_2D,
 		SG_TEXTURE_DIM_2DMS,
 		SG_TEXTURE_DIM_3D,

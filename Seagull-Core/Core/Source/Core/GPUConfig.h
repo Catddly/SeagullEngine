@@ -114,7 +114,7 @@ namespace SG
 	//	FileStream fh = {};
 	//	if (!SG::sgfs_open_stream_from_path(SG_RD_GPU_CONFIG, "gpu.cfg", SG_FM_READ, &fh))
 	//	{
-	//		SG_LOG_WARING("gpu.cfg could not be found, setting preset to Low as a default.");
+	//		SG_LOG_WARNING("gpu.cfg could not be found, setting preset to Low as a default.");
 	//		return SG_GPU_PRESET_LOW;
 	//	}
 

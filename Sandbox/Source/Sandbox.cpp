@@ -51,7 +51,7 @@ public:
 		SG_LOG_INFO("|*************************  End   Thread Test  ************************|");
 
 		SG_LOG_ERROR("Error Test!");
-		SG_LOG_WARING("Warning Test!");
+		SG_LOG_WARNING("Warning Test!");
 		SG_LOG_CRITICAL("Critical Test!");
 
 		return true;

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "../../../Core/Third-party/Include/tinyImageFormat/include/tinyimageformat_base.h"
 
@@ -15,6 +15,7 @@
 #endif
 
 typedef struct VmaAllocator_T* VmaAllocator;
+typedef struct VmaAllocation_T* VmaAllocation;
 
 // default levels for renderer to use
 #if !defined(SG_RENDERER_CUSTOM_MAX_CONFIG)
@@ -223,6 +224,12 @@ namespace SG
 		SG_COMPARE_MODE_ALWAYS,
 		SG_MAX_COMPARE_MODES,
 	} CompareMode;
+
+	typedef struct ReadRange
+	{
+		uint64_t offset;
+		uint64_t size;
+	} ReadRange;
 
 #pragma region (Blending)
 
@@ -589,7 +596,7 @@ namespace SG
 		/// Debug name used in gpu profile
 		const char* name;
 		/// GPU indices to share this texture
-		uint32_t* sharedNodeIndices;
+		uint32_t* pSharedNodeIndices;
 		/// Number of GPUs to share this texture
 		uint32_t sharedNodeIndexCount;
 		/// GPU which will own this texture
@@ -706,7 +713,7 @@ namespace SG
 		union
 		{
 			/// Contains resource allocation info such as parent heap, offset in heap
-			struct VmaAllocation_T* pVkAllocation;
+			VmaAllocation			vkAllocation;
 			VkDeviceMemory          pVkDeviceMemory;
 		};
 #endif
@@ -742,6 +749,96 @@ namespace SG
 	SG_COMPILE_ASSERT(sizeof(Texture) == 8 * sizeof(uint64_t));
 
 #pragma endregion (Texture)
+
+#pragma region (Renderer Target)
+
+	typedef struct RenderTargetCreateDesc
+	{
+		/// Texture creation flags (decides memory allocation strategy, sharing access,...)
+		TextureCreationFlags flags;
+		/// Width
+		uint32_t width;
+		/// Height
+		uint32_t height;
+		/// Depth (Should be 1 if not a mType is not TEXTURE_TYPE_3D)
+		uint32_t depth;
+		/// Texture array size (Should be 1 if texture is not a texture array or cubemap)
+		uint32_t arraySize;
+		/// Number of mip levels
+		uint32_t mipLevels;
+		/// MSAA
+		SampleCount sampleCount;
+		/// Internal image format
+		TinyImageFormat format;
+		/// What state will the texture get created in
+		ResourceState startState;
+		/// Optimized clear value (recommended to use this same value when clearing the rendertarget)
+		ClearValue clearValue;
+		/// The image quality level. The higher the quality, the lower the performance. The valid range is between zero and the value appropriate for mSampleCount
+		uint32_t sampleQuality;
+		/// Descriptor creation
+		DescriptorType descriptors;
+
+		const void* pNativeHandle;
+		/// Debug name used in gpu profile
+		const char* name;
+		/// GPU indices to share this texture
+		uint32_t* pSharedNodeIndices;
+		/// Number of GPUs to share this texture
+		uint32_t sharedNodeIndexCount;
+		/// GPU which will own this texture
+		uint32_t nodeIndex;
+	} RenderTargetCreateDesc;
+
+	typedef struct SG_ALIGN(RenderTarget, 64)
+	{
+		Texture* pTexture;
+#if defined(SG_GRAPHIC_API_D3D12)
+		D3D12_CPU_DESCRIPTOR_HANDLE   mDxDescriptors;
+		uint32_t                      mDxDescriptorSize;
+		uint32_t                      mPadA;
+		uint64_t                      mPadB;
+		uint64_t                      mPadC;
+#endif
+#if defined(SG_GRAPHIC_API_VULKAN)
+		VkImageView                   pVkDescriptor;
+		VkImageView*	              pVkSliceDescriptors;
+		uint32_t                      id;
+		volatile uint32_t             used;
+#endif
+#if defined(SG_GRAPHIC_API_D3D11)
+		union
+		{
+			/// Resources
+			ID3D11RenderTargetView* pDxRtvDescriptor;
+			ID3D11DepthStencilView* pDxDsvDescriptor;
+		};
+		union
+		{
+			/// Resources
+			ID3D11RenderTargetView** pDxRtvSliceDescriptors;
+			ID3D11DepthStencilView** pDxDsvSliceDescriptors;
+		};
+		uint64_t                      mPadA;
+#endif
+#if defined(SG_GRAPHIC_API_GLES)
+		GLuint						  mRenderBuffer;
+		GLuint						  mType;
+#endif
+		ClearValue                    clearValue;
+		uint32_t                      arraySize : 16;
+		uint32_t                      depth : 16;
+		uint32_t                      width : 16;
+		uint32_t                      height : 16;
+		uint32_t                      descriptors : 20;
+		uint32_t                      mipLevels : 10;
+		uint32_t                      sampleQuality : 5;
+		TinyImageFormat               format;
+		SampleCount                   sampleCount;
+	} RenderTarget;
+	SG_COMPILE_ASSERT(sizeof(RenderTarget) <= 32 * sizeof(uint64_t));
+
+#pragma endregion (Renderer Target)
 
 #pragma region (Semaphore And Fence)
 
@@ -1168,7 +1265,7 @@ namespace SG
 		VkBufferView                     pVkStorageTexelView;
 		VkBufferView                     pVkUniformTexelView;
 		/// Contains resource allocation info such as parent heap, offset in heap
-		struct VmaAllocation_T* pVkAllocation;
+		VmaAllocation				     vkAllocation;
 		uint64_t                         offset;
 #endif
 #if defined(SG_GRAPHIC_API_GLES)
@@ -1417,7 +1514,377 @@ namespace SG
 #endif
 	} ShaderTarget;
 
+	typedef enum ShaderSemantic
+	{
+		SG_SEMANTIC_UNDEFINED = 0,
+		SG_SEMANTIC_POSITION,
+		SG_SEMANTIC_NORMAL,
+		SG_SEMANTIC_COLOR,
+		SG_SEMANTIC_TANGENT,
+		SG_SEMANTIC_BITANGENT,
+		SG_SEMANTIC_JOINTS,
+		SG_SEMANTIC_WEIGHTS,
+		SG_SEMANTIC_TEXCOORD0,
+		SG_SEMANTIC_TEXCOORD1,
+		SG_SEMANTIC_TEXCOORD2,
+		SG_SEMANTIC_TEXCOORD3,
+		SG_SEMANTIC_TEXCOORD4,
+		SG_SEMANTIC_TEXCOORD5,
+		SG_SEMANTIC_TEXCOORD6,
+		SG_SEMANTIC_TEXCOORD7,
+		SG_SEMANTIC_TEXCOORD8,
+		SG_SEMANTIC_TEXCOORD9,
+	} ShaderSemantic;
+
 #pragma endregion (Shader)
+
+#pragma region (Descriptor)
+
+	typedef enum DescriptorUpdateFrequency
+	{
+		SG_DESCRIPTOR_UPDATE_FREQ_NONE = 0,
+		SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME,
+		SG_DESCRIPTOR_UPDATE_FREQ_PER_BATCH,
+		SG_DESCRIPTOR_UPDATE_FREQ_PER_DRAW,
+		SG_DESCRIPTOR_UPDATE_FREQ_COUNT,
+	} DescriptorUpdateFrequency;
+
+	/// Data structure holding the layout for a descriptor
+	typedef struct SG_ALIGN(DescriptorInfo, 16)
+	{
+		const char* name;
+		uint32_t                  type : 21;
+		uint32_t                  dim : 4;
+		uint32_t                  rootDescriptor : 1;
+		uint32_t                  updateFrequency : 3;
+		uint32_t                  size;
+		/// Index in the descriptor set
+		uint32_t                  indexInParent;
+		uint32_t                  handleIndex;
+#if defined(SG_GRAPHIC_API_VULKAN)
+		uint32_t                  vkType;
+		uint32_t                  reg : 20; // the binding
+		uint32_t                  rootDescriptorIndex : 3;
+		uint32_t                  vkStages : 8;
+#elif defined(SG_GRAPHIC_API_D3D11)
+		uint32_t                  usedStages : 6;
+		uint32_t                  reg : 20;
+		uint32_t                  padA;
+#elif defined(SG_GRAPHIC_API_D3D12)
+		uint64_t                  padA;
+#elif defined(SG_GRAPHIC_API_GLES)
+		union
+		{
+			uint32_t			  mGlType;
+			uint32_t			  mUBOSize;
+		};
+#endif
+	} DescriptorInfo;
+	SG_COMPILE_ASSERT(sizeof(DescriptorInfo) == 4 * sizeof(uint64_t));
+
+#pragma endregion (Descriptor)
+
+#pragma region (Root Signature)
+
+	typedef enum PipelineType
+	{
+		SG_PIPELINE_TYPE_UNDEFINED = 0,
+		SG_PIPELINE_TYPE_COMPUTE,
+		SG_PIPELINE_TYPE_GRAPHICS,
+		SG_PIPELINE_TYPE_RAYTRACING,
+		SG_PIPELINE_TYPE_COUNT,
+	} PipelineType;
+
+	typedef enum RootSignatureFlags
+	{
+		/// default flag
+		SG_ROOT_SIGNATURE_FLAG_NONE = 0,
+		/// local root signature used mainly in raytracing shaders
+		SG_ROOT_SIGNATURE_FLAG_LOCAL_BIT = 0x1,
+	} RootSignatureFlags;
+	SG_MAKE_ENUM_FLAG(uint32_t, RootSignatureFlags);
+
+	typedef struct RootSignatureCreateDesc
+	{
+		Shader** ppShaders;
+		uint32_t               shaderCount;
+		uint32_t               maxBindlessTextures;
+		const char** ppStaticSamplerNames;
+		Sampler** ppStaticSamplers;
+		uint32_t               staticSamplerCount;
+		RootSignatureFlags     flags;
+	} RootSignatureCreateDesc;
+
+	typedef struct SG_ALIGN(RootSignature, 64)
+	{
+		/// Number of descriptors declared in the root signature layout
+		uint32_t        descriptorCount;
+		/// Graphics or Compute
+		PipelineType    pipelineType;
+		/// Array of all descriptors declared in the root signature layout
+		DescriptorInfo* descriptors;
+		/// Translates hash of descriptor name to descriptor index in pDescriptors array
+		DescriptorIndexMap* descriptorNameToIndexMap;
+#if defined(SG_GRAPHIC_API_D3D12)
+		ID3D12RootSignature* pDxRootSignature;
+		uint8_t                    DxRootConstantRootIndices[SG_MAX_ROOT_CONSTANTS_PER_ROOTSIGNATURE];
+		uint8_t                    DxViewDescriptorTableRootIndices[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint8_t                    DxSamplerDescriptorTableRootIndices[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint8_t                    DxRootDescriptorRootIndices[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint32_t                   DxCumulativeViewDescriptorCounts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint32_t                   DxCumulativeSamplerDescriptorCounts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint16_t                   DxViewDescriptorCounts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint16_t                   DxSamplerDescriptorCounts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint8_t                    DxRootDescriptorCounts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint32_t                   DxRootConstantCount;
+		uint64_t                   PadA;
+		uint64_t                   PadB;
+#endif
+#if defined(SG_GRAPHIC_API_VULKAN)
+		VkDescriptorSetLayout      vkDescriptorSetLayouts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint32_t                   vkCumulativeDescriptorCounts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint16_t                   vkDescriptorCounts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint8_t                    vkDynamicDescriptorCounts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint8_t                    vkRaytracingDescriptorCounts[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		VkPipelineLayout           pPipelineLayout;
+		VkDescriptorUpdateTemplate updateTemplates[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		VkDescriptorSet            vkEmptyDescriptorSets[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		void** pUpdateTemplateData[SG_DESCRIPTOR_UPDATE_FREQ_COUNT];
+		uint32_t                   vkPushConstantCount;
+		uint32_t                   padA;
+		uint64_t                   padB[7];
+#endif
+#if defined(SG_GRAPHIC_API_D3D11)
+		ID3D11SamplerState** ppStaticSamplers;
+		uint32_t* pStaticSamplerSlots;
+		ShaderStage* pStaticSamplerStages;
+		uint32_t                   staticSamplerCount;
+		uint32_t                   srvCount : 10;
+		uint32_t                   uavCount : 10;
+		uint32_t                   cbvCount : 10;
+		uint32_t                   samplerCount : 10;
+		uint32_t                   dynamicCbvCount : 10;
+		uint32_t                   PadA;
+#endif
+#if defined(SG_GRAPHIC_API_GLES)
+		uint32_t				   programCount : 6;
+		uint32_t				   variableCount : 10;
+		uint32_t* pProgramTargets;
+		int32_t* pDescriptorGlLocations;
+		struct GlVariable* pVariables;
+		Sampler* pSampler;
+#endif
+	} RootSignature;
+
+#if defined(SG_GRAPHIC_API_VULKAN)
+	// 4 cache lines
+	SG_COMPILE_ASSERT(sizeof(RootSignature) == 32 * sizeof(uint64_t));
+#elif defined(SG_GRAPHIC_API_D3D11) || defined(SG_GRAPHIC_API_GLES)
+	// 1 cache line
+	SG_COMPILE_ASSERT(sizeof(RootSignature) == 8 * sizeof(uint64_t));
+#else
+	// 2 cache lines
+	SG_COMPILE_ASSERT(sizeof(RootSignature) <= 16 * sizeof(uint64_t));
+#endif
+
+#pragma endregion (Root Signature)
+
+#pragma region (Pipeline Cache)
+
+	typedef enum PipelineCacheFlags
+	{
+		SG_PIPELINE_CACHE_FLAG_NONE = 0x0,
+		SG_PIPELINE_CACHE_FLAG_EXTERNALLY_SYNCHRONIZED = 0x1,
+	} PipelineCacheFlags;
+	SG_MAKE_ENUM_FLAG(uint32_t, PipelineCacheFlags);
+
+	typedef struct PipelineCacheDesc
+	{
+		/// Initial pipeline cache data (can be NULL which means empty pipeline cache)
+		void* pData;
+		/// Initial pipeline cache size
+		size_t             size;
+		PipelineCacheFlags flags;
+	} PipelineCacheDesc;
+
+	typedef struct PipelineCache
+	{
+#if defined(SG_GRAPHIC_API_D3D12)
+		ID3D12PipelineLibrary* pLibrary;
+		void* pData;
+#endif
+#if defined(SG_GRAPHIC_API_VULKAN)
+		VkPipelineCache        cache;
+#endif
+	} PipelineCache;
+
+#pragma endregion (Pipeline Cache)
+
+#pragma region (Pipeline)
+
+	typedef enum VertexAttribRate
+	{
+		SG_VERTEX_ATTRIB_RATE_VERTEX = 0,
+		SG_VERTEX_ATTRIB_RATE_INSTANCE = 1,
+		SG_VERTEX_ATTRIB_RATE_COUNT,
+	} VertexAttribRate;
+
+	typedef struct VertexAttrib
+	{
+		ShaderSemantic    semantic; // for what purpose
+		uint32_t          semanticNameLength;
+		char              semanticName[SG_MAX_SEMANTIC_NAME_LENGTH];
+		TinyImageFormat	  mFormat;
+		uint32_t          binding;
+		uint32_t          location;
+		uint32_t          offset;
+		VertexAttribRate  rate;
+	} VertexAttrib;
+
+	typedef struct VertexLayout
+	{
+		uint32_t     attribCount;
+		VertexAttrib attribs[SG_MAX_VERTEX_ATTRIBS];
+	} VertexLayout;
+
+	typedef enum PrimitiveTopology
+	{
+		SG_PRIMITIVE_TOPO_POINT_LIST = 0,
+		SG_PRIMITIVE_TOPO_LINE_LIST,
+		SG_PRIMITIVE_TOPO_LINE_STRIP,
+		SG_PRIMITIVE_TOPO_TRI_LIST,
+		SG_PRIMITIVE_TOPO_TRI_STRIP,
+		SG_PRIMITIVE_TOPO_PATCH_LIST,
+		SG_PRIMITIVE_TOPO_COUNT,
+	} PrimitiveTopology;
+
+/************************************************************************/
+// #pGlobalRootSignature - Root Signature used by all shaders in the ppShaders array
+// #ppShaders - Array of all shaders which can be called during the raytracing operation
+//	  This includes the ray generation shader, all miss, any hit, closest hit shaders
+// #pHitGroups - Name of the hit groups which will tell the pipeline about which combination of hit shaders to use
+// #mPayloadSize - Size of the payload(��Ч�غ�) struct for passing data to and from the shaders.
+//	  Example - float4 payload sent by raygen shader which will be filled by miss shader as a skybox color
+//				  or by hit shader as shaded color
+// #mAttributeSize - Size of the intersection attribute. As long as user uses the default intersection shader
+//	  this size is sizeof(float2) which represents the ZW of the barycentric coordinates of the intersection
+/************************************************************************/
+	typedef struct RaytracingPipelineDesc
+	{
+		Raytracing* pRaytracing;
+		RootSignature* pGlobalRootSignature;
+		Shader* pRayGenShader;
+		RootSignature* pRayGenRootSignature;
+		Shader** ppMissShaders;
+		RootSignature** ppMissRootSignatures;
+		RaytracingHitGroup* pHitGroups;
+		RootSignature* pEmptyRootSignature;
+		unsigned			missShaderCount;
+		unsigned			hitGroupCount;
+		// #TODO : Remove this after adding shader reflection for raytracing shaders
+		unsigned			payloadSize;
+		// #TODO : Remove this after adding shader reflection for raytracing shaders
+		unsigned			attributeSize;
+		unsigned			maxTraceRecursionDepth;
+		unsigned            maxRaysCount;
+	} RaytracingPipelineDesc;
+
+	typedef struct GraphicsPipelineDesc
+	{
+		Shader* pShaderProgram;
+		RootSignature* pRootSignature;
+		VertexLayout* pVertexLayout;
+		BlendStateDesc* pBlendState;
+		DepthStateDesc* pDepthState;
+		RasterizerStateDesc* pRasterizerState;
+		TinyImageFormat* pColorFormats;
+		uint32_t               renderTargetCount;
+		SampleCount            sampleCount;
+		uint32_t               sampleQuality;
+		TinyImageFormat  	   depthStencilFormat;
+		PrimitiveTopology      primitiveTopo;
+		bool                   supportIndirectCommandBuffer;
+	} GraphicsPipelineDesc;
+
+	typedef struct ComputePipelineDesc
+	{
+		Shader* pShaderProgram;
+		RootSignature* pRootSignature;
+	} ComputePipelineDesc;
+
+	typedef struct PipelineCreateDesc
+	{
+		PipelineType                type;
+		union
+		{
+			ComputePipelineDesc     computeDesc;
+			GraphicsPipelineDesc    graphicsDesc;
+			RaytracingPipelineDesc  raytracingDesc;
+		};
+		PipelineCache* pCache;
+		void* pPipelineExtensions;
+		uint32_t                    extensionCount;
+		const char* name;
+	} PipelineCreateDesc;
+
+	typedef struct SG_ALIGN(Pipeline, 64)
+	{
+#if defined(SG_GRAPHIC_API_D3D12)
+		ID3D12PipelineState* pDxPipelineState;
+#ifdef ENABLE_RAYTRACING
+		ID3D12StateObject* pDxrPipeline;
+#endif
+		ID3D12RootSignature* pRootSignature;
+		PipelineType                mType;
+		D3D_PRIMITIVE_TOPOLOGY      mDxPrimitiveTopology;
+		uint64_t                    mPadB[3];
+#endif
+#if defined(SG_GRAPHIC_API_VULKAN)
+		VkPipeline                  pVkPipeline;
+		PipelineType                type;
+		uint32_t                    shaderStageCount;
+		// in DX12 this information is stored in ID3D12StateObject.
+		// but for Vulkan we need to store it manually
+		const char** ppShaderStageNames;
+		uint64_t                    padB[4];
+#endif
+#if defined(SG_GRAPHIC_API_D3D11)
+		ID3D11VertexShader* pDxVertexShader;
+		ID3D11PixelShader* pDxPixelShader;
+		ID3D11GeometryShader* pDxGeometryShader;
+		ID3D11DomainShader* pDxDomainShader;
+		ID3D11HullShader* pDxHullShader;
+		ID3D11ComputeShader* pDxComputeShader;
+		ID3D11InputLayout* pDxInputLayout;
+		ID3D11BlendState* pBlendState;
+		ID3D11DepthStencilState* pDepthState;
+		ID3D11RasterizerState* pRasterizerState;
+		PipelineType                mType;
+		D3D_PRIMITIVE_TOPOLOGY      mDxPrimitiveTopology;
+		uint32_t                    mPadA;
+		uint64_t                    mPadB[4];
+#endif
+#if defined(SG_GRAPHIC_API_GLES)
+		uint32_t				    mVertexLayoutSize;
+		struct GlVertexAttrib* pVertexLayout;
+		struct GLRasterizerState* pRasterizerState;
+		struct GLDepthStencilState* pDepthStencilState;
+		struct GLBlendState* pBlendState;
+		GLuint						mShaderProgram;
+		PipelineType				mType;
+		GLenum					    mGlPrimitiveTopology;
+#endif
+	} Pipeline;
+
+#if defined(SG_GRAPHIC_API_D3D11)
+	// Requires more cache lines due to no concept of an encapsulated pipeline state object
+	SG_COMPILE_ASSERT(sizeof(Pipeline) <= 64 * sizeof(uint64_t));
+#else
+	// One cache line
+	SG_COMPILE_ASSERT(sizeof(Pipeline) == 8 * sizeof(uint64_t));
+#endif
+
+#pragma endregion (Pipeline)
 
 #pragma region (Renderer)
 
@@ -1454,7 +1921,7 @@ namespace SG
 		/// This results in new validation not possible during API calls on the CPU, by creating patched shaders that have validation added directly to the shader.
 		/// However, it can slow things down a lot, especially for applications with numerous PSOs. Time to see the first render frame may take several minutes
 		bool                         enableGPUBasedValidation;
-	} RendererDesc;
+	} RendererCreateDesc;
 
 	typedef struct SG_ALIGN(Renderer, 64)
 	{
@@ -1565,8 +2032,20 @@ namespace SG
 	SG_RENDER_API void SG_CALLCONV add_sampler(Renderer* pRenderer, const SamplerCreateDesc* pDesc, Sampler** pSampler);
 	SG_RENDER_API void SG_CALLCONV remove_sampler(Renderer* pRenderer, Sampler* pSampler);
 
+	SG_RENDER_API void SG_CALLCONV add_fence(Renderer* pRenderer, Fence** pFence);
+	SG_RENDER_API void SG_CALLCONV remove_fence(Renderer* pRenderer, Fence* pFence);
+
+	SG_RENDER_API void SG_CALLCONV add_semaphore(Renderer* pRenderer, Semaphore** pSemaphore);
+	SG_RENDER_API void SG_CALLCONV remove_semaphore(Renderer* pRenderer, Semaphore* pSemaphore);
+
 	SG_RENDER_API void SG_CALLCONV add_queue(Renderer* pRenderer, QueueCreateDesc* pQueueDesc, Queue** pQueue);
 	SG_RENDER_API void SG_CALLCONV remove_queue(Renderer* pRenderer, Queue* pQueue);
+
+	SG_RENDER_API void SG_CALLCONV add_swapchain(Renderer* pRenderer, const SwapChainCreateDesc* pDesc, SwapChain** pSwapChain);
+	SG_RENDER_API void SG_CALLCONV remove_swapchain(Renderer* pRenderer, SwapChain* pSwapChain);
+
+	SG_RENDER_API void SG_CALLCONV add_render_target(Renderer* pRenderer, const RenderTargetCreateDesc* pDesc, RenderTarget** ppRenderTarget);
+	SG_RENDER_API void SG_CALLCONV remove_render_target(Renderer* pRenderer, RenderTarget* pRenderTarget);
 
 	// command pool functions
 	SG_RENDER_API void SG_CALLCONV add_command_pool(Renderer* pRenderer, const CmdPoolCreateDesc* pDesc, CmdPool** pCmdPool);
@@ -1607,5 +2086,11 @@ namespace SG
 	SG_RENDER_API void SG_CALLCONV get_fence_status(Renderer* pRenderer, Fence* pFence, FenceStatus* pFenceStatus);
 	SG_RENDER_API void SG_CALLCONV wait_for_fences(Renderer* pRenderer, uint32_t fenceCount, Fence** ppFences);
 	SG_RENDER_API void SG_CALLCONV toggle_VSync(Renderer* pRenderer, SwapChain** ppSwapchain);
+
+	// resource debug naming interface
+	SG_RENDER_API void SG_CALLCONV set_buffer_name(Renderer* pRenderer, Buffer* pBuffer, const char* pName);
+	SG_RENDER_API void SG_CALLCONV set_texture_name(Renderer* pRenderer, Texture* pTexture, const char* pName);
+	SG_RENDER_API void SG_CALLCONV set_render_target_name(Renderer* pRenderer, RenderTarget* pRenderTarget, const char* pName);
+	SG_RENDER_API void SG_CALLCONV set_pipeline_name(Renderer* pRenderer, Pipeline* pPipeline, const char* pName);
 
 }
