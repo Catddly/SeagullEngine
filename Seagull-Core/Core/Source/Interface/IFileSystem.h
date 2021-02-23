@@ -26,9 +26,9 @@ namespace SG
 		typedef enum ResourceDirectory
 		{
 			SG_RD_SHADER_BINARIES = 0, /// shader binaries
-			SG_RD_SHADER_RESOURCE,     /// shader sourece
+			SG_RD_SHADER_SOURCES,     /// shader source
 			SG_RD_PIPELINE_CACHE,
-			SG_RD_TEXTUIRES,
+			SG_RD_TEXTURES,
 			SG_RD_MESHES,
 			SG_RD_FONTS,
 			SG_RD_ANIMATIONS,
@@ -173,6 +173,12 @@ namespace SG
 
 		/// Get `path`'s parent path, excluding the end seperator. 
 		void sgfs_get_parent_path(const char* path, char* output);
+
+		/// Get `path`'s file name, without extension or parent path.
+		void sgfs_get_path_file_name(const char* path, char* output);
+
+		/// Returns `path`'s extension, excluding the '.'.
+		void sgfs_get_path_extension(const char* path, char* output);
 
 		/// returns location set for resource directory in sgfs_set_path_for_resource_dir.
 		const char* sgfs_get_resource_directory(ResourceDirectory resourceDir);

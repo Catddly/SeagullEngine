@@ -55,7 +55,7 @@ namespace SG
 	typedef void(*ThreadFunc)(void*);
 
 	/// per element in the word queue
-	struct ThreadDesciption
+	struct ThreadDesc
 	{
 		ThreadFunc pFunc;
 		void* pData;
@@ -65,7 +65,7 @@ namespace SG
 	typedef void* ThreadHandle;
 #endif
 
-	ThreadHandle create_thread(ThreadDesciption* element);
+	ThreadHandle create_thread(ThreadDesc* element);
 	void         destroy_thread(ThreadHandle handle);
 	void         join_thread(ThreadHandle handle);
 

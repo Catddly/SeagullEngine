@@ -7,3 +7,5 @@
 #include "Interface/IThread.h"
 #include "Interface/IMemory.h"
 #include "Interface/ITime.h"
+
+#include "Math/MathTypes.h"

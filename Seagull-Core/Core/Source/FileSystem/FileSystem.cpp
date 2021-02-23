@@ -363,6 +363,51 @@ namespace SG
 		output[outputLength] = '\0';
 	}
 
+	void sgfs_get_path_file_name(const char* path, char* output)
+	{
+		const size_t pathLength = strlen(path);
+		ASSERT(pathLength != 0);
+
+		char parentPath[SG_MAX_FILEPATH] = { 0 };
+		sgfs_get_parent_path(path, parentPath);
+		size_t parentPathLength = strlen(parentPath);
+
+		const char directorySeparator = sgfs_get_directory_separator();
+		const char forwardSlash = '/';    // Forward slash is accepted on all platforms as a path component.
+		if (parentPathLength < pathLength && (path[parentPathLength] == directorySeparator || path[parentPathLength] == forwardSlash))
+		{
+			parentPathLength += 1;
+		}
+
+		char extension[SG_MAX_FILEPATH] = { 0 };
+		sgfs_get_path_extension(path, extension);
+		const size_t extensionLength = extension[0] != 0 ? strlen(extension) + 1 : 0; // Include dot in the length
+		const size_t outputLength = pathLength - parentPathLength - extensionLength;
+		strncpy(output, path + parentPathLength, outputLength);
+		output[outputLength] = '\0';
+	}
+
+	void sgfs_get_path_extension(const char* path, char* output)
+	{
+		size_t pathLength = strlen(path);
+		ASSERT(pathLength != 0);
+		const char* dotLocation = strrchr(path, '.');
+		if (dotLocation == NULL)
+		{
+			return;
+		}
+		dotLocation += 1;
+		const size_t extensionLength = strlen(dotLocation);
+		const char directorySeparator = sgfs_get_directory_separator();
+		const char forwardSlash = '/';    // Forward slash is accepted on all platforms as a path component.
+		if (extensionLength == 0 || dotLocation[0] == forwardSlash || dotLocation[0] == directorySeparator) // Make sure it is not "../"
+		{
+			return;
+		}
+		strncpy(output, dotLocation, extensionLength);
+		output[extensionLength] = '\0';
+	}
+
 	const char* sgfs_get_resource_directory(ResourceDirectory resourceDir)
 	{
 		const ResourceDirectoryInfo* rdInfo = &gResourceDirectories[resourceDir];

@@ -1503,14 +1503,14 @@ namespace SG
 	{
 		// We only need SM 5.0 for supporting D3D11 fallback
 #if defined(SG_GRAPHIC_API_D3D11)
-		sg_shader_target_5_0,
+		SG_SHADER_TARGET_5_0,
 #else
 	// 5.1 is supported on all DX12 hardware
-		sg_shader_target_5_1,
-		sg_shader_target_6_0,
-		sg_shader_target_6_1,
-		sg_shader_target_6_2,
-		sg_shader_target_6_3, //required for Raytracing
+		SG_SHADER_TARGET_5_1,
+		SG_SHADER_TARGET_6_0,
+		SG_SHADER_TARGET_6_1,
+		SG_SHADER_TARGET_6_2,
+		SG_SHADER_TARGET_6_3, //required for Raytracing
 #endif
 	} ShaderTarget;
 
@@ -1536,6 +1536,65 @@ namespace SG
 		SG_SEMANTIC_TEXCOORD9,
 	} ShaderSemantic;
 
+	typedef struct BinaryShaderStageDesc
+	{
+		/// Byte code array
+		void* pByteCode;
+		uint32_t byteCodeSize;
+		const char* pEntryPoint; // for glsl is commonly "main"
+#if defined(SG_GRAPHIC_API_GLES)
+		GLuint		    shader;
+#endif
+	} BinaryShaderStageDesc;
+
+	typedef struct BinaryShaderCreateDesc // all the shaders in the pipeline
+	{
+		ShaderStage           stages;
+		/// Specify whether shader will own byte code memory
+		uint32_t              ownByteCode : 1;
+		BinaryShaderStageDesc vert;
+		BinaryShaderStageDesc frag;
+		BinaryShaderStageDesc geom;
+		BinaryShaderStageDesc hull;
+		BinaryShaderStageDesc domain;
+		BinaryShaderStageDesc comp;
+	} BinaryShaderCreateDesc;
+
+	typedef struct Shader
+	{
+		ShaderStage    stages;
+		uint32_t       numThreadsPerGroup[3];
+#if defined(SG_GRAPHIC_API_D3D12)
+		IDxcBlobEncoding** pShaderBlobs;
+		LPCWSTR* pEntryNames;
+#endif
+#if defined(SG_GRAPHIC_API_VULKAN)
+		VkShaderModule* pShaderModules;
+		char** pEntryNames;
+#endif
+#if defined(SG_GRAPHIC_API_D3D11)
+		union
+		{
+			struct
+			{
+				ID3D11VertexShader* pDxVertexShader;
+				ID3D11PixelShader* pDxPixelShader;
+				ID3D11GeometryShader* pDxGeometryShader;
+				ID3D11DomainShader* pDxDomainShader;
+				ID3D11HullShader* pDxHullShader;
+			};
+			ID3D11ComputeShader* pDxComputeShader;
+		};
+		ID3DBlob* pDxInputSignature;
+#endif
+#if defined(SG_GRAPHIC_API_GLES)
+		GLuint	        program;
+		GLuint	        vertexShader;
+		GLuint	        fragmentShader;
+#endif
+		PipelineReflection* pReflection;
+	} Shader;
+	
 #pragma endregion (Shader)
 
 #pragma region (Descriptor)
@@ -1581,6 +1640,58 @@ namespace SG
 #endif
 	} DescriptorInfo;
 	SG_COMPILE_ASSERT(sizeof(DescriptorInfo) == 4 * sizeof(uint64_t));
+
+	typedef struct DescriptorData
+	{
+		/// user can either set name of descriptor or index (index in pRootSignature->pDescriptors array)
+		/// name of descriptor
+		const char* name;
+		union
+		{
+			struct
+			{
+				/// offset to bind the buffer descriptor
+				const uint64_t* offsets;
+				const uint64_t* sizes;
+			};
+
+			/// descriptor set buffer extraction options
+			struct
+			{
+				uint32_t descriptorSetBufferIndex;
+				Shader* descriptorSetShader;
+				ShaderStage descriptorSetShaderStage;
+			};
+
+			struct
+			{
+				uint32_t UAVMipSlice;
+				bool bindMipChain;
+			};
+
+			bool bindStencilResource;
+		};
+		/// Array of resources containing descriptor handles or constant to be used in ring buffer memory - DescriptorRange can hold only one resource type array
+		union
+		{
+			/// Array of texture descriptors (srv and uav textures)
+			Texture** ppTextures;
+			/// Array of sampler descriptors
+			Sampler** ppSamplers;
+			/// Array of buffer descriptors (srv, uav and cbv buffers)
+			Buffer** ppBuffers;
+			/// Array of pipline descriptors
+			Pipeline** ppPipelines;
+			/// DescriptorSet buffer extraction
+			DescriptorSet** ppDescriptorSet;
+			/// Custom binding (raytracing acceleration structure ...)
+			AccelerationStructure** ppAccelerationStructures;
+		};
+		/// Number of resources in the descriptor(applies to array of textures, buffers,...)
+		uint32_t count;
+		uint32_t index = (uint32_t)-1;
+		bool     extractBuffer = false;
+		} DescriptorData;
 
 #pragma endregion (Descriptor)
 
@@ -1687,7 +1798,69 @@ namespace SG
 	SG_COMPILE_ASSERT(sizeof(RootSignature) <= 16 * sizeof(uint64_t));
 #endif
 
+	typedef struct DescriptorSetCreateDesc
+	{
+		RootSignature* pRootSignature;
+		DescriptorUpdateFrequency  updateFrequency;
+		uint32_t maxSets;
+		uint32_t nodeIndex;
+	} DescriptorSetCreateDesc;
+
 #pragma endregion (Root Signature)
+
+#pragma region (Descriptor Set)
+
+	typedef struct SG_ALIGN(DescriptorSet, 64)
+	{
+#if defined(SG_GRAPHIC_API_D3D12)
+		/// Start handle to cbv srv uav descriptor table
+		uint64_t                      cbvSrvUavHandle;
+		/// Start handle to sampler descriptor table
+		uint64_t                      samplerHandle;
+		/// Stride of the cbv srv uav descriptor table (number of descriptors * descriptor size)
+		uint32_t                      cbvSrvUavStride;
+		/// Stride of the sampler descriptor table (number of descriptors * descriptor size)
+		uint32_t                      samplerStride;
+		const RootSignature* pRootSignature;
+		D3D12_GPU_VIRTUAL_ADDRESS* pRootAddresses;
+		ID3D12RootSignature* pRootSignatureHandle;
+		uint64_t                      maxSets : 16;
+		uint64_t                      updateFrequency : 3;
+		uint64_t                      nodeIndex : 4;
+		uint64_t                      rootAddressCount : 1;
+		uint64_t                      cbvSrvUavRootIndex : 4;
+		uint64_t                      samplerRootIndex : 4;
+		uint64_t                      rootDescriptorRootIndex : 4;
+		uint64_t                      pipelineType : 3;
+#elif defined(SG_GRAPHIC_API_VULKAN)
+		VkDescriptorSet* pHandles;
+		const RootSignature* pRootSignature;
+		/// Values passed to vkUpdateDescriptorSetWithTemplate. Initialized to default descriptor values.
+		union DescriptorUpdateData** ppUpdateData;
+		struct SizeOffset* pDynamicSizeOffsets;
+		uint32_t maxSets;
+		uint8_t dynamicOffsetCount;
+		uint8_t updateFrequency;
+		uint8_t nodeIndex;
+		uint8_t padA;
+#elif defined(SG_GRAPHIC_API_D3D11)
+		struct DescriptorDataArray* pHandles;
+		struct CBV** pDynamicCBVs;
+		uint32_t* pDynamicCBVsCapacity;
+		uint32_t* pDynamicCBVsCount;
+		uint32_t* pDynamicCBVsPrevCount;
+		const RootSignature* pRootSignature;
+		uint16_t                      mMaxSets;
+#elif defined(SG_GRAPHIC_API_GLES)
+		struct DescriptorDataArray* pHandles;
+		uint8_t                       mUpdateFrequency;
+		const RootSignature* pRootSignature;
+		uint16_t                      mMaxSets;
+#endif
+	} DescriptorSet;
+
+
+#pragma endregion (Descriptor Set)
 
 #pragma region (Pipeline Cache)
 
@@ -1734,7 +1907,7 @@ namespace SG
 		ShaderSemantic    semantic; // for what purpose
 		uint32_t          semanticNameLength;
 		char              semanticName[SG_MAX_SEMANTIC_NAME_LENGTH];
-		TinyImageFormat	  mFormat;
+		TinyImageFormat	  format;
 		uint32_t          binding;
 		uint32_t          location;
 		uint32_t          offset;
@@ -1746,6 +1919,12 @@ namespace SG
 		uint32_t     attribCount;
 		VertexAttrib attribs[SG_MAX_VERTEX_ATTRIBS];
 	} VertexLayout;
+
+	typedef enum IndexType
+	{
+		SG_INDEX_TYPE_UINT32 = 0,
+		SG_INDEX_TYPE_UINT16,
+	} IndexType;
 
 	typedef enum PrimitiveTopology
 	{
@@ -2059,24 +2238,47 @@ namespace SG
 	SG_RENDER_API void SG_CALLCONV reset_cmd_pool(Renderer* pRenderer, CmdPool* pCmdPool);
 	SG_RENDER_API void SG_CALLCONV begin_cmd(Cmd* pCmd);
 	SG_RENDER_API void SG_CALLCONV end_cmd(Cmd* pCmd);
-	//SG_RENDER_API void SG_CALLCONV cmd_bind_render_targets(Cmd* pCmd, uint32_t renderTargetCount, RenderTarget** pRenderTargets, RenderTarget* pDepthStencil, const LoadActionsDesc* loadActions, uint32_t* pColorArraySlices, uint32_t* pColorMipSlices, uint32_t depthArraySlice, uint32_t depthMipSlice);
-	//SG_RENDER_API void SG_CALLCONV cmd_set_viewport(Cmd* pCmd, float x, float y, float width, float height, float minDepth, float maxDepth);
-	//SG_RENDER_API void SG_CALLCONV cmd_set_scissor(Cmd* pCmd, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
-	//SG_RENDER_API void SG_CALLCONV cmd_set_stencil_reference_value(Cmd* pCmd, uint32_t value);
-	//SG_RENDER_API void SG_CALLCONV cmd_bind_pipeline(Cmd* pCmd, Pipeline* p_pipeline);
-	//SG_RENDER_API void SG_CALLCONV cmd_bind_descriptor_set(Cmd* pCmd, uint32_t index, DescriptorSet* pDescriptorSet);
-	//SG_RENDER_API void SG_CALLCONV cmd_bind_push_constants(Cmd* pCmd, RootSignature* pRootSignature, const char* pName, const void* pConstants);
-	//SG_RENDER_API void SG_CALLCONV cmd_bind_push_constants_by_index(Cmd* pCmd, RootSignature* pRootSignature, uint32_t paramIndex, const void* pConstants);
-	//SG_RENDER_API void SG_CALLCONV cmd_bind_vertex_buffer(Cmd* pCmd, uint32_t bufferCount, Buffer** ppBuffers, const uint32_t* pStrides, const uint64_t* pOffsets);
-	//SG_RENDER_API void SG_CALLCONV cmd_bind_index_buffer(Cmd* pCmd, Buffer* pBuffer, uint32_t indexType, uint64_t offset);
-	//SG_RENDER_API void SG_CALLCONV cmd_draw(Cmd* pCmd, uint32_t vertex_count, uint32_t firstVertex);
-	//SG_RENDER_API void SG_CALLCONV cmd_draw_instanced(Cmd* pCmd, uint32_t vertexCount, uint32_t firstVertex, uint32_t instanceCount, uint32_t firstInstance);
-	//SG_RENDER_API void SG_CALLCONV cmd_draw_indexed(Cmd* pCmd, uint32_t indexCount, uint32_t firstIndex, uint32_t firstVertex);
-	//SG_RENDER_API void SG_CALLCONV cmd_draw_indexed_instanced(Cmd* pCmd, uint32_t indexCount, uint32_t firstIndex, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
-	//SG_RENDER_API void SG_CALLCONV cmd_dispatch(Cmd* pCmd, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
+	SG_RENDER_API void SG_CALLCONV cmd_bind_render_targets(Cmd* pCmd, uint32_t renderTargetCount, RenderTarget** pRenderTargets, RenderTarget* pDepthStencil, const LoadActionsDesc* loadActions, uint32_t* pColorArraySlices, uint32_t* pColorMipSlices, uint32_t depthArraySlice, uint32_t depthMipSlice);
+	SG_RENDER_API void SG_CALLCONV cmd_set_viewport(Cmd* pCmd, float x, float y, float width, float height, float minDepth, float maxDepth);
+	SG_RENDER_API void SG_CALLCONV cmd_set_scissor(Cmd* pCmd, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+	SG_RENDER_API void SG_CALLCONV cmd_set_stencil_reference_value(Cmd* pCmd, uint32_t value);
+	SG_RENDER_API void SG_CALLCONV cmd_bind_pipeline(Cmd* pCmd, Pipeline* p_pipeline);
+	SG_RENDER_API void SG_CALLCONV cmd_bind_descriptor_set(Cmd* pCmd, uint32_t index, DescriptorSet* pDescriptorSet);
+	SG_RENDER_API void SG_CALLCONV cmd_bind_push_constants(Cmd* pCmd, RootSignature* pRootSignature, const char* pName, const void* pConstants);
+	SG_RENDER_API void SG_CALLCONV cmd_bind_push_constants_by_index(Cmd* pCmd, RootSignature* pRootSignature, uint32_t paramIndex, const void* pConstants);
+	SG_RENDER_API void SG_CALLCONV cmd_bind_vertex_buffer(Cmd* pCmd, uint32_t bufferCount, Buffer** ppBuffers, const uint32_t* pStrides, const uint64_t* pOffsets);
+	SG_RENDER_API void SG_CALLCONV cmd_bind_index_buffer(Cmd* pCmd, Buffer* pBuffer, uint32_t indexType, uint64_t offset);
+	SG_RENDER_API void SG_CALLCONV cmd_draw(Cmd* pCmd, uint32_t vertex_count, uint32_t firstVertex);
+	SG_RENDER_API void SG_CALLCONV cmd_draw_instanced(Cmd* pCmd, uint32_t vertexCount, uint32_t firstVertex, uint32_t instanceCount, uint32_t firstInstance);
+	SG_RENDER_API void SG_CALLCONV cmd_draw_indexed(Cmd* pCmd, uint32_t indexCount, uint32_t firstIndex, uint32_t firstVertex);
+	SG_RENDER_API void SG_CALLCONV cmd_draw_indexed_instanced(Cmd* pCmd, uint32_t indexCount, uint32_t firstIndex, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
+	SG_RENDER_API void SG_CALLCONV cmd_dispatch(Cmd* pCmd, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
 
 	// barrier transition command
 	SG_RENDER_API void SG_CALLCONV cmd_resource_barrier(Cmd* pCmd, uint32_t bufferBarrierCount, BufferBarrier* pBufferBarriers, uint32_t textureBarrierCount, TextureBarrier* pTextureBarriers, uint32_t rtBarrierCount, RenderTargetBarrier* pRtBarriers);
+
+	SG_RENDER_API void SG_CALLCONV add_shader_binary(Renderer* pRenderer, const BinaryShaderCreateDesc* pDesc, Shader** pShader);
+	SG_RENDER_API void SG_CALLCONV remove_shader(Renderer* pRenderer, Shader* pShader);
+
+	SG_RENDER_API void SG_CALLCONV add_root_signature(Renderer* pRenderer, const RootSignatureCreateDesc* pDesc, RootSignature** pRootSignature);
+	SG_RENDER_API void SG_CALLCONV remove_root_signature(Renderer* pRenderer, RootSignature* pRootSignature);
+
+	// pipeline functions
+	SG_RENDER_API void SG_CALLCONV add_pipeline(Renderer* pRenderer, const PipelineCreateDesc* pPipelineSettings, Pipeline** pPipeline);
+	SG_RENDER_API void SG_CALLCONV remove_pipeline(Renderer* pRenderer, Pipeline* pPipeline);
+	SG_RENDER_API void SG_CALLCONV add_pipeline_cache(Renderer* pRenderer, const PipelineCacheDesc* pDesc, PipelineCache** ppPipelineCache);
+	SG_RENDER_API void SG_CALLCONV get_pipeline_cache_data(Renderer* pRenderer, PipelineCache* pPipelineCache, size_t* pSize, void* pData);
+	SG_RENDER_API void SG_CALLCONV remove_pipeline_cache(Renderer* pRenderer, PipelineCache* pPipelineCache);
+
+	// descriptor Set functions
+	SG_RENDER_API void SG_CALLCONV add_descriptor_set(Renderer* pRenderer, const DescriptorSetCreateDesc* pDesc, DescriptorSet** pDescriptorSet);
+	SG_RENDER_API void SG_CALLCONV remove_descriptor_set(Renderer* pRenderer, DescriptorSet* pDescriptorSet);
+	SG_RENDER_API void SG_CALLCONV update_descriptor_set(Renderer* pRenderer, uint32_t index, DescriptorSet* pDescriptorSet, uint32_t count, const DescriptorData* pData);
+
+	// virtual Textures
+	//SG_RENDER_API void SG_CALLCONV cmd_update_virtual_texture(Cmd* pCmd, Texture* pTexture);
+
+	// all buffer, texture update handled by resource system -> IResourceLoader.h
 
 	// queue/fence/swapchain functions
 	SG_RENDER_API void SG_CALLCONV acquire_next_image(Renderer* pRenderer, SwapChain* pSwapChain, Semaphore* pSignalSemaphore, Fence* pFence, uint32_t* pImageIndex);
@@ -2086,6 +2288,38 @@ namespace SG
 	SG_RENDER_API void SG_CALLCONV get_fence_status(Renderer* pRenderer, Fence* pFence, FenceStatus* pFenceStatus);
 	SG_RENDER_API void SG_CALLCONV wait_for_fences(Renderer* pRenderer, uint32_t fenceCount, Fence** ppFences);
 	SG_RENDER_API void SG_CALLCONV toggle_VSync(Renderer* pRenderer, SwapChain** ppSwapchain);
+
+	// returns the recommended format for the swapchain.
+	// if true is passed for the hintHDR parameter, it will return an HDR format IF the platform supports it
+	// if false is passed or the platform does not support HDR a non HDR format is returned.
+	SG_RENDER_API TinyImageFormat SG_CALLCONV get_recommended_swapchain_format(bool hintHDR);
+
+	//indirect Draw functions
+	//SG_RENDER_API void SG_CALLCONV add_indirect_command_signature(Renderer* pRenderer, const CommandSignatureDesc* pDesc, CommandSignature** ppCommandSignature);
+	//SG_RENDER_API void SG_CALLCONV remove_indirect_command_signature(Renderer* pRenderer, CommandSignature* pCommandSignature);
+	//SG_RENDER_API void SG_CALLCONV cmd_execute_indirect(Cmd* pCmd, CommandSignature* pCommandSignature, uint32_t maxCommandCount, Buffer* pIndirectBuffer, uint64_t bufferOffset, Buffer* pCounterBuffer, uint64_t counterBufferOffset);
+
+	// GPU Query Interface
+	SG_RENDER_API void SG_CALLCONV get_timestamp_frequency(Queue* pQueue, double* pFrequency);
+	SG_RENDER_API void SG_CALLCONV add_query_pool(Renderer* pRenderer, const QueryPoolCreateDesc* pDesc, QueryPool** ppQueryPool);
+	SG_RENDER_API void SG_CALLCONV remove_query_pool(Renderer* pRenderer, QueryPool* pQueryPool);
+	SG_RENDER_API void SG_CALLCONV cmd_reset_query_pool(Cmd* pCmd, QueryPool* pQueryPool, uint32_t startQuery, uint32_t queryCount);
+	SG_RENDER_API void SG_CALLCONV cmd_begin_query(Cmd* pCmd, QueryPool* pQueryPool, QueryDesc* pQuery);
+	SG_RENDER_API void SG_CALLCONV cmd_end_query(Cmd* pCmd, QueryPool* pQueryPool, QueryDesc* pQuery);
+	SG_RENDER_API void SG_CALLCONV cmd_resolve_query(Cmd* pCmd, QueryPool* pQueryPool, Buffer* pReadbackBuffer, uint32_t startQuery, uint32_t queryCount);
+
+	// stats Info Interface
+	SG_RENDER_API void SG_CALLCONV calculate_memory_stats(Renderer* pRenderer, char** stats);
+	SG_RENDER_API void SG_CALLCONV calculate_memory_use(Renderer* pRenderer, uint64_t* usedBytes, uint64_t* totalAllocatedBytes);
+	SG_RENDER_API void SG_CALLCONV free_memory_stats(Renderer* pRenderer, char* stats);
+
+	// debug Marker Interface
+	SG_RENDER_API void SG_CALLCONV cmd_begin_debug_marker(Cmd* pCmd, float r, float g, float b, const char* pName);
+	SG_RENDER_API void SG_CALLCONV cmd_end_debug_marker(Cmd* pCmd);
+	SG_RENDER_API void SG_CALLCONV cmd_add_debug_marker(Cmd* pCmd, float r, float g, float b, const char* pName);
+#if defined(SG_GRAPHIC_API_D3D12)
+	SG_RENDER_API uint32_t SG_CALLCONV cmd_write_marker(Cmd* pCmd, MarkerType markerType, uint32_t markerValue, Buffer* pBuffer, size_t offset, bool useAutoFlags = false);
+#endif
 
 	// resource debug naming interface
 	SG_RENDER_API void SG_CALLCONV set_buffer_name(Renderer* pRenderer, Buffer* pBuffer, const char* pName);

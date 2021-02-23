@@ -68,12 +68,12 @@ namespace SG
 
 	DWORD WINAPI ThreadFunctionStatic(void* data)
 	{
-		auto* pDesc = (ThreadDesciption*)data;
+		auto* pDesc = (ThreadDesc*)data;
 		pDesc->pFunc(pDesc->pData);
 		return 0;
 	}
 
-	ThreadHandle create_thread(ThreadDesciption* element)
+	ThreadHandle create_thread(ThreadDesc* element)
 	{
 		ThreadHandle handle = CreateThread(0, 0, ThreadFunctionStatic,
 			element, 0, 0);

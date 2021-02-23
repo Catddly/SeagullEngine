@@ -14,6 +14,7 @@ IncludeDir = { }
 IncludeDir["eastl"] = "Seagull-Core/Core/Third-party/Include/eastl"
 IncludeDir["mimalloc"] = "Seagull-Core/Core/Third-party/Include/mimalloc"
 IncludeDir["glm"] = "Seagull-Core/Core/Third-party/Include/glm"
+IncludeDir["tinyImageFormat"] = "Seagull-Core/Core/Third-party/Include/tinyImageFormat"
 
 -- Renderers
 IncludeDir["RendererVulkan"] = "Seagull-Core/Renderer/Vulkan"
@@ -60,7 +61,8 @@ project "Seagull-Core"
         "%{prj.name}/Core/Source",
         "%{IncludeDir.mimalloc}",
         "%{IncludeDir.eastl}",
-        "%{IncludeDir.glm}"
+        "%{IncludeDir.glm}",
+        "%{IncludeDir.tinyImageFormat}"
     }
     
     -- link libraries
@@ -138,6 +140,7 @@ project "Sandbox"
     {
         "Seagull-Core/Core/Source/",
         "%{IncludeDir.eastl}",
+        "%{IncludeDir.glm}",
         "%{IncludeDir.RendererVulkan}"
     }
 

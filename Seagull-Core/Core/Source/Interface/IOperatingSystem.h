@@ -129,4 +129,6 @@ namespace SG
 
 	bool get_resolution_support(const MonitorDescription* pMonitor, const Resolution* pResolution);
 
+	/// @param stdOutFile The file to which the output of the command should be written. May be NULL.
+	int system_run(const char* command, const char** arguments, size_t argumentCount, const char* stdOutFile);
 }

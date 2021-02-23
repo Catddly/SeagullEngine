@@ -50,10 +50,6 @@ public:
 		ThreadTest();						  
 		SG_LOG_INFO("|*************************  End   Thread Test  ************************|");
 
-		SG_LOG_ERROR("Error Test!");
-		SG_LOG_WARNING("Warning Test!");
-		SG_LOG_CRITICAL("Critical Test!");
-
 		return true;
 	}
 
@@ -133,7 +129,7 @@ private:
 		{
 			nums[i] = (int*)sg_malloc(sizeof(int));
 			*nums[i] = i;
-			ThreadDesciption desc;
+			ThreadDesc desc;
 			desc.pFunc = ThreadTestFunc;
 			desc.pData = nums[i];
 			mThreads[i] = create_thread(&desc);
@@ -161,7 +157,7 @@ private:
 		desc.api = SG_RENDERER_API_VULKAN;
 		desc.gpuMode = SG_GPU_MODE_SINGLE;
 		desc.pLogFn = CustomLogFunc;
-		desc.shaderTarget = sg_shader_target_6_0;
+		desc.shaderTarget = SG_SHADER_TARGET_6_0;
 		
 		desc.ppInstanceLayers = nullptr;
 		desc.instanceLayerCount = 0;

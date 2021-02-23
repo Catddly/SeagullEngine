@@ -39,7 +39,7 @@ namespace SG
 		// The resource set for binding frequency
 		uint32_t set;
 		// The resource binding location
-		uint32_t location;
+		uint32_t reg;
 		// The size of the resource. This will be the DescriptorInfo array size for textures
 		uint32_t size;
 		// what stages use this resource
