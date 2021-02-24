@@ -7,27 +7,31 @@
 //#include "../ThirdParty/OpenSource/tinyktx/tinyktx.h"
 //
 //#include "../ThirdParty/OpenSource/basis_universal/transcoder/basisu_transcoder.h"
-//
 //#define CGLTF_IMPLEMENTATION
 //#include "../ThirdParty/OpenSource/cgltf/cgltf.h"
 
 #include "Interface/ILog.h"
 #include "Interface/IThread.h"
 
-#include "Core/Atomic.h"
-
-#include "TextureSystem/TextureContainer.h"
+#include <include/EASTL/algorithm.h>
 
 //#if defined(__ANDROID__) && defined(SG_GRAPHIC_API_VULKAN)
 //#include <shaderc/shaderc.h>
 //#endif
 
-//#if defined(GLES)
+//#if defined(SG_GRAPHIC_API_GLES)
 //#include "OpenGLES/GLESContextCreator.h"
 //#endif
 
+#include "Math/MathTypes.h"
+
+#include <vulkan/vulkan_core.h>
+
 #include "IRenderer.h"
 #include "IResourceLoader.h"
+
+#include "Core/Atomic.h"
+#include "TextureSystem/TextureContainer.h"
 
 #include "Interface/IMemory.h"
 
@@ -35,16 +39,21 @@
 //#include "../ThirdParty/OpenSource/murmurhash3/MurmurHash3_32.h"
 //#endif
 
-struct SubresourceDataDesc
+namespace SG
 {
-	uint64_t                           srcOffset;
-	uint32_t                           mipLevel;
-	uint32_t                           arrayLayer;
+
+	struct SubresourceDataDesc
+	{
+		uint64_t                           srcOffset;
+		uint32_t                           mipLevel;
+		uint32_t                           arrayLayer;
 #if defined(SG_GRAPHIC_API_D3D11) || defined(SG_GRAPHIC_API_METAL) || defined(SG_GRAPHIC_API_VULKAN)
-	uint32_t                           rowPitch;
-	uint32_t                           slicePitch;
+		uint32_t                           rowPitch;
+		uint32_t                           slicePitch;
 #endif
-};
+	};
+
+}
 
 #define SG_MIP_REDUCE(s, mip) (eastl::max(1u, (uint32_t)((s) >> (mip))))
 
@@ -74,7 +83,7 @@ namespace SG
 	// copy new buffer to override old buffer
 	extern void cmd_update_buffer(Cmd* pCmd, Buffer* pBuffer, uint64_t dstOffset, Buffer* pSrcBuffer, uint64_t srcOffset, uint64_t size);
 	// copy read-in buffer to image
-	extern void cmd_update_subresource(Cmd* pCmd, Texture* pTexture, Buffer* pSrcBuffer, const struct SubresourceDataDesc* pSubresourceDesc);
+	extern void cmd_update_subresource(Cmd* pCmd, Texture* pTexture, Buffer* pSrcBuffer, const SubresourceDataDesc* pSubresourceDesc);
 
 }
 
@@ -259,8 +268,8 @@ namespace SG
 
 	static inline uint32_t util_float2_to_unorm2x16(const float* v)
 	{
-		uint32_t x = (uint32_t)eastl::round(eastl::clamp(v[0], 0, 1) * 65535.0f);
-		uint32_t y = (uint32_t)eastl::round(eastl::clamp(v[1], 0, 1) * 65535.0f);
+		uint32_t x = (uint32_t)round(eastl::clamp(v[0], 0.0f, 1.0f) * 65535.0f);
+		uint32_t y = (uint32_t)round(eastl::clamp(v[1], 0.0f, 1.0f) * 65535.0f);
 		return ((uint32_t)0x0000FFFF & x) | ((y << 16) & (uint32_t)0xFFFF0000);
 	}
 
@@ -473,7 +482,7 @@ namespace SG
 			cmdPoolDesc.transient = true;
 			add_command_pool(pRenderer, &cmdPoolDesc, &resourceSet.pCmdPool);
 
-			CmdDesc cmdDesc = {};
+			CmdCreateDesc cmdDesc = {};
 			cmdDesc.pPool = resourceSet.pCmdPool;
 			add_cmd(pRenderer, &cmdDesc, &resourceSet.pCmd);
 
@@ -552,7 +561,7 @@ namespace SG
 		CopyResourceSet& resourceSet = pCopyEngine->resourceSets[activeSet];
 		if (!pCopyEngine->isRecording)
 		{
-			reset_cmd_pool(pResourceLoader->pRenderer, resourceSet.pCmdPool);
+			reset_command_pool(pResourceLoader->pRenderer, resourceSet.pCmdPool);
 			begin_cmd(resourceSet.pCmd);
 			pCopyEngine->isRecording = true;
 		}
@@ -661,24 +670,24 @@ namespace SG
 		uint64_t offset = 0;
 
 		// #TODO: Investigate - fsRead crashes if we pass the upload buffer mapped address. Allocating temporary buffer as a workaround. Does NX support loading from disk to GPU shared memory?
-	//#ifdef NX64
-	//	void* nxTempBuffer = NULL;
-	//	if (!dataAlreadyFilled)
-	//	{
-	//		size_t remainingBytes = fsGetStreamFileSize(&stream) - fsGetStreamSeekPosition(&stream);
-	//		nxTempBuffer = tf_malloc(remainingBytes);
-	//		ssize_t bytesRead = fsReadFromStream(&stream, nxTempBuffer, remainingBytes);
-	//		if (bytesRead != remainingBytes)
-	//		{
-	//			fsCloseStream(&stream);
-	//			tf_free(nxTempBuffer);
-	//			return UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
-	//		}
+		//#ifdef NX64
+		//	void* nxTempBuffer = NULL;
+		//	if (!dataAlreadyFilled)
+		//	{
+		//		size_t remainingBytes = fsGetStreamFileSize(&stream) - fsGetStreamSeekPosition(&stream);
+		//		nxTempBuffer = tf_malloc(remainingBytes);
+		//		ssize_t bytesRead = fsReadFromStream(&stream, nxTempBuffer, remainingBytes);
+		//		if (bytesRead != remainingBytes)
+		//		{
+		//			fsCloseStream(&stream);
+		//			tf_free(nxTempBuffer);
+		//			return UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
+		//		}
 
-	//		fsCloseStream(&stream);
-	//		fsOpenStreamFromMemory(nxTempBuffer, remainingBytes, FM_READ_BINARY, true, &stream);
-	//	}
-	//#endif
+		//		fsCloseStream(&stream);
+		//		fsOpenStreamFromMemory(nxTempBuffer, remainingBytes, FM_READ_BINARY, true, &stream);
+		//	}
+		//#endif
 
 		if (!upload.pData)
 		{
@@ -717,7 +726,7 @@ namespace SG
 					uint32_t rowBytes = 0;
 					uint32_t numRows = 0;
 
-					bool ret = util_get_surface_info(w, h, fmt, &numBytes, &rowBytes, &numRows);
+					bool ret = util_get_surface_info(width, height, fmt, &numBytes, &rowBytes, &numRows);
 					if (!ret)
 					{
 						return SG_UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
@@ -918,7 +927,7 @@ namespace SG
 					success = load_svt_texture(&stream, &textureDesc);
 					if (success)
 					{
-						ssize_t dataSize = sgfs_get_stream_file_size(&stream) - sgfs_seek_stream(&stream);
+						ssize_t dataSize = sgfs_get_stream_file_size(&stream) - sgfs_get_offset_stream_position(&stream);
 						void* data = sg_malloc(dataSize);
 						sgfs_read_from_stream(&stream, data, dataSize);
 
@@ -935,7 +944,7 @@ namespace SG
 						BufferLoadDesc visDesc = {};
 						visDesc.desc.descriptors = SG_DESCRIPTOR_TYPE_RW_BUFFER; // UAV
 						visDesc.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_GPU_ONLY;
-						visDesc.desc.structStride = sizeof(uint);
+						visDesc.desc.structStride = sizeof(unsigned int);
 						visDesc.desc.elementCount = (uint64_t)pPageTable->size();
 						visDesc.desc.size = visDesc.desc.structStride * visDesc.desc.elementCount;
 						visDesc.desc.startState = SG_RESOURCE_STATE_COMMON;
@@ -946,7 +955,7 @@ namespace SG
 						BufferLoadDesc prevVisDesc = {};
 						prevVisDesc.desc.descriptors = SG_DESCRIPTOR_TYPE_RW_BUFFER;
 						prevVisDesc.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_GPU_ONLY;
-						prevVisDesc.desc.structStride = sizeof(uint);
+						prevVisDesc.desc.structStride = sizeof(unsigned int);
 						prevVisDesc.desc.elementCount = (uint64_t)pPageTable->size();
 						prevVisDesc.desc.size = prevVisDesc.desc.structStride * prevVisDesc.desc.elementCount;
 						prevVisDesc.desc.startState = SG_RESOURCE_STATE_COMMON;
@@ -964,7 +973,7 @@ namespace SG
 	#else							  	  
 						alivePageDesc.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT | SG_BUFFER_CREATION_FLAG_OWN_MEMORY_BIT;
 	#endif							  
-						alivePageDesc.desc.structStride = sizeof(uint);
+						alivePageDesc.desc.structStride = sizeof(unsigned int);
 						alivePageDesc.desc.elementCount = (uint64_t)pPageTable->size();
 						alivePageDesc.desc.size = alivePageDesc.desc.structStride * alivePageDesc.desc.elementCount;
 						alivePageDesc.desc.name = "Alive pages buffer for Sparse Texture";
@@ -981,7 +990,7 @@ namespace SG
 	#else
 						removePageDesc.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT | SG_BUFFER_CREATION_FLAG_OWN_MEMORY_BIT;
 	#endif
-						removePageDesc.desc.structStride = sizeof(uint);
+						removePageDesc.desc.structStride = sizeof(unsigned int);
 						removePageDesc.desc.elementCount = (uint64_t)pPageTable->size();
 						removePageDesc.desc.size = removePageDesc.desc.structStride * removePageDesc.desc.elementCount;
 						removePageDesc.desc.name = "Remove pages buffer for Sparse Texture";
@@ -998,7 +1007,7 @@ namespace SG
 	#else
 						pageCountsDesc.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT | SG_BUFFER_CREATION_FLAG_OWN_MEMORY_BIT;
 	#endif
-						pageCountsDesc.desc.structStride = sizeof(uint);
+						pageCountsDesc.desc.structStride = sizeof(unsigned int);
 						pageCountsDesc.desc.elementCount = 4;
 						pageCountsDesc.desc.size = pageCountsDesc.desc.structStride * pageCountsDesc.desc.elementCount;
 						pageCountsDesc.desc.name = "Page count buffer for Sparse Texture";
@@ -2082,7 +2091,7 @@ namespace SG
 	{
 		TextureUpdateDescInternal desc = {};
 		desc.pTexture = pTextureUpdate->pTexture;
-		desc.range = pTextureUpdate->mInternal.mMappedRange;
+		desc.range = pTextureUpdate->mInternal.mappedRange;
 		desc.baseMipLevel = pTextureUpdate->mipLevel;
 		desc.mipLevels = 1;
 		desc.baseArrayLayer = pTextureUpdate->arrayLayer;
@@ -2426,10 +2435,10 @@ namespace SG
 	{
 		eastl::string result;
 
-		while (!fsStreamAtEnd(stream))
+		while (!sgfs_is_stream_at_end(stream))
 		{
 			char nextChar = 0;
-			fsReadFromStream(stream, &nextChar, sizeof(nextChar));
+			sgfs_read_from_stream(stream, &nextChar, sizeof(nextChar));
 			if (nextChar == 0 || nextChar == '\n')
 			{
 				break;
@@ -2437,7 +2446,7 @@ namespace SG
 			if (nextChar == '\r')
 			{
 				char newLine = 0;
-				fsReadFromStream(stream, &newLine, sizeof(newLine));
+				sgfs_read_from_stream(stream, &newLine, sizeof(newLine));
 				if (newLine == '\n')
 				{
 					break;
@@ -2445,23 +2454,22 @@ namespace SG
 				else
 				{
 					// We're not looking at a "\r\n" sequence, so add the '\r' to the buffer.
-					fsSeekStream(stream, SBO_CURRENT_POSITION, -1);
+					sgfs_seek_stream(stream, SG_SBO_CURRENT_POSITION, -1);
 				}
 			}
 			result.push_back(nextChar);
 		}
-
 		return result;
 	}
 
-	// Function to generate the timestamp of this shader source file considering all include file timestamp
+	// function to generate the timestamp of this shader source file considering all include file timestamp
 	#if !defined(NX64)
 	static bool process_source_file(const char* pAppName, FileStream* original, const char* filePath, FileStream* file, time_t& outTimeStamp, eastl::string& outCode)
 	{
 		// If the source if a non-packaged file, store the timestamp
 		if (file)
 		{
-			time_t fileTimeStamp = fsGetLastModifiedTime(RD_SHADER_SOURCES, filePath);
+			time_t fileTimeStamp = sgfs_get_last_modified_time(SG_RD_SHADER_SOURCES, filePath);
 
 			if (fileTimeStamp > outTimeStamp)
 				outTimeStamp = fileTimeStamp;
@@ -2472,11 +2480,11 @@ namespace SG
 		}
 
 		const eastl::string pIncludeDirective = "#include";
-		while (!fsStreamAtEnd(file))
+		while (!sgfs_is_stream_at_end(file))
 		{
-			eastl::string line = fsReadFromStreamSTLLine(file);
+			eastl::string line = sgfs_read_from_stream_stl_line(file);
 
-			size_t        filePos = line.find(pIncludeDirective, 0);
+			size_t filePos = line.find(pIncludeDirective, 0);
 			const size_t  commentPosCpp = line.find("//", 0);
 			const size_t  commentPosC = line.find("/*", 0);
 
@@ -2507,34 +2515,33 @@ namespace SG
 				}
 
 				// get the include file path
-				//TODO: Remove Comments
-
+				//TODO: remove Comments
 				if (fileName.at(0) == '<')    // disregard bracketsauthop
 					continue;
 
 
 				// open the include file
 				FileStream fHandle = {};
-				char includePath[FS_MAX_PATH] = {};
+				char includePath[SG_MAX_FILEPATH] = {};
 				{
-					char parentPath[FS_MAX_PATH] = {};
-					fsGetParentPath(filePath, parentPath);
-					fsAppendPathComponent(parentPath, fileName.c_str(), includePath);
+					char parentPath[SG_MAX_FILEPATH] = {};
+					sgfs_get_parent_path(filePath, parentPath);
+					sgfs_append_path_component(parentPath, fileName.c_str(), includePath);
 				}
-				if (!fsOpenStreamFromPath(RD_SHADER_SOURCES, includePath, FM_READ_BINARY, &fHandle))
+				if (!sgfs_open_stream_from_path(SG_RD_SHADER_SOURCES, includePath, SG_FM_READ_BINARY, &fHandle))
 				{
-					LOGF(LogLevel::eERROR, "Cannot open #include file: %s", includePath);
+					SG_LOG_ERROR("Cannot open #include file: %s", includePath);
 					continue;
 				}
 
-				// Add the include file into the current code recursively
+				// add the include file into the current code recursively
 				if (!process_source_file(pAppName, original, includePath, &fHandle, outTimeStamp, outCode))
 				{
-					fsCloseStream(&fHandle);
+					sgfs_close_stream(&fHandle);
 					return false;
 				}
 
-				fsCloseStream(&fHandle);
+				sgfs_close_stream(&fHandle);
 			}
 
 	#if defined(TARGET_IOS) || defined(ANDROID)
@@ -2552,7 +2559,7 @@ namespace SG
 				outCode += line + "\n";
 			}
 	#else
-			// Simply write out the current line if we are not in a header file
+			// simply write out the current line if we are not in a header file
 			const bool bAreWeProcessingTheShaderSource = file == original;
 			if (bAreWeProcessingTheShaderSource)
 			{
@@ -2560,30 +2567,29 @@ namespace SG
 			}
 	#endif
 		}
-
 		return true;
 	}
 	#endif
 
-	// Loads the bytecode from file if the binary shader file is newer than the source
+	// loads the bytecode from file if the binary shader file is newer than the source
 	bool check_for_byte_code(Renderer* pRenderer, const char* binaryShaderPath, time_t sourceTimeStamp, BinaryShaderStageDesc* pOut)
 	{
-		// If source code is loaded from a package, its timestamp will be zero. Else check that binary is not older
-		// than source
-		time_t dstTimeStamp = fsGetLastModifiedTime(RD_SHADER_BINARIES, binaryShaderPath);
+		// if source code is loaded from a package, its timestamp will be zero. Else check that binary is not older
+		// than source, to make sure we are using the latest bytecode
+		time_t dstTimeStamp = sgfs_get_last_modified_time(SG_RD_SHADER_BINARIES, binaryShaderPath);
 		if (!sourceTimeStamp || (dstTimeStamp < sourceTimeStamp))
 			return false;
 
 		FileStream fh = {};
-		if (!fsOpenStreamFromPath(RD_SHADER_BINARIES, binaryShaderPath, FM_READ_BINARY, &fh))
+		if (!sgfs_open_stream_from_path(SG_RD_SHADER_BINARIES, binaryShaderPath, SG_FM_READ_BINARY, &fh))
 		{
-			LOGF(LogLevel::eERROR, "'%s' is not a valid shader bytecode file", binaryShaderPath);
+			SG_LOG_ERROR("'%s' is not a valid shader bytecode file", binaryShaderPath);
 			return false;
 		}
 
-		if (!fsGetStreamFileSize(&fh))
+		if (!sgfs_get_stream_file_size(&fh))
 		{
-			fsCloseStream(&fh);
+			sgfs_close_stream(&fh);
 			return false;
 		}
 
@@ -2591,30 +2597,28 @@ namespace SG
 		extern void prospero_loadByteCode(Renderer*, FileStream*, BinaryShaderStageDesc*);
 		prospero_loadByteCode(pRenderer, &fh, pOut);
 	#else
-		ssize_t size = fsGetStreamFileSize(&fh);
-		pOut->mByteCodeSize = (uint32_t)size;
-		pOut->pByteCode = tf_memalign(256, size);
-		fsReadFromStream(&fh, (void*)pOut->pByteCode, size);
+		ssize_t size = sgfs_get_stream_file_size(&fh);
+		pOut->byteCodeSize = (uint32_t)size;
+		pOut->pByteCode = sg_memalign(256, size);
+		sgfs_read_from_stream(&fh, (void*)pOut->pByteCode, size);
 	#endif
-		fsCloseStream(&fh);
+		sgfs_close_stream(&fh);
 
 		return true;
 	}
 
-	// Saves bytecode to a file
+	// saves bytecode to a file
 	bool save_byte_code(const char* binaryShaderPath, char* byteCode, uint32_t byteCodeSize)
 	{
 		if (!byteCodeSize)
 			return false;
 
 		FileStream fh = {};
-
-		if (!fsOpenStreamFromPath(RD_SHADER_BINARIES, binaryShaderPath, FM_WRITE_BINARY, &fh))
+		if (!sgfs_open_stream_from_path(SG_RD_SHADER_BINARIES, binaryShaderPath, SG_FM_WRITE_BINARY, &fh))
 			return false;
 
-		fsWriteToStream(&fh, byteCode, byteCodeSize);
-		fsCloseStream(&fh);
-
+		sgfs_write_to_stream(&fh, byteCode, byteCodeSize);
+		sgfs_close_stream(&fh);
 		return true;
 	}
 
@@ -2626,17 +2630,17 @@ namespace SG
 
 		eastl::string code;
 	#if !defined(NX64)
-		time_t          timeStamp = 0;
+		time_t timeStamp = 0;
 	#endif
 
-	#if !defined(METAL) && !defined(NX64)
+	#if !defined(SG_GRAPHIC_API_METAL) && !defined(NX64)
 		FileStream sourceFileStream = {};
-		bool sourceExists = fsOpenStreamFromPath(RD_SHADER_SOURCES, loadDesc.pFileName, FM_READ_BINARY, &sourceFileStream);
+		bool sourceExists = sgfs_open_stream_from_path(SG_RD_SHADER_SOURCES, loadDesc.fileName, SG_FM_READ_BINARY, &sourceFileStream);
 		ASSERT(sourceExists);
 
-		if (!process_source_file(pRenderer->pName, &sourceFileStream, loadDesc.pFileName, &sourceFileStream, timeStamp, code))
+		if (!process_source_file(pRenderer->name, &sourceFileStream, loadDesc.fileName, &sourceFileStream, timeStamp, code))
 		{
-			fsCloseStream(&sourceFileStream);
+			sgfs_close_stream(&sourceFileStream);
 			return false;
 		}
 	#elif defined(NX64)
@@ -2689,7 +2693,7 @@ namespace SG
 
 	#ifndef NX64
 		eastl::string shaderDefines;
-		// Apply user specified macros
+		// apply user specified macros
 		for (uint32_t i = 0; i < macroCount; ++i)
 		{
 			shaderDefines += (eastl::string(pMacros[i].definition) + pMacros[i].value);
@@ -2701,44 +2705,43 @@ namespace SG
 	#endif
 
 		eastl::string rendererApi;
-		switch (pRenderer->mApi)
+		switch (pRenderer->api)
 		{
-		case RENDERER_API_D3D12:
-		case RENDERER_API_XBOX_D3D12: rendererApi = "D3D12"; break;
-		case RENDERER_API_D3D11: rendererApi = "D3D11"; break;
-		case RENDERER_API_VULKAN: rendererApi = "Vulkan"; break;
-		case RENDERER_API_METAL: rendererApi = "Metal"; break;
-		case RENDERER_API_GLES: rendererApi = "GLES"; break;
-		default: break;
+			case SG_RENDERER_API_D3D12:
+			//case SG_RENDERER_API_XBOX_D3D12: rendererApi = "D3D12"; break;
+			//case SG_RENDERER_API_D3D11: rendererApi = "D3D11"; break;
+			case SG_RENDERER_API_VULKAN: rendererApi = "Vulkan"; break;
+			//case SG_RENDERER_API_METAL: rendererApi = "Metal"; break;
+			case SG_RENDERER_API_GLES: rendererApi = "GLES"; break;
+			default: break;
 		}
-		char extension[FS_MAX_PATH] = { 0 };
-		fsGetPathExtension(loadDesc.pFileName, extension);
-		char fileName[FS_MAX_PATH] = { 0 };
-		fsGetPathFileName(loadDesc.pFileName, fileName);
-		eastl::string appName(pRenderer->pName);
+		char extension[SG_MAX_FILEPATH] = { 0 };
+		sgfs_get_path_extension(loadDesc.fileName, extension);
 
+		char fileName[SG_MAX_FILEPATH] = { 0 };
+		sgfs_get_path_file_name(loadDesc.fileName, fileName);
+
+		eastl::string appName(pRenderer->name);
 	#ifdef __linux__
 		appName.make_lower();
 		appName = appName != pRenderer->pName ? appName : appName + "_";
 	#endif
-
 		eastl::string binaryShaderComponent = fileName +
 			eastl::string().sprintf("_%zu", eastl::string_hash<eastl::string>()(shaderDefines)) + extension +
 			eastl::string().sprintf("%u", target) +
-	#ifdef DIRECT3D11
+	#ifdef SG_GRAPHIC_API_D3D11
 			eastl::string().sprintf("%u", pRenderer->mFeatureLevel) +
 	#endif
 			".bin";
 
-		// Shader source is newer than binary
+		// shader source is newer than binary
 		if (!check_for_byte_code(pRenderer, binaryShaderComponent.c_str(), timeStamp, pOut))
 		{
 			if (!sourceExists)
 			{
-				LOGF(eERROR, "No source shader or precompiled binary present for file %s", fileName);
+				SG_LOG_ERROR("No source shader or precompiled binary present for file %s", fileName);
 				return false;
 			}
-
 	#if defined(ORBIS)
 			orbis_compileShader(pRenderer,
 				stage, allStages,
@@ -2756,27 +2759,27 @@ namespace SG
 				pOut,
 				loadDesc.pEntryPointName);
 	#else
-			if (pRenderer->mApi == RENDERER_API_METAL || pRenderer->mApi == RENDERER_API_VULKAN || pRenderer->mApi == RENDERER_API_GLES)
+			if (pRenderer->api == SG_RENDERER_API_VULKAN || pRenderer->api == SG_RENDERER_API_GLES)
 			{
-	#if defined(VULKAN)
-	#if defined(__ANDROID__)
-				vk_compileShader(pRenderer, stage, (uint32_t)code.size(), code.c_str(), binaryShaderComponent.c_str(), macroCount, pMacros, pOut, loadDesc.pEntryPointName);
-				if (!save_byte_code(binaryShaderComponent.c_str(), (char*)(pOut->pByteCode), pOut->mByteCodeSize))
-				{
-					LOGF(LogLevel::eWARNING, "Failed to save byte code for file %s", loadDesc.pFileName);
-				}
-	#else
-				vk_compileShader(pRenderer, target, stage, loadDesc.pFileName, binaryShaderComponent.c_str(), macroCount, pMacros, pOut, loadDesc.pEntryPointName);
-	#endif
-	#elif defined(METAL)
-				mtl_compileShader(pRenderer, metalShaderPath, binaryShaderComponent.c_str(), macroCount, pMacros, pOut, loadDesc.pEntryPointName);
-	#elif defined(GLES)
-				gl_compileShader(pRenderer, target, stage, loadDesc.pFileName, (uint32_t)code.size(), code.c_str(), binaryShaderComponent.c_str(), macroCount, pMacros, pOut, loadDesc.pEntryPointName);
-	#endif
+#if defined(SG_GRAPHIC_API_VULKAN)
+		#if defined(__ANDROID__)
+					vk_compileShader(pRenderer, stage, (uint32_t)code.size(), code.c_str(), binaryShaderComponent.c_str(), macroCount, pMacros, pOut, loadDesc.entryPointName);
+					if (!save_byte_code(binaryShaderComponent.c_str(), (char*)(pOut->pByteCode), pOut->byteCodeSize))
+					{
+						LOGF(LogLevel::eWARNING, "Failed to save byte code for file %s", loadDesc.pFileName);
+					}
+		#else
+				vk_compile_shader(pRenderer, target, stage, loadDesc.fileName, binaryShaderComponent.c_str(), macroCount, pMacros, pOut, loadDesc.entryPointName);
+		#endif
+#elif defined(SG_GRAPHIC_API_METAL)
+				mtl_compileShader(pRenderer, metalShaderPath, binaryShaderComponent.c_str(), macroCount, pMacros, pOut, loadDesc.entryPointName);
+#elif defined(SG_GRAPHIC_API_GLES)
+				gl_compileShader(pRenderer, target, stage, loadDesc.pFileName, (uint32_t)code.size(), code.c_str(), binaryShaderComponent.c_str(), macroCount, pMacros, pOut, loadDesc.entryPointName);
+#endif
 			}
 			else
 			{
-	#if defined(DIRECT3D12) || defined(DIRECT3D11)
+	#if defined(SG_RENDERER_API_D3D12) || defined(SG_RENDERER_API_D3D11)
 				compileShader(
 					pRenderer, target, stage, loadDesc.pFileName, (uint32_t)code.size(), code.c_str(),
 					loadDesc.flags & SHADER_STAGE_LOAD_FLAG_ENABLE_PS_PRIMITIVEID,
@@ -2789,10 +2792,11 @@ namespace SG
 				}
 	#endif
 			}
+
 			if (!pOut->pByteCode)
 			{
-				LOGF(eERROR, "Error while generating bytecode for shader %s", loadDesc.pFileName);
-				fsCloseStream(&sourceFileStream);
+				SG_LOG_ERROR("Error while generating bytecode for shader %s", loadDesc.fileName);
+				sgfs_close_stream(&sourceFileStream);
 				ASSERT(false);
 				return false;
 			}
@@ -2801,9 +2805,10 @@ namespace SG
 	#else
 	#endif
 
-		fsCloseStream(&sourceFileStream);
+		sgfs_close_stream(&sourceFileStream);
 		return true;
 	}
+
 	#ifdef TARGET_IOS
 	bool find_shader_stage(const char* fileName, ShaderDesc* pDesc, ShaderStageDesc** pOutStage, ShaderStage* pStage)
 	{
@@ -2842,40 +2847,39 @@ namespace SG
 		return true;
 	}
 	#else
-	bool find_shader_stage(
-		const char* extension, BinaryShaderDesc* pBinaryDesc, BinaryShaderStageDesc** pOutStage, ShaderStage* pStage)
+	bool find_shader_stage(const char* extension, BinaryShaderCreateDesc* pBinaryDesc, BinaryShaderStageDesc** pOutStage, ShaderStage* pStage)
 	{
 		if (stricmp(extension, "vert") == 0)
 		{
-			*pOutStage = &pBinaryDesc->mVert;
-			*pStage = SHADER_STAGE_VERT;
+			*pOutStage = &pBinaryDesc->vert;
+			*pStage = SG_SHADER_STAGE_VERT;
 		}
 		else if (stricmp(extension, "frag") == 0)
 		{
-			*pOutStage = &pBinaryDesc->mFrag;
-			*pStage = SHADER_STAGE_FRAG;
+			*pOutStage = &pBinaryDesc->frag;
+			*pStage = SG_SHADER_STAGE_FRAG;
 		}
-	#ifndef METAL
+	#ifndef SG_GRAPHIC_API_METAL
 		else if (stricmp(extension, "tesc") == 0)
 		{
-			*pOutStage = &pBinaryDesc->mHull;
-			*pStage = SHADER_STAGE_HULL;
+			*pOutStage = &pBinaryDesc->hull;
+			*pStage = SG_SHADER_STAGE_HULL;
 		}
 		else if (stricmp(extension, "tese") == 0)
 		{
-			*pOutStage = &pBinaryDesc->mDomain;
-			*pStage = SHADER_STAGE_DOMN;
+			*pOutStage = &pBinaryDesc->domain;
+			*pStage = SG_SHADER_STAGE_DOMN;
 		}
 		else if (stricmp(extension, "geom") == 0)
 		{
-			*pOutStage = &pBinaryDesc->mGeom;
-			*pStage = SHADER_STAGE_GEOM;
+			*pOutStage = &pBinaryDesc->geom;
+			*pStage = SG_SHADER_STAGE_GEOM;
 		}
 	#endif
 		else if (stricmp(extension, "comp") == 0)
 		{
-			*pOutStage = &pBinaryDesc->mComp;
-			*pStage = SHADER_STAGE_COMP;
+			*pOutStage = &pBinaryDesc->comp;
+			*pStage = SG_SHADER_STAGE_COMP;
 		}
 		else if ((stricmp(extension, "rgen") == 0) ||
 			(stricmp(extension, "rmiss") == 0) ||
@@ -2884,80 +2888,81 @@ namespace SG
 			(stricmp(extension, "rahit") == 0) ||
 			(stricmp(extension, "rcall") == 0))
 		{
-			*pOutStage = &pBinaryDesc->mComp;
-	#ifndef METAL
-			* pStage = SHADER_STAGE_RAYTRACING;
+			*pOutStage = &pBinaryDesc->comp;
+	#ifndef SG_GRAPHIC_API_METAL
+			* pStage = SG_SHADER_STAGE_RAYTRACING;
 	#else
-			* pStage = SHADER_STAGE_COMP;
+			* pStage = SG_SHADER_STAGE_COMP;
 	#endif
 		}
 		else
 		{
 			return false;
 		}
-
 		return true;
 	}
 	#endif
-	void addShader(Renderer* pRenderer, const ShaderLoadDesc* pDesc, Shader** ppShader)
+
+	void add_shader(Renderer* pRenderer, const ShaderLoadDesc* pDesc, Shader** ppShader)
 	{
-	#ifndef DIRECT3D11
-		if ((uint32_t)pDesc->mTarget > pRenderer->mShaderTarget)
+	#ifndef SG_GRAPHIC_API_D3D11
+		if ((uint32_t)pDesc->target > pRenderer->shaderTarget)
 		{
 			eastl::string error = eastl::string().sprintf("Requested shader target (%u) is higher than the shader target that the renderer supports (%u). Shader wont be compiled",
-				(uint32_t)pDesc->mTarget, (uint32_t)pRenderer->mShaderTarget);
-			LOGF(LogLevel::eERROR, error.c_str());
+				(uint32_t)pDesc->target, (uint32_t)pRenderer->shaderTarget);
+			SG_LOG_ERROR(error.c_str());
 			return;
 		}
 	#endif
 
 	#ifndef TARGET_IOS
-		BinaryShaderDesc      binaryDesc = {};
-	#if defined(METAL)
-		char* pSources[SHADER_STAGE_COUNT] = {};
+		BinaryShaderCreateDesc binaryDesc = {};
+	#if defined(SG_GRAPHIC_API_METAL)
+		char* pSources[SG_SHADER_STAGE_COUNT] = {};
 	#endif
 
-		ShaderStage stages = SHADER_STAGE_NONE;
-		for (uint32_t i = 0; i < SHADER_STAGE_COUNT; ++i)
+		ShaderStage stages = SG_SHADER_STAGE_NONE;
+		for (uint32_t i = 0; i < SG_SHADER_STAGE_COUNT; ++i)
 		{
-			if (pDesc->mStages[i].pFileName && strlen(pDesc->mStages[i].pFileName) != 0)
+			if (pDesc->stages[i].fileName && strlen(pDesc->stages[i].fileName) != 0)
 			{
 				ShaderStage            stage;
-				BinaryShaderStageDesc* pStage = NULL;
-				char ext[FS_MAX_PATH] = { 0 };
-				fsGetPathExtension(pDesc->mStages[i].pFileName, ext);
+				BinaryShaderStageDesc* pStage = nullptr;
+				char ext[SG_MAX_FILEPATH] = { 0 };
+				sgfs_get_path_extension(pDesc->stages[i].fileName, ext);
 				if (find_shader_stage(ext, &binaryDesc, &pStage, &stage))
 					stages |= stage;
 			}
 		}
-		for (uint32_t i = 0; i < SHADER_STAGE_COUNT; ++i)
+
+		for (uint32_t i = 0; i < SG_SHADER_STAGE_COUNT; ++i)
 		{
-			if (pDesc->mStages[i].pFileName && strlen(pDesc->mStages[i].pFileName) != 0)
+			if (pDesc->stages[i].fileName && strlen(pDesc->stages[i].fileName) != 0)
 			{
-				const char* fileName = pDesc->mStages[i].pFileName;
+				const char* fileName = pDesc->stages[i].fileName;
 
 				ShaderStage            stage;
 				BinaryShaderStageDesc* pStage = NULL;
-				char ext[FS_MAX_PATH] = { 0 };
-				fsGetPathExtension(fileName, ext);
+				char ext[SG_MAX_FILEPATH] = { 0 };
+				sgfs_get_path_extension(fileName, ext);
 				if (find_shader_stage(ext, &binaryDesc, &pStage, &stage))
 				{
-					const uint32_t macroCount = pDesc->mStages[i].mMacroCount + pRenderer->mBuiltinShaderDefinesCount;
-					eastl::vector<ShaderMacro> macros(macroCount);
-					for (uint32_t macro = 0; macro < pRenderer->mBuiltinShaderDefinesCount; ++macro)
-						macros[macro] = pRenderer->pBuiltinShaderDefines[macro];
-					for (uint32_t macro = 0; macro < pDesc->mStages[i].mMacroCount; ++macro)
-						macros[pRenderer->mBuiltinShaderDefinesCount + macro] = pDesc->mStages[i].pMacros[macro];
+					const uint32_t macroCount = pDesc->stages[i].macroCount + pRenderer->builtinShaderDefinesCount;
 
-					if (!load_shader_stage_byte_code(
-						pRenderer, pDesc->mTarget, stage, stages, pDesc->mStages[i], macroCount, macros.data(),
+					eastl::vector<ShaderMacro> macros(macroCount);
+					for (uint32_t macro = 0; macro < pRenderer->builtinShaderDefinesCount; ++macro)
+						macros[macro] = pRenderer->pBuiltinShaderDefines[macro];
+					for (uint32_t macro = 0; macro < pDesc->stages[i].macroCount; ++macro)
+						macros[pRenderer->builtinShaderDefinesCount + macro] = pDesc->stages[i].pMacros[macro];
+
+					if (!load_shader_stage_byte_code(pRenderer, pDesc->target, stage, stages, pDesc->stages[i], macroCount, macros.data(),
 						pStage))
 						return;
 
-					binaryDesc.mStages |= stage;
-	#if defined(METAL)
-					if (pDesc->mStages[i].pEntryPointName)
-						pStage->pEntryPoint = pDesc->mStages[i].pEntryPointName;
+					binaryDesc.stages |= stage;
+	#if defined(SG_GRAPHIC_API_METAL)
+					if (pDesc->stages[i].pEntryPointName)
+						pStage->pEntryPoint = pDesc->stages[i].pEntryPointName;
 					else
 						pStage->pEntryPoint = "stageMain";
 
@@ -2974,8 +2979,8 @@ namespace SG
 					pSources[i][metalFileSize] = 0; // Ensure the shader text is null-terminated
 					fsCloseStream(&fh);
 	#elif !defined(ORBIS) && !defined(PROSPERO)
-					if (pDesc->mStages[i].pEntryPointName)
-						pStage->pEntryPoint = pDesc->mStages[i].pEntryPointName;
+					if (pDesc->stages[i].entryPointName)
+						pStage->pEntryPoint = pDesc->stages[i].entryPointName;
 					else
 						pStage->pEntryPoint = "main";
 	#endif
@@ -2987,135 +2992,133 @@ namespace SG
 		binaryDesc.mOwnByteCode = true;
 	#endif
 
-		addShaderBinary(pRenderer, &binaryDesc, ppShader);
-
-	#if defined(METAL)
-		for (uint32_t i = 0; i < SHADER_STAGE_COUNT; ++i)
+		add_shader_binary(pRenderer, &binaryDesc, ppShader);
+	#if defined(SG_GRAPHIC_API_METAL)
+		for (uint32_t i = 0; i < SG_SHADER_STAGE_COUNT; ++i)
 		{
 			if (pSources[i])
 			{
-				tf_free(pSources[i]);
+				sg_free(pSources[i]);
 			}
 		}
 	#endif
 	#if !defined(PROSPERO)
-		if (binaryDesc.mStages & SHADER_STAGE_VERT)
-			tf_free(binaryDesc.mVert.pByteCode);
-		if (binaryDesc.mStages & SHADER_STAGE_FRAG)
-			tf_free(binaryDesc.mFrag.pByteCode);
-		if (binaryDesc.mStages & SHADER_STAGE_COMP)
-			tf_free(binaryDesc.mComp.pByteCode);
-	#if !defined(METAL)
-		if (binaryDesc.mStages & SHADER_STAGE_TESC)
-			tf_free(binaryDesc.mHull.pByteCode);
-		if (binaryDesc.mStages & SHADER_STAGE_TESE)
-			tf_free(binaryDesc.mDomain.pByteCode);
-		if (binaryDesc.mStages & SHADER_STAGE_GEOM)
-			tf_free(binaryDesc.mGeom.pByteCode);
-		if (binaryDesc.mStages & SHADER_STAGE_RAYTRACING)
-			tf_free(binaryDesc.mComp.pByteCode);
+		if (binaryDesc.stages & SG_SHADER_STAGE_VERT)
+			sg_free(binaryDesc.vert.pByteCode);
+		if (binaryDesc.stages & SG_SHADER_STAGE_FRAG)
+			sg_free(binaryDesc.frag.pByteCode);
+		if (binaryDesc.stages & SG_SHADER_STAGE_COMP)
+			sg_free(binaryDesc.comp.pByteCode);
+	#if !defined(SG_GRAPHIC_API_METAL)
+		if (binaryDesc.stages & SG_SHADER_STAGE_TESC)
+			sg_free(binaryDesc.hull.pByteCode);
+		if (binaryDesc.stages & SG_SHADER_STAGE_TESE)
+			sg_free(binaryDesc.domain.pByteCode);
+		if (binaryDesc.stages & SG_SHADER_STAGE_GEOM)
+			sg_free(binaryDesc.geom.pByteCode);
+		if (binaryDesc.stages & SG_SHADER_STAGE_RAYTRACING)
+			sg_free(binaryDesc.comp.pByteCode);
 	#endif
 	#endif
 	#else
 		// Binary shaders are not supported on iOS.
 		ShaderDesc desc = {};
-		eastl::string codes[SHADER_STAGE_COUNT] = {};
-		ShaderMacro* pMacros[SHADER_STAGE_COUNT] = {};
-		for (uint32_t i = 0; i < SHADER_STAGE_COUNT; ++i)
+		eastl::string codes[SG_SHADER_STAGE_COUNT] = {};
+		ShaderMacro* pMacros[SG_SHADER_STAGE_COUNT] = {};
+		for (uint32_t i = 0; i < SG_SHADER_STAGE_COUNT; ++i)
 		{
-			if (pDesc->mStages[i].pFileName && strlen(pDesc->mStages[i].pFileName))
+			if (pDesc->stages[i].pFileName && strlen(pDesc->stages[i].pFileName))
 			{
 				ShaderStage stage;
 				ShaderStageDesc* pStage = NULL;
-				if (find_shader_stage(pDesc->mStages[i].pFileName, &desc, &pStage, &stage))
+				if (find_shader_stage(pDesc->stages[i].pFileName, &desc, &pStage, &stage))
 				{
 					char metalFileName[FS_MAX_PATH] = { 0 };
-					fsAppendPathExtension(pDesc->mStages[i].pFileName, "metal", metalFileName);
+					fsAppendPathExtension(pDesc->stages[i].pFileName, "metal", metalFileName);
 					FileStream fh = {};
 					bool sourceExists = fsOpenStreamFromPath(RD_SHADER_SOURCES, metalFileName, FM_READ_BINARY, &fh);
 					ASSERT(sourceExists);
 
-					pStage->pName = pDesc->mStages[i].pFileName;
+					pStage->pName = pDesc->stages[i].pFileName;
 					time_t timestamp = 0;
 					process_source_file(pRenderer->pName, &fh, metalFileName, &fh, timestamp, codes[i]);
 					pStage->pCode = codes[i].c_str();
-					if (pDesc->mStages[i].pEntryPointName)
-						pStage->pEntryPoint = pDesc->mStages[i].pEntryPointName;
+					if (pDesc->stages[i].pEntryPointName)
+						pStage->pEntryPoint = pDesc->stages[i].pEntryPointName;
 					else
 						pStage->pEntryPoint = "stageMain";
 					// Apply user specified shader macros
-					pStage->mMacroCount = pDesc->mStages[i].mMacroCount + pRenderer->mBuiltinShaderDefinesCount;
+					pStage->mMacroCount = pDesc->stages[i].mMacroCount + pRenderer->mBuiltinShaderDefinesCount;
 					pMacros[i] = (ShaderMacro*)alloca(pStage->mMacroCount * sizeof(ShaderMacro));
 					pStage->pMacros = pMacros[i];
-					for (uint32_t j = 0; j < pDesc->mStages[i].mMacroCount; j++)
-						pMacros[i][j] = pDesc->mStages[i].pMacros[j];
+					for (uint32_t j = 0; j < pDesc->stages[i].mMacroCount; j++)
+						pMacros[i][j] = pDesc->stages[i].pMacros[j];
 					// Apply renderer specified shader macros
 					for (uint32_t j = 0; j < pRenderer->mBuiltinShaderDefinesCount; j++)
 					{
-						pMacros[i][pDesc->mStages[i].mMacroCount + j] = pRenderer->pBuiltinShaderDefines[j];
+						pMacros[i][pDesc->stages[i].mMacroCount + j] = pRenderer->pBuiltinShaderDefines[j];
 					}
 					fsCloseStream(&fh);
-					desc.mStages |= stage;
+					desc.stages |= stage;
 				}
 			}
 		}
 
-		addShader(pRenderer, &desc, ppShader);
+		add_shader(pRenderer, &desc, ppShader);
 	#endif
 	}
-	/************************************************************************/
-	// Pipeline cache save, load
-	/************************************************************************/
-	void addPipelineCache(Renderer* pRenderer, const PipelineCacheLoadDesc* pDesc, PipelineCache** ppPipelineCache)
+
+	// pipeline cache save, load
+	void add_pipeline_cache(Renderer* pRenderer, const PipelineCacheLoadDesc* pDesc, PipelineCache** ppPipelineCache)
 	{
-	#if defined(DIRECT3D12) || defined(VULKAN)
+	#if defined(SG_GRAPHIC_API_D3D12) || defined(SG_GRAPHIC_API_VULKAN)
 		FileStream stream = {};
-		bool success = fsOpenStreamFromPath(RD_PIPELINE_CACHE, pDesc->pFileName, FM_READ_BINARY, &stream);
+		bool success = sgfs_open_stream_from_path(SG_RD_PIPELINE_CACHE, pDesc->fileName, SG_FM_READ_BINARY, &stream);
 		ssize_t dataSize = 0;
-		void* data = NULL;
+		void* data = nullptr;
 		if (success)
 		{
-			dataSize = fsGetStreamFileSize(&stream);
-			data = NULL;
+			dataSize = sgfs_get_stream_file_size(&stream);
+			data = nullptr;
 			if (dataSize)
 			{
-				data = tf_malloc(dataSize);
-				fsReadFromStream(&stream, data, dataSize);
+				data = sg_malloc(dataSize);
+				sgfs_read_from_stream(&stream, data, dataSize);
 			}
 
-			fsCloseStream(&stream);
+			sgfs_close_stream(&stream);
 		}
 
 		PipelineCacheDesc desc = {};
 		desc.flags = pDesc->flags;
 		desc.pData = data;
-		desc.mSize = dataSize;
-		addPipelineCache(pRenderer, &desc, ppPipelineCache);
+		desc.size = dataSize;
+		add_pipeline_cache(pRenderer, &desc, ppPipelineCache);
 
 		if (data)
 		{
-			tf_free(data);
+			sg_free(data);
 		}
 	#endif
 	}
 
-	void savePipelineCache(Renderer* pRenderer, PipelineCache* pPipelineCache, PipelineCacheSaveDesc* pDesc)
+	void save_pipeline_cache(Renderer* pRenderer, PipelineCache* pPipelineCache, PipelineCacheSaveDesc* pDesc)
 	{
-	#if defined(DIRECT3D12) || defined(VULKAN)
+	#if defined(SG_GRAPHIC_API_D3D12) || defined(SG_GRAPHIC_API_VULKAN)
 		FileStream stream = {};
-		if (fsOpenStreamFromPath(RD_PIPELINE_CACHE, pDesc->pFileName, FM_WRITE_BINARY, &stream))
+		if (sgfs_open_stream_from_path(SG_RD_PIPELINE_CACHE, pDesc->fileName, SG_FM_WRITE_BINARY, &stream))
 		{
 			size_t dataSize = 0;
-			getPipelineCacheData(pRenderer, pPipelineCache, &dataSize, NULL);
+			get_pipeline_cache_data(pRenderer, pPipelineCache, &dataSize, nullptr);
 			if (dataSize)
 			{
-				void* data = tf_malloc(dataSize);
-				getPipelineCacheData(pRenderer, pPipelineCache, &dataSize, data);
-				fsWriteToStream(&stream, data, dataSize);
-				tf_free(data);
+				void* data = sg_malloc(dataSize);
+				get_pipeline_cache_data(pRenderer, pPipelineCache, &dataSize, data);
+				sgfs_write_to_stream(&stream, data, dataSize);
+				sg_free(data);
 			}
 
-			fsCloseStream(&stream);
+			sgfs_close_stream(&stream);
 		}
 	#endif
 	}

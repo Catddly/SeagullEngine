@@ -580,4 +580,21 @@ namespace SG
 		output[strlen(output)] = '\0';
 	}
 
+	time_t sgfs_get_last_modified_time(ResourceDirectory resourceDir, const char* fileName)
+	{
+		const char* resourcePath = sgfs_get_resource_directory(resourceDir);
+		char filePath[SG_MAX_FILEPATH] = { 0 };
+		sgfs_append_path_component(resourcePath, fileName, filePath);
+
+		// fix paths for Windows 7 - needs to be generalized and propagated
+		//eastl::string path = eastl::string(filePath);
+		//auto directoryPos = path.find(":");
+		//eastl::string cleanPath = path.substr(directoryPos - 1);
+
+		// get the file info from the system
+		struct stat fileInfo = { 0 };
+		stat(filePath, &fileInfo);
+		return fileInfo.st_mtime;
+	}
+
 }

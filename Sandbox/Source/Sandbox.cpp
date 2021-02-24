@@ -1,9 +1,5 @@
-#include "Seagull.h"
-
-#include "../../Seagull-Core/Renderer/Vulkan/include/vulkan/vulkan_core.h"
-
 #define SG_GRAPHIC_API_VULKAN
-#include "../../Seagull-Core/Renderer/IRenderer/Include/IRenderer.h"
+#include "Seagull.h"
 
 using namespace SG;
 
@@ -229,4 +225,4 @@ class DummyApp : public IApp
 	}
 };
 
-SG_DEFINE_APPLICATION_MAIN(ExampleApp)
+//SG_DEFINE_APPLICATION_MAIN(ExampleApp)

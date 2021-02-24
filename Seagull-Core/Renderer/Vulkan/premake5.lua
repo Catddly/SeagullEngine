@@ -19,8 +19,8 @@ project "RendererVulkan"
 		"../IRenderer/Include/",
         "../../Core/Third-party/Include/eastl/",
         "../../Core/Third-party/Include/tinyImageFormat/",
-		-- "../../Core/Third-party/Include",
-		"../../Core/Source/"
+		"../../Core/Source/",
+		"../../Core/Third-party/Include/glm/"
 	}
 
 	-- link libraries

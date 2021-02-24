@@ -2612,6 +2612,88 @@ namespace SG
 		}
 	}
 
+	void add_descriptor_set(Renderer* pRenderer, const DescriptorSetCreateDesc* pDesc, DescriptorSet** ppDescriptorSet)
+	{
+		ASSERT(pRenderer);
+		ASSERT(pDesc);
+		ASSERT(ppDescriptorSet);
+
+		const RootSignature* pRootSignature = pDesc->pRootSignature;
+		const DescriptorUpdateFrequency updateFreq = pDesc->updateFrequency;
+		const uint32_t nodeIndex = pDesc->nodeIndex;
+		const uint32_t descriptorCount = pRootSignature->vkCumulativeDescriptorCounts[updateFreq];
+		const uint32_t dynamicOffsetCount = pRootSignature->vkDynamicDescriptorCounts[updateFreq];
+
+		uint32_t totalSize = sizeof(DescriptorSet);
+		if (VK_NULL_HANDLE != pRootSignature->vkDescriptorSetLayouts[updateFreq])
+		{
+			totalSize += pDesc->maxSets * sizeof(VkDescriptorSet);
+			totalSize += pDesc->maxSets * sizeof(DescriptorUpdateData*);
+			totalSize += pDesc->maxSets * descriptorCount * sizeof(DescriptorUpdateData);
+		}
+		if (dynamicOffsetCount)
+		{
+			ASSERT(1 == dynamicOffsetCount);
+			totalSize += pDesc->maxSets * sizeof(SizeOffset);
+		}
+
+		DescriptorSet* pDescriptorSet = (DescriptorSet*)sg_calloc_memalign(1, alignof(DescriptorSet), totalSize);
+
+		pDescriptorSet->pRootSignature = pRootSignature;
+		pDescriptorSet->updateFrequency = updateFreq;
+		pDescriptorSet->dynamicOffsetCount = dynamicOffsetCount;
+		pDescriptorSet->nodeIndex = nodeIndex;
+		pDescriptorSet->maxSets = pDesc->maxSets;
+
+		uint8_t* pMem = (uint8_t*)(pDescriptorSet + 1);
+		pDescriptorSet->pHandles = (VkDescriptorSet*)pMem;
+
+		if (VK_NULL_HANDLE != pRootSignature->vkDescriptorSetLayouts[updateFreq])
+		{
+			pMem += pDesc->maxSets * sizeof(VkDescriptorSet);
+
+			pDescriptorSet->ppUpdateData = (DescriptorUpdateData**)pMem;
+			pMem += pDesc->maxSets * sizeof(DescriptorUpdateData*);
+
+			VkDescriptorSetLayout* pLayouts = (VkDescriptorSetLayout*)alloca(pDesc->maxSets * sizeof(VkDescriptorSetLayout));
+			VkDescriptorSet** pHandles = (VkDescriptorSet**)alloca(pDesc->maxSets * sizeof(VkDescriptorSet*));
+
+			for (uint32_t i = 0; i < pDesc->maxSets; ++i)
+			{
+				pLayouts[i] = pRootSignature->vkDescriptorSetLayouts[updateFreq];
+				pHandles[i] = &pDescriptorSet->pHandles[i];
+
+				pDescriptorSet->ppUpdateData[i] = (DescriptorUpdateData*)pMem;
+				pMem += descriptorCount * sizeof(DescriptorUpdateData);
+				memcpy(pDescriptorSet->ppUpdateData[i], pRootSignature->pUpdateTemplateData[updateFreq][pDescriptorSet->nodeIndex], descriptorCount * sizeof(DescriptorUpdateData));
+			}
+
+			allocate_descriptor_sets(pRenderer->pDescriptorPool, pLayouts, pHandles, pDesc->maxSets);
+		}
+		else
+		{
+			SG_LOG_ERROR("NULL Descriptor Set Layout for update frequency %u. Cannot allocate descriptor set", (uint32_t)updateFreq);
+			ASSERT(false && "NULL Descriptor Set Layout for update frequency. Cannot allocate descriptor set");
+		}
+
+		if (pDescriptorSet->dynamicOffsetCount)
+		{
+			ASSERT(1 == pDescriptorSet->dynamicOffsetCount);
+			pDescriptorSet->pDynamicSizeOffsets = (SizeOffset*)pMem;
+			pMem += pDescriptorSet->maxSets * sizeof(SizeOffset);
+		}
+
+		*ppDescriptorSet = pDescriptorSet;
+	}
+
+	void remove_descriptor_set(Renderer* pRenderer, DescriptorSet* pDescriptorSet)
+	{
+		ASSERT(pRenderer);
+		ASSERT(pDescriptorSet);
+
+		SG_SAFE_FREE(pDescriptorSet);
+	}
+
 #pragma endregion (Descriptor Set)
 
 #pragma region (Buffer Function)
@@ -3186,193 +3268,193 @@ namespace SG
 
 #pragma region (Shader)
 
-//	void add_shader_binary(Renderer* pRenderer, const BinaryShaderCreateDesc* pDesc, Shader** ppShaderProgram)
-//	{
-//		ASSERT(pRenderer);
-//		ASSERT(pDesc);
-//		ASSERT(ppShaderProgram);
-//		ASSERT(VK_NULL_HANDLE != pRenderer->pVkDevice);
-//
-//		uint32_t counter = 0;
-//
-//		size_t totalSize = sizeof(Shader);
-//		totalSize += sizeof(PipelineReflection);
-//
-//		for (uint32_t i = 0; i < SG_SHADER_STAGE_COUNT; ++i)
-//		{
-//			ShaderStage stageMask = (ShaderStage)(1 << i);
-//			if (stageMask == (pDesc->stages & stageMask))
-//			{
-//				switch (stageMask)
-//				{
-//					case SG_SHADER_STAGE_VERT: totalSize += (strlen(pDesc->vert.pEntryPoint) + 1) * sizeof(char); break;
-//					case SG_SHADER_STAGE_TESC: totalSize += (strlen(pDesc->hull.pEntryPoint) + 1) * sizeof(char); break;
-//					case SG_SHADER_STAGE_TESE: totalSize += (strlen(pDesc->domain.pEntryPoint) + 1) * sizeof(char); break;
-//					case SG_SHADER_STAGE_GEOM: totalSize += (strlen(pDesc->geom.pEntryPoint) + 1) * sizeof(char); break;
-//					case SG_SHADER_STAGE_FRAG: totalSize += (strlen(pDesc->frag.pEntryPoint) + 1) * sizeof(char); break;
-//					case SG_SHADER_STAGE_COMP: totalSize += (strlen(pDesc->comp.pEntryPoint) + 1) * sizeof(char); break;
-//					case SG_SHADER_STAGE_RAYTRACING: totalSize += (strlen(pDesc->comp.pEntryPoint) + 1) * sizeof(char); break;
-//					default: break;
-//				}
-//				++counter;
-//			}
-//		}
-//
-//		totalSize += counter * sizeof(VkShaderModule);
-//		totalSize += counter * sizeof(char*);
-//		Shader* pShaderProgram = (Shader*)sg_calloc(1, totalSize);
-//
-//		pShaderProgram->stages = pDesc->stages;
-//		pShaderProgram->pReflection = (PipelineReflection*)(pShaderProgram + 1);
-//		pShaderProgram->pShaderModules = (VkShaderModule*)(pShaderProgram->pReflection + 1);
-//		pShaderProgram->pEntryNames = (char**)(pShaderProgram->pShaderModules + counter);
-//
-//		uint8_t* mem = (uint8_t*)(pShaderProgram->pEntryNames + counter);
-//		counter = 0;
-//		ShaderReflection stageReflections[SG_SHADER_STAGE_COUNT] = {};
-//
-//		for (uint32_t i = 0; i < SG_SHADER_STAGE_COUNT; ++i)
-//		{
-//			ShaderStage stageMask = (ShaderStage)(1 << i);
-//			if (stageMask == (pShaderProgram->stages & stageMask))
-//			{
-//				SG_DECLARE_ZERO(VkShaderModuleCreateInfo, createInfo);
-//				createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-//				createInfo.pNext = nullptr;
-//				createInfo.flags = 0;
-//
-//				const BinaryShaderStageDesc* pStageDesc = nullptr;
-//				switch (stageMask)
-//				{
-//				case SG_SHADER_STAGE_VERT:
-//				{
-//					vk_create_shader_reflection((const uint8_t*)pDesc->vert.pByteCode, (uint32_t)pDesc->vert.byteCodeSize, stageMask,
-//						&stageReflections[counter]);
-//
-//					createInfo.codeSize = pDesc->vert.byteCodeSize;
-//					createInfo.pCode = (const uint32_t*)pDesc->vert.pByteCode;
-//					pStageDesc = &pDesc->vert;
-//					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
-//				}
-//				break;
-//				case SG_SHADER_STAGE_TESC:
-//				{
-//					vk_create_shader_reflection((const uint8_t*)pDesc->hull.pByteCode, (uint32_t)pDesc->hull.byteCodeSize, stageMask,
-//						&stageReflections[counter]);
-//
-//					createInfo.codeSize = pDesc->hull.byteCodeSize;
-//					createInfo.pCode = (const uint32_t*)pDesc->hull.pByteCode;
-//					pStageDesc = &pDesc->hull;
-//					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
-//				}
-//				break;
-//				case SG_SHADER_STAGE_TESE:
-//				{
-//					vk_create_shader_reflection((const uint8_t*)pDesc->domain.pByteCode, (uint32_t)pDesc->domain.byteCodeSize, stageMask,
-//						&stageReflections[counter]);
-//
-//					createInfo.codeSize = pDesc->domain.byteCodeSize;
-//					createInfo.pCode = (const uint32_t*)pDesc->domain.pByteCode;
-//					pStageDesc = &pDesc->domain;
-//					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
-//				}
-//				break;
-//				case SG_SHADER_STAGE_GEOM:
-//				{
-//					vk_create_shader_reflection((const uint8_t*)pDesc->geom.pByteCode, (uint32_t)pDesc->geom.byteCodeSize, stageMask,
-//						&stageReflections[counter]);
-//
-//					createInfo.codeSize = pDesc->geom.byteCodeSize;
-//					createInfo.pCode = (const uint32_t*)pDesc->geom.pByteCode;
-//					pStageDesc = &pDesc->geom;
-//					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
-//				}
-//				break;
-//				case SG_SHADER_STAGE_FRAG:
-//				{
-//					vk_create_shader_reflection((const uint8_t*)pDesc->frag.pByteCode, (uint32_t)pDesc->frag.byteCodeSize, stageMask,
-//						&stageReflections[counter]);
-//
-//					createInfo.codeSize = pDesc->frag.byteCodeSize;
-//					createInfo.pCode = (const uint32_t*)pDesc->frag.pByteCode;
-//					pStageDesc = &pDesc->frag;
-//					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
-//				}
-//				break;
-//				case SG_SHADER_STAGE_COMP:
-//#ifdef SG_ENABLE_RAYTRACING
-//				case SG_SHADER_STAGE_RAYTRACING:
-//#endif
-//				{
-//					vk_create_shader_reflection((const uint8_t*)pDesc->comp.pByteCode, (uint32_t)pDesc->comp.byteCodeSize, stageMask,
-//						&stageReflections[counter]);
-//
-//					createInfo.codeSize = pDesc->comp.byteCodeSize;
-//					createInfo.pCode = (const uint32_t*)pDesc->comp.pByteCode;
-//					pStageDesc = &pDesc->comp;
-//					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
-//				}
-//				break;
-//				default: ASSERT(false && "Shader Stage not supported!"); break;
-//				}
-//
-//				pShaderProgram->pEntryNames[counter] = (char*)mem;
-//				mem += (strlen(pStageDesc->pEntryPoint) + 1) * sizeof(char);
-//				strcpy(pShaderProgram->pEntryNames[counter], pStageDesc->pEntryPoint);
-//				++counter;
-//			}
-//		}
-//
-//		create_pipeline_reflection(stageReflections, counter, pShaderProgram->pReflection);
-//
-//		*ppShaderProgram = pShaderProgram;
-//	}
-//
-//	void remove_shader(Renderer* pRenderer, Shader* pShaderProgram)
-//	{
-//		ASSERT(pRenderer);
-//
-//		ASSERT(VK_NULL_HANDLE != pRenderer->pVkDevice);
-//
-//		if (pShaderProgram->stages & SG_SHADER_STAGE_VERT)
-//		{
-//			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->vertexStageIndex], nullptr);
-//		}
-//
-//		if (pShaderProgram->stages & SG_SHADER_STAGE_TESC)
-//		{
-//			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->hullStageIndex], nullptr);
-//		}
-//
-//		if (pShaderProgram->stages & SG_SHADER_STAGE_TESE)
-//		{
-//			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->domainStageIndex], nullptr);
-//		}
-//
-//		if (pShaderProgram->stages & SG_SHADER_STAGE_GEOM)
-//		{
-//			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->geometryStageIndex], nullptr);
-//		}
-//
-//		if (pShaderProgram->stages & SG_SHADER_STAGE_FRAG)
-//		{
-//			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->pixelStageIndex], nullptr);
-//		}
-//
-//		if (pShaderProgram->stages & SG_SHADER_STAGE_COMP)
-//		{
-//			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[0], nullptr);
-//		}
-//#ifdef SG_ENABLE_RAYTRACING
-//		if (pShaderProgram->stages & SG_SHADER_STAGE_RAYTRACING)
-//		{
-//			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[0], nullptr);
-//		}
-//#endif
-//
-//		destroy_pipeline_reflection(pShaderProgram->pReflection);
-//		SG_SAFE_FREE(pShaderProgram);
-//	}
+	void add_shader_binary(Renderer* pRenderer, const BinaryShaderCreateDesc* pDesc, Shader** ppShaderProgram)
+	{
+		ASSERT(pRenderer);
+		ASSERT(pDesc);
+		ASSERT(ppShaderProgram);
+		ASSERT(VK_NULL_HANDLE != pRenderer->pVkDevice);
+
+		uint32_t counter = 0;
+
+		size_t totalSize = sizeof(Shader);
+		totalSize += sizeof(PipelineReflection);
+
+		for (uint32_t i = 0; i < SG_SHADER_STAGE_COUNT; ++i)
+		{
+			ShaderStage stageMask = (ShaderStage)(1 << i);
+			if (stageMask == (pDesc->stages & stageMask))
+			{
+				switch (stageMask)
+				{
+					case SG_SHADER_STAGE_VERT: totalSize += (strlen(pDesc->vert.pEntryPoint) + 1) * sizeof(char); break;
+					case SG_SHADER_STAGE_TESC: totalSize += (strlen(pDesc->hull.pEntryPoint) + 1) * sizeof(char); break;
+					case SG_SHADER_STAGE_TESE: totalSize += (strlen(pDesc->domain.pEntryPoint) + 1) * sizeof(char); break;
+					case SG_SHADER_STAGE_GEOM: totalSize += (strlen(pDesc->geom.pEntryPoint) + 1) * sizeof(char); break;
+					case SG_SHADER_STAGE_FRAG: totalSize += (strlen(pDesc->frag.pEntryPoint) + 1) * sizeof(char); break;
+					case SG_SHADER_STAGE_COMP: totalSize += (strlen(pDesc->comp.pEntryPoint) + 1) * sizeof(char); break;
+					case SG_SHADER_STAGE_RAYTRACING: totalSize += (strlen(pDesc->comp.pEntryPoint) + 1) * sizeof(char); break;
+					default: break;
+				}
+				++counter;
+			}
+		}
+
+		totalSize += counter * sizeof(VkShaderModule);
+		totalSize += counter * sizeof(char*);
+		Shader* pShaderProgram = (Shader*)sg_calloc(1, totalSize);
+
+		pShaderProgram->stages = pDesc->stages;
+		pShaderProgram->pReflection = (PipelineReflection*)(pShaderProgram + 1);
+		pShaderProgram->pShaderModules = (VkShaderModule*)(pShaderProgram->pReflection + 1);
+		pShaderProgram->pEntryNames = (char**)(pShaderProgram->pShaderModules + counter);
+
+		uint8_t* mem = (uint8_t*)(pShaderProgram->pEntryNames + counter);
+		counter = 0;
+		ShaderReflection stageReflections[SG_SHADER_STAGE_COUNT] = {};
+
+		for (uint32_t i = 0; i < SG_SHADER_STAGE_COUNT; ++i)
+		{
+			ShaderStage stageMask = (ShaderStage)(1 << i);
+			if (stageMask == (pShaderProgram->stages & stageMask))
+			{
+				SG_DECLARE_ZERO(VkShaderModuleCreateInfo, createInfo);
+				createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+				createInfo.pNext = nullptr;
+				createInfo.flags = 0;
+
+				const BinaryShaderStageDesc* pStageDesc = nullptr;
+				switch (stageMask)
+				{
+				case SG_SHADER_STAGE_VERT:
+				{
+					vk_create_shader_reflection((const uint8_t*)pDesc->vert.pByteCode, (uint32_t)pDesc->vert.byteCodeSize, stageMask,
+						&stageReflections[counter]);
+
+					createInfo.codeSize = pDesc->vert.byteCodeSize;
+					createInfo.pCode = (const uint32_t*)pDesc->vert.pByteCode;
+					pStageDesc = &pDesc->vert;
+					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
+				}
+				break;
+				case SG_SHADER_STAGE_TESC:
+				{
+					vk_create_shader_reflection((const uint8_t*)pDesc->hull.pByteCode, (uint32_t)pDesc->hull.byteCodeSize, stageMask,
+						&stageReflections[counter]);
+
+					createInfo.codeSize = pDesc->hull.byteCodeSize;
+					createInfo.pCode = (const uint32_t*)pDesc->hull.pByteCode;
+					pStageDesc = &pDesc->hull;
+					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
+				}
+				break;
+				case SG_SHADER_STAGE_TESE:
+				{
+					vk_create_shader_reflection((const uint8_t*)pDesc->domain.pByteCode, (uint32_t)pDesc->domain.byteCodeSize, stageMask,
+						&stageReflections[counter]);
+
+					createInfo.codeSize = pDesc->domain.byteCodeSize;
+					createInfo.pCode = (const uint32_t*)pDesc->domain.pByteCode;
+					pStageDesc = &pDesc->domain;
+					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
+				}
+				break;
+				case SG_SHADER_STAGE_GEOM:
+				{
+					vk_create_shader_reflection((const uint8_t*)pDesc->geom.pByteCode, (uint32_t)pDesc->geom.byteCodeSize, stageMask,
+						&stageReflections[counter]);
+
+					createInfo.codeSize = pDesc->geom.byteCodeSize;
+					createInfo.pCode = (const uint32_t*)pDesc->geom.pByteCode;
+					pStageDesc = &pDesc->geom;
+					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
+				}
+				break;
+				case SG_SHADER_STAGE_FRAG:
+				{
+					vk_create_shader_reflection((const uint8_t*)pDesc->frag.pByteCode, (uint32_t)pDesc->frag.byteCodeSize, stageMask,
+						&stageReflections[counter]);
+
+					createInfo.codeSize = pDesc->frag.byteCodeSize;
+					createInfo.pCode = (const uint32_t*)pDesc->frag.pByteCode;
+					pStageDesc = &pDesc->frag;
+					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
+				}
+				break;
+				case SG_SHADER_STAGE_COMP:
+#ifdef SG_ENABLE_RAYTRACING
+				case SG_SHADER_STAGE_RAYTRACING:
+#endif
+				{
+					vk_create_shader_reflection((const uint8_t*)pDesc->comp.pByteCode, (uint32_t)pDesc->comp.byteCodeSize, stageMask,
+						&stageReflections[counter]);
+
+					createInfo.codeSize = pDesc->comp.byteCodeSize;
+					createInfo.pCode = (const uint32_t*)pDesc->comp.pByteCode;
+					pStageDesc = &pDesc->comp;
+					SG_CHECK_VKRESULT(vkCreateShaderModule(pRenderer->pVkDevice, &createInfo, nullptr, &(pShaderProgram->pShaderModules[counter])));
+				}
+				break;
+				default: ASSERT(false && "Shader Stage not supported!"); break;
+				}
+
+				pShaderProgram->pEntryNames[counter] = (char*)mem;
+				mem += (strlen(pStageDesc->pEntryPoint) + 1) * sizeof(char);
+				strcpy(pShaderProgram->pEntryNames[counter], pStageDesc->pEntryPoint);
+				++counter;
+			}
+		}
+
+		create_pipeline_reflection(stageReflections, counter, pShaderProgram->pReflection);
+
+		*ppShaderProgram = pShaderProgram;
+	}
+
+	void remove_shader(Renderer* pRenderer, Shader* pShaderProgram)
+	{
+		ASSERT(pRenderer);
+
+		ASSERT(VK_NULL_HANDLE != pRenderer->pVkDevice);
+
+		if (pShaderProgram->stages & SG_SHADER_STAGE_VERT)
+		{
+			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->vertexStageIndex], nullptr);
+		}
+
+		if (pShaderProgram->stages & SG_SHADER_STAGE_TESC)
+		{
+			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->hullStageIndex], nullptr);
+		}
+
+		if (pShaderProgram->stages & SG_SHADER_STAGE_TESE)
+		{
+			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->domainStageIndex], nullptr);
+		}
+
+		if (pShaderProgram->stages & SG_SHADER_STAGE_GEOM)
+		{
+			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->geometryStageIndex], nullptr);
+		}
+
+		if (pShaderProgram->stages & SG_SHADER_STAGE_FRAG)
+		{
+			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[pShaderProgram->pReflection->pixelStageIndex], nullptr);
+		}
+
+		if (pShaderProgram->stages & SG_SHADER_STAGE_COMP)
+		{
+			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[0], nullptr);
+		}
+#ifdef SG_ENABLE_RAYTRACING
+		if (pShaderProgram->stages & SG_SHADER_STAGE_RAYTRACING)
+		{
+			vkDestroyShaderModule(pRenderer->pVkDevice, pShaderProgram->pShaderModules[0], nullptr);
+		}
+#endif
+
+		destroy_pipeline_reflection(pShaderProgram->pReflection);
+		SG_SAFE_FREE(pShaderProgram);
+	}
 
 #pragma endregion (Shader)
 
@@ -3522,7 +3604,7 @@ void remove_command_pool(Renderer* pRenderer, CmdPool* pCmdPool)
 
 #pragma region (Cmd Allocation)
 
-void add_cmd(Renderer* pRenderer, const CmdDesc* pDesc, Cmd** ppCmd)
+void add_cmd(Renderer* pRenderer, const CmdCreateDesc* pDesc, Cmd** ppCmd)
 {
 	ASSERT(pRenderer);
 	ASSERT(VK_NULL_HANDLE != pDesc->pPool);
@@ -3560,7 +3642,7 @@ void remove_cmd(Renderer* pRenderer, Cmd* pCmd)
 	SG_SAFE_FREE(pCmd);
 }
 
-void add_cmd_n(Renderer* pRenderer, const CmdDesc* pDesc, uint32_t cmdCount, Cmd*** pCmds)
+void add_cmd_n(Renderer* pRenderer, const CmdCreateDesc* pDesc, uint32_t cmdCount, Cmd*** pCmds)
 {
 	// verify that ***cmd is valid
 	ASSERT(pRenderer);
@@ -4926,7 +5008,7 @@ void add_swapchain(Renderer* pRenderer, const SwapChainCreateDesc* pDesc, SwapCh
 	cmdPoolDesc.pQueue = queue;
 	add_command_pool(pRenderer, &cmdPoolDesc, &cmdPool);
 
-	CmdDesc cmdDesc = {};
+	CmdCreateDesc cmdDesc = {};
 	cmdDesc.pPool = cmdPool;
 	add_cmd(pRenderer, &cmdDesc, &cmd);
 	add_fence(pRenderer, &fence);
@@ -4998,7 +5080,7 @@ void toggle_VSync(Renderer* pRenderer, SwapChain** ppSwapChain)
 
 #pragma region (Command Buffer Function)
 
-void reset_cmd_pool(Renderer* pRenderer, CmdPool* pCmdPool)
+void reset_command_pool(Renderer* pRenderer, CmdPool* pCmdPool)
 {
 	ASSERT(pRenderer);
 	ASSERT(pCmdPool);
@@ -5405,7 +5487,7 @@ void cmd_resource_barrier(Cmd* pCmd,
 		cmdPoolDesc.transient = true; // for temporary use
 		add_command_pool(pRenderer, &cmdPoolDesc, &cmdPool);
 
-		CmdDesc cmdDesc = {};
+		CmdCreateDesc cmdDesc = {};
 		cmdDesc.pPool = cmdPool;
 		add_cmd(pRenderer, &cmdDesc, &cmd);
 

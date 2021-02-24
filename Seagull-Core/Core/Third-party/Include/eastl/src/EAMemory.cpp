@@ -4,8 +4,8 @@
 // Copyright (c) Electronic Arts. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "../EABase/eabase.h"
-#include "EAMemory.h"
+#include "../include/EABase/eabase.h"
+#include "../include/EASTL/EAStdC/EAMemory.h"
 
 
 namespace EA {

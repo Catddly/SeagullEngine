@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "../../../Core/Source/Interface/IOperatingSystem.h"
+#include "../../../Core/Source/Interface/IThread.h"
 #include "../../../Core/Third-party/Include/tinyImageFormat/include/tinyimageformat_base.h"
 
 #ifdef __cplusplus
@@ -230,6 +232,11 @@ namespace SG
 		uint64_t offset;
 		uint64_t size;
 	} ReadRange;
+
+	typedef enum DefaultResourceAlignment
+	{
+		SG_RESOURCE_BUFFER_ALIGNMENT = 4U,
+	} DefaultResourceAlignment;
 
 #pragma region (Blending)
 
@@ -1024,11 +1031,11 @@ namespace SG
 		Queue* pQueue;
 	} CmdPool;
 
-	typedef struct CmdDesc
+	typedef struct CmdCreateDesc
 	{
 		CmdPool* pPool;
 		bool     secondary;
-	} CmdDesc;
+	} CmdCreateDesc;
 
 	typedef struct SG_ALIGN(Cmd, 64)
 	{
@@ -2229,20 +2236,20 @@ namespace SG
 	// command pool functions
 	SG_RENDER_API void SG_CALLCONV add_command_pool(Renderer* pRenderer, const CmdPoolCreateDesc* pDesc, CmdPool** pCmdPool);
 	SG_RENDER_API void SG_CALLCONV remove_command_pool(Renderer* pRenderer, CmdPool* pCmdPool);
-	SG_RENDER_API void SG_CALLCONV add_cmd(Renderer* pRenderer, const CmdDesc* pDesc, Cmd** pCmd);
+	SG_RENDER_API void SG_CALLCONV add_cmd(Renderer* pRenderer, const CmdCreateDesc* pDesc, Cmd** pCmd);
 	SG_RENDER_API void SG_CALLCONV remove_cmd(Renderer* pRenderer, Cmd* pCmd);
-	SG_RENDER_API void SG_CALLCONV add_cmd_n(Renderer* pRenderer, const CmdDesc* pDesc, uint32_t cmdCount, Cmd*** pCmds);
+	SG_RENDER_API void SG_CALLCONV add_cmd_n(Renderer* pRenderer, const CmdCreateDesc* pDesc, uint32_t cmdCount, Cmd*** pCmds);
 	SG_RENDER_API void SG_CALLCONV remove_cmd_n(Renderer* pRenderer, uint32_t cmdCount, Cmd** pCmds);
 
 	// command buffer functions
-	SG_RENDER_API void SG_CALLCONV reset_cmd_pool(Renderer* pRenderer, CmdPool* pCmdPool);
+	SG_RENDER_API void SG_CALLCONV reset_command_pool(Renderer* pRenderer, CmdPool* pCmdPool);
 	SG_RENDER_API void SG_CALLCONV begin_cmd(Cmd* pCmd);
 	SG_RENDER_API void SG_CALLCONV end_cmd(Cmd* pCmd);
 	SG_RENDER_API void SG_CALLCONV cmd_bind_render_targets(Cmd* pCmd, uint32_t renderTargetCount, RenderTarget** pRenderTargets, RenderTarget* pDepthStencil, const LoadActionsDesc* loadActions, uint32_t* pColorArraySlices, uint32_t* pColorMipSlices, uint32_t depthArraySlice, uint32_t depthMipSlice);
 	SG_RENDER_API void SG_CALLCONV cmd_set_viewport(Cmd* pCmd, float x, float y, float width, float height, float minDepth, float maxDepth);
 	SG_RENDER_API void SG_CALLCONV cmd_set_scissor(Cmd* pCmd, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 	SG_RENDER_API void SG_CALLCONV cmd_set_stencil_reference_value(Cmd* pCmd, uint32_t value);
-	SG_RENDER_API void SG_CALLCONV cmd_bind_pipeline(Cmd* pCmd, Pipeline* p_pipeline);
+	SG_RENDER_API void SG_CALLCONV cmd_bind_pipeline(Cmd* pCmd, Pipeline* pPipeline);
 	SG_RENDER_API void SG_CALLCONV cmd_bind_descriptor_set(Cmd* pCmd, uint32_t index, DescriptorSet* pDescriptorSet);
 	SG_RENDER_API void SG_CALLCONV cmd_bind_push_constants(Cmd* pCmd, RootSignature* pRootSignature, const char* pName, const void* pConstants);
 	SG_RENDER_API void SG_CALLCONV cmd_bind_push_constants_by_index(Cmd* pCmd, RootSignature* pRootSignature, uint32_t paramIndex, const void* pConstants);

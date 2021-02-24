@@ -4,9 +4,9 @@
 // Copyright (c) Electronic Arts. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "../EABase/eabase.h"
-#include "../EAAssert/eaassert.h"
-#include "EASprintf.h"
+#include "../include/EABase/eabase.h"
+#include "../include/EASTL/EAAssert/eaassert.h"
+#include "../include/EASTL/EAStdC/EASprintf.h"
 #include <cwchar>
 #include <stdio.h>
 

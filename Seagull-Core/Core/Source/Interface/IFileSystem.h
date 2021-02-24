@@ -154,7 +154,7 @@ namespace SG
 		size_t sgfs_read_from_stream(FileStream* pStream, void* pOutputBuffer, size_t bufferSizeInbytes);
 		size_t sgfs_write_to_stream(FileStream* pStream, const void* pSourceBuffer, size_t byteCount);
 
-		/// offset in the file stream 
+		/// offset to the dst in file stream
 		bool sgfs_seek_stream(FileStream* pStream, SeekBaseOffset baseOffset, ssize_t byteOffset);
 		ssize_t sgfs_get_offset_stream_position(const FileStream* pStream);
 
@@ -237,6 +237,9 @@ namespace SG
 			default:                       return "r";
 			}
 		}
+
+		/// Gets the time of last modification for the file at `fileName`, within 'resourceDir'.
+		time_t sgfs_get_last_modified_time(ResourceDirectory resourceDir, const char* fileName);
 
 #ifdef __cplusplus
 	}

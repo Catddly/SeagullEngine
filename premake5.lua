@@ -148,7 +148,8 @@ project "Sandbox"
     links
     {
         "Seagull-Core",
-        "RendererVulkan"
+        "RendererVulkan",
+        "eastl",
     }
 
 filter "system:windows"

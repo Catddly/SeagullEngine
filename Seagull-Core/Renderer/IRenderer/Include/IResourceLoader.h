@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#include "IRenderer.h"
+//#include "IRenderer.h"
 //#include "../../../Core/Source/Core/Atomic.h"
 //#include "../../../Core/Source/Math/MathTypes.h"
 
@@ -202,8 +202,8 @@ namespace SG
 		/// Internal
 		struct
 		{
-			MappedMemoryRange mMappedRange;
-		} internal;
+			MappedMemoryRange mappedRange;
+		} mInternal;
 	} TextureUpdateDesc;
 
 	typedef enum ShaderStageLoadFlags
@@ -216,7 +216,7 @@ namespace SG
 
 	typedef struct ShaderStageLoadDesc
 	{
-		const char* fileName;
+		const char*  fileName;
 		ShaderMacro* pMacros;
 		uint32_t     macroCount;
 		const char* entryPointName;
