@@ -2255,7 +2255,7 @@ namespace SG
 	SG_RENDER_API void SG_CALLCONV cmd_bind_push_constants_by_index(Cmd* pCmd, RootSignature* pRootSignature, uint32_t paramIndex, const void* pConstants);
 	SG_RENDER_API void SG_CALLCONV cmd_bind_vertex_buffer(Cmd* pCmd, uint32_t bufferCount, Buffer** ppBuffers, const uint32_t* pStrides, const uint64_t* pOffsets);
 	SG_RENDER_API void SG_CALLCONV cmd_bind_index_buffer(Cmd* pCmd, Buffer* pBuffer, uint32_t indexType, uint64_t offset);
-	SG_RENDER_API void SG_CALLCONV cmd_draw(Cmd* pCmd, uint32_t vertex_count, uint32_t firstVertex);
+	SG_RENDER_API void SG_CALLCONV cmd_draw(Cmd* pCmd, uint32_t vertexCount, uint32_t firstVertex);
 	SG_RENDER_API void SG_CALLCONV cmd_draw_instanced(Cmd* pCmd, uint32_t vertexCount, uint32_t firstVertex, uint32_t instanceCount, uint32_t firstInstance);
 	SG_RENDER_API void SG_CALLCONV cmd_draw_indexed(Cmd* pCmd, uint32_t indexCount, uint32_t firstIndex, uint32_t firstVertex);
 	SG_RENDER_API void SG_CALLCONV cmd_draw_indexed_instanced(Cmd* pCmd, uint32_t indexCount, uint32_t firstIndex, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);

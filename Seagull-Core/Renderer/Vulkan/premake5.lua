@@ -20,13 +20,15 @@ project "RendererVulkan"
         "../../Core/Third-party/Include/eastl/",
         "../../Core/Third-party/Include/tinyImageFormat/",
 		"../../Core/Source/",
-		"../../Core/Third-party/Include/glm/"
+		"../../Core/Third-party/Include/glm/",
+		"../../Core/Third-party/Include/spirv-cross/"
 	}
 
 	-- link libraries
 	links
 	{
-		"libs/vulkan-1.lib"
+		"libs/vulkan-1.lib",
+		"spirv-cross"
 	}
 
 	filter "system:windows"

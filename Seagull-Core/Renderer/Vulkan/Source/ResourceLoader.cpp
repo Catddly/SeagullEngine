@@ -2136,7 +2136,6 @@ namespace SG
 
 #pragma endregion (Interface Implemetation)
 
-
 	// Shader loading
 	#if defined(__ANDROID__) && defined(SG_GRAPHIC_API_VULKAN)
 	// Translate Vulkan Shader Type to shaderc shader type
@@ -2519,7 +2518,6 @@ namespace SG
 				if (fileName.at(0) == '<')    // disregard bracketsauthop
 					continue;
 
-
 				// open the include file
 				FileStream fHandle = {};
 				char includePath[SG_MAX_FILEPATH] = {};
@@ -2599,7 +2597,10 @@ namespace SG
 	#else
 		ssize_t size = sgfs_get_stream_file_size(&fh);
 		pOut->byteCodeSize = (uint32_t)size;
-		pOut->pByteCode = sg_memalign(256, size);
+		//pOut->pByteCode = sg_memalign(256, size);
+		pOut->pByteCode = sg_malloc(size);
+		ASSERT(pOut->pByteCode);
+
 		sgfs_read_from_stream(&fh, (void*)pOut->pByteCode, size);
 	#endif
 		sgfs_close_stream(&fh);
@@ -2733,6 +2734,8 @@ namespace SG
 			eastl::string().sprintf("%u", pRenderer->mFeatureLevel) +
 	#endif
 			".bin";
+
+		SG_LOG_DEBUG("binary shader component: %s", binaryShaderComponent.c_str());
 
 		// shader source is newer than binary
 		if (!check_for_byte_code(pRenderer, binaryShaderComponent.c_str(), timeStamp, pOut))

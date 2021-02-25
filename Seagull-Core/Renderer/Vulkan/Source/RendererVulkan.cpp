@@ -1,10 +1,9 @@
 #define SG_RENDERER_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
 
-#include "Core/CompilerConfig.h"
+//#define SG_USE_RENDER_DOC
 
-#include "Interface/ILog.h"
-#include "Interface/IThread.h"
+#include "Core/CompilerConfig.h"
 
 #include "Core/Atomic.h"
 
@@ -17,6 +16,9 @@
 #include <vulkan/vulkan_win32.h>
 
 #include "IRenderer.h"
+
+#include "Interface/ILog.h"
+#include "Interface/IThread.h"
 
 #if defined(SG_PLATFORM_WINDOWS)
 // pull in minimal Windows headers
@@ -52,6 +54,8 @@
 #ifdef SG_DEBUG
 #define SG_ENABLE_GRAPHICS_DEBUG
 #endif
+
+//#undef SG_ENABLE_GRAPHICS_DEBUG
 
 #define SG_SAFE_FREE(ptr)      \
 	if (ptr)                   \
@@ -338,8 +342,8 @@ namespace SG
 
 	TinyImageFormat get_recommended_swapchain_format(bool hintHDR)
 	{
-		if (hintHDR)
-			return TinyImageFormat_A2B10G10R10_UNORM; // VK_FORMAT_A2B10G10R10_UNORM_PACK32
+		//if (hintHDR)
+		//	return TinyImageFormat_A2B10G10R10_UNORM; // VK_FORMAT_A2B10G10R10_UNORM_PACK32
 
 		// TODO: figure out this properly. BGRA not supported on android.
 #if !defined(VK_USE_PLATFORM_ANDROID_KHR) && !defined(VK_USE_PLATFORM_VI_NN)
@@ -3870,7 +3874,7 @@ void cmd_set_viewport(Cmd* pCmd, float x, float y, float width, float height, fl
 	viewport.x = x;
 	viewport.y = y + height;
 	viewport.width = width;
-	viewport.height = -height; // inverse height
+	viewport.height = height;
 	viewport.minDepth = minDepth;
 	viewport.maxDepth = maxDepth;
 	vkCmdSetViewport(pCmd->pVkCmdBuf, 0, 1, &viewport);
@@ -6524,7 +6528,7 @@ void cmd_resource_barrier(Cmd* pCmd,
 #endif
 
 			// this turns on render doc layer for gpu capture
-#ifdef USE_RENDER_DOC
+#ifdef SG_USE_RENDER_DOC
 			instanceLayers[instanceLayerCount++] = "VK_LAYER_RENDERDOC_Capture";
 #endif
 
@@ -6662,10 +6666,10 @@ void cmd_resource_barrier(Cmd* pCmd,
 			{ "VK_EXT_DESCRIPTOR_INDEXING_ENABLED", descriptorIndexingMacroBuffer },
 			{ "VK_FEATURE_TEXTURE_ARRAY_DYNAMIC_INDEXING_ENABLED", textureArrayDynamicIndexingMacroBuffer },
 			// Descriptor set indices
-			{ "UPDATE_FREQ_NONE",      "set = 0" },
-			{ "UPDATE_FREQ_PER_FRAME", "set = 1" },
-			{ "UPDATE_FREQ_PER_BATCH", "set = 2" },
-			{ "UPDATE_FREQ_PER_DRAW",  "set = 3" },
+			{ "SG_UPDATE_FREQ_NONE",      "set = 0" },
+			{ "SG_UPDATE_FREQ_PER_FRAME", "set = 1" },
+			{ "SG_UPDATE_FREQ_PER_BATCH", "set = 2" },
+			{ "SG_UPDATE_FREQ_PER_DRAW",  "set = 3" },
 		};
 		pRenderer->builtinShaderDefinesCount = sizeof(rendererShaderDefines) / sizeof(rendererShaderDefines[0]);
 		pRenderer->pBuiltinShaderDefines = rendererShaderDefines;
@@ -6873,7 +6877,7 @@ void cmd_resource_barrier(Cmd* pCmd,
 				func(pCmd->pVkCmdBuf, &markerInfo);
 			}
 			//vkCmdBeginDebugUtilsLabelEXT(pCmd->pVkCmdBuf, &markerInfo);
-#elif !defined(NX64) || !defined(USE_RENDER_DOC)
+#elif !defined(NX64) || !defined(SG_USE_RENDER_DOC)
 			VkDebugMarkerMarkerInfoEXT markerInfo = {};
 			markerInfo.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
 			markerInfo.color[0] = r;
@@ -6905,7 +6909,7 @@ void cmd_resource_barrier(Cmd* pCmd,
 				func(pCmd->pVkCmdBuf);
 			}
 			//vkCmdEndDebugUtilsLabelEXT(pCmd->pVkCmdBuf);
-#elif !defined(NX64) || !defined(USE_RENDER_DOC)
+#elif !defined(NX64) || !defined(SG_USE_RENDER_DOC)
 			auto func = (PFN_vkCmdDebugMarkerEndEXT)
 				vkGetInstanceProcAddr(pRenderer->pVkInstance, "vkCmdDebugMarkerEndEXT");
 			if (func != nullptr)
