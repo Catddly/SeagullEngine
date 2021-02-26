@@ -65,43 +65,43 @@ public:
 
 			init_resource_loader_interface(mRenderer);
 
-			//TextureLoadDesc textureCreate = {};
-			//textureCreate.fileName = "Moon";
-			//textureCreate.ppTexture = &mTexture;
-			//add_resource(&textureCreate, nullptr);
+			TextureLoadDesc textureCreate = {};
+			textureCreate.fileName = "Moon";
+			textureCreate.ppTexture = &mTexture;
+			add_resource(&textureCreate, nullptr);
 
 			ShaderLoadDesc loadBasicShader = {};
 			loadBasicShader.stages[0] = { "triangle.vert", nullptr, 0, "main" };
 			loadBasicShader.stages[1] = { "triangle.frag", nullptr, 0, "main" };
 			add_shader(mRenderer, &loadBasicShader, &mTriangleShader);
 
-			//SamplerCreateDesc samplerCreate = {};
-			//samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-			//samplerCreate.addressV = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-			//samplerCreate.addressW = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-			//samplerCreate.minFilter = SG_FILTER_LINEAR;
-			//samplerCreate.magFilter = SG_FILTER_LINEAR;
-			//samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
-			//add_sampler(mRenderer, &samplerCreate, &mSampler);
+			SamplerCreateDesc samplerCreate = {};
+			samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+			samplerCreate.addressV = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+			samplerCreate.addressW = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+			samplerCreate.minFilter = SG_FILTER_LINEAR;
+			samplerCreate.magFilter = SG_FILTER_LINEAR;
+			samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
+			add_sampler(mRenderer, &samplerCreate, &mSampler);
 
 			Shader* submitShaders[] = { mTriangleShader };
-			//const char* staticSamplers[] = { "Sampler" };
+			const char* staticSamplers[] = { "Sampler" };
 			RootSignatureCreateDesc rootSignatureCreate = {};
-/*			rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
+			rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
 			rootSignatureCreate.ppStaticSamplers = &mSampler;
-			rootSignatureCreate.ppStaticSamplerNames = staticSamplers;	*/		
-			rootSignatureCreate.staticSamplerCount = 0;
-			rootSignatureCreate.ppStaticSamplers = nullptr;
-			rootSignatureCreate.ppStaticSamplerNames = nullptr;
+			rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
+			//rootSignatureCreate.staticSamplerCount = 0;
+			//rootSignatureCreate.ppStaticSamplers = nullptr;
+			//rootSignatureCreate.ppStaticSamplerNames = nullptr;
 			rootSignatureCreate.ppShaders = submitShaders;
 			rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
 			add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
 
-			//DescriptorSetCreateDesc descriptorSetCreate = {};
-			//descriptorSetCreate.pRootSignature = mRootSignature;
-			//descriptorSetCreate.updateFrequency = SG_DESCRIPTOR_UPDATE_FREQ_NONE;
-			//descriptorSetCreate.maxSets = 1;
-			//add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
+			DescriptorSetCreateDesc descriptorSetCreate = {};
+			descriptorSetCreate.pRootSignature = mRootSignature;
+			descriptorSetCreate.updateFrequency = SG_DESCRIPTOR_UPDATE_FREQ_NONE;
+			descriptorSetCreate.maxSets = 1;
+			add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
 
 			BufferLoadDesc loadVertexBuffer = {};
 			loadVertexBuffer.desc.descriptors = SG_DESCRIPTOR_TYPE_VERTEX_BUFFER;
@@ -126,6 +126,11 @@ public:
 		if (!CreateGraphicPipeline())
 			return false;
 
+		DescriptorData updateData[2] = {};
+		updateData[0].name = "Texture";
+		updateData[0].ppTextures = &mTexture;
+		update_descriptor_set(mRenderer, 0, mDescriptorSet, 1, updateData);
+
 		wait_for_all_resource_loads();
 
 		return true;
@@ -140,13 +145,13 @@ public:
 
 		if (mSettings.resetGraphic || mSettings.quit)
 		{
-			//remove_descriptor_set(mRenderer, mDescriptorSet);
+			remove_descriptor_set(mRenderer, mDescriptorSet);
 
 			remove_resource(mVertexBuffer);
 			remove_resource(mIndexBuffer);
-			//remove_resource(mTexture);
+			remove_resource(mTexture);
 
-			//remove_sampler(mRenderer, mSampler);
+			remove_sampler(mRenderer, mSampler);
 			remove_shader(mRenderer, mTriangleShader);
 			remove_root_signature(mRenderer, mRootSignature);
 
@@ -217,11 +222,11 @@ public:
 		cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 		
 		cmd_bind_pipeline(cmd, mPipeline);
-		//cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
+		cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
 		cmd_bind_vertex_buffer(cmd, 1, &mVertexBuffer, &stride, nullptr);
 		cmd_bind_index_buffer(cmd, mIndexBuffer, SG_INDEX_TYPE_UINT32, 0);
 
-		cmd_draw_indexed(cmd, 3, 0, 0);
+		cmd_draw_indexed(cmd, COUNT_OF(mIndices), 0, 0);
 
 		//loadAction = {};
 		//loadAction.loadActionsColor[0] = SG_LOAD_ACTION_LOAD;
@@ -308,6 +313,15 @@ private:
 
 		DepthStateDesc depthStateDesc = {};
 
+		BlendStateDesc blendStateDesc = {};
+		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_ONE;
+		blendStateDesc.srcFactors[1] = SG_BLEND_CONST_ONE;
+		blendStateDesc.srcAlphaFactors[0] = SG_BLEND_CONST_ONE;
+		blendStateDesc.srcAlphaFactors[1] = SG_BLEND_CONST_ONE;
+		blendStateDesc.renderTargetMask = SG_BLEND_STATE_TARGET_ALL;
+		blendStateDesc.masks[0] = SG_BLEND_COLOR_MASK_ALL;
+		blendStateDesc.masks[1] = SG_BLEND_COLOR_MASK_ALL;
+
 		PipelineCreateDesc pipelineCreate = {};
 		pipelineCreate.type = SG_PIPELINE_TYPE_GRAPHICS;
 		GraphicsPipelineDesc& graphicPipe = pipelineCreate.graphicsDesc;
@@ -321,9 +335,9 @@ private:
 		graphicPipe.pShaderProgram = mTriangleShader;
 
 		graphicPipe.pVertexLayout = &vertexLayout;
-		//graphicPipe.pVertexLayout = nullptr;
 		graphicPipe.pRasterizerState = &rasterizeState;
-		graphicPipe.pDepthState = &depthStateDesc;
+		graphicPipe.pDepthState = nullptr;
+		graphicPipe.pBlendState = &blendStateDesc;
 		add_pipeline(mRenderer, &pipelineCreate, &mPipeline);
 
 		return mPipeline != nullptr;
@@ -342,31 +356,32 @@ private:
 	Semaphore* mImageAcquiredSemaphore = { 0 };
 
 	Shader* mTriangleShader = nullptr;
-	//Sampler* mSampler = nullptr;
+	Sampler* mSampler = nullptr;
 
 	RootSignature* mRootSignature = nullptr;
-	//DescriptorSet* mDescriptorSet = nullptr;
+	DescriptorSet* mDescriptorSet = nullptr;
 	Pipeline* mPipeline = nullptr;
 
-	//Texture* mTexture = nullptr;
+	Texture* mTexture = nullptr;
 	Buffer* mVertexBuffer = nullptr;
 	Buffer* mIndexBuffer = nullptr;
 
-	//float mVertices[20] = {
-	//	1.0f,  1.0f, 1.0f, 0.0f, // 0 top_right 
-	//   -1.0f,  1.0f, 0.0f, 0.0f, // 1 top_left
-	//   -1.0f, -1.0f, 0.0f, 1.0f, // 2 bot_left
-	//	1.0f, -1.0f, 1.0f, 1.0f, // 3 bot_right
-	//};
-
-	float mVertices[12] = {
-		0.0, -0.5, 1.0f, 0.0f, // 0 top_right 
-		0.5,  0.5, 0.0f, 0.0f, // 1 top_left
-		-0.5, 0.5, 0.0f, 1.0f, // 2 bot_left
+	float mVertices[16] = {
+		0.5f,  0.5f, 1.0f, 0.0f, // 0 top_right 
+	   -0.5f,  0.5f, 0.0f, 0.0f, // 1 top_left
+	   -0.5f, -0.5f, 0.0f, 1.0f, // 2 bot_left
+		0.5f, -0.5f, 1.0f, 1.0f, // 3 bot_right
 	};
 
-	const uint32_t mIndices[3] = {
+	//float mVertices[12] = {
+	//	0.0, -0.5, 1.0f, 0.0f,
+	//	0.5,  0.5, 0.0f, 0.0f,
+	//	-0.5, 0.5, 0.0f, 1.0f
+	//};
+
+	const uint32_t mIndices[6] = {
 		0, 1, 2,
+		2, 3, 0,
 	};
 
 	uint32_t mCurrentIndex = 0;

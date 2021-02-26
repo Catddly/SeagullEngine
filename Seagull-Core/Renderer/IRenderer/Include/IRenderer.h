@@ -294,7 +294,18 @@ namespace SG
 		SG_BLEND_STATE_TARGET_7 = 0x80,
 		SG_BLEND_STATE_TARGET_ALL = 0xFF,
 	} BlendStateTargets;
-	SG_MAKE_ENUM_FLAG(uint32_t, BlendStateTargets)
+	SG_MAKE_ENUM_FLAG(uint32_t, BlendStateTargets);
+
+	typedef	enum BlendColorMask
+	{
+		SG_BLEND_COLOR_MASK_R = 0x1,
+		SG_BLEND_COLOR_MASK_G = 0x2,
+		SG_BLEND_COLOR_MASK_B = 0x4,
+		SG_BLEND_COLOR_MASK_A = 0x8,
+		SG_BLEND_COLOR_MASK_ALL = SG_BLEND_COLOR_MASK_R | SG_BLEND_COLOR_MASK_B | SG_BLEND_COLOR_MASK_G | SG_BLEND_COLOR_MASK_A,
+		SG_BLEND_COLOR_MASK_MAX_ENUM = 0x7FFFFFFF
+	} BlendColorMask;
+	SG_MAKE_ENUM_FLAG(uint32_t, BlendColorMask);
 
 	typedef struct BlendStateDesc
 	{
@@ -311,7 +322,7 @@ namespace SG
 		/// Alpha blend mode per render target.
 		BlendMode blendAlphaModes[SG_MAX_RENDER_TARGET_ATTACHMENTS];
 		/// Write mask per render target.
-		int32_t masks[SG_MAX_RENDER_TARGET_ATTACHMENTS];
+		BlendColorMask masks[SG_MAX_RENDER_TARGET_ATTACHMENTS];
 		/// Mask that identifies the render targets affected by the blend state.
 		BlendStateTargets renderTargetMask;
 		/// Set whether alpha to coverage should be enabled.
@@ -1865,7 +1876,6 @@ namespace SG
 		uint16_t                      mMaxSets;
 #endif
 	} DescriptorSet;
-
 
 #pragma endregion (Descriptor Set)
 

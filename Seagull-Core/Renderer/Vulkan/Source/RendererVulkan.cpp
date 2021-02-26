@@ -939,7 +939,6 @@ namespace SG
 	{
 		int blendDescIndex = 0;
 #if defined(SG_ENABLE_GRAPHICS_DEBUG)
-
 		for (int i = 0; i < SG_MAX_RENDER_TARGET_ATTACHMENTS; ++i)
 		{
 			if (pDesc->renderTargetMask & (1 << i))
@@ -951,12 +950,13 @@ namespace SG
 				ASSERT(pDesc->blendModes[blendDescIndex] < BlendMode::SG_MAX_BLEND_MODES);
 				ASSERT(pDesc->blendAlphaModes[blendDescIndex] < BlendMode::SG_MAX_BLEND_MODES);
 			}
+
 			if (pDesc->independentBlend)
 				++blendDescIndex;
 		}
+
 		blendDescIndex = 0;
 #endif
-
 		for (int i = 0; i < SG_MAX_RENDER_TARGET_ATTACHMENTS; ++i)
 		{
 			if (pDesc->renderTargetMask & (1 << i))
@@ -967,6 +967,8 @@ namespace SG
 						gVkBlendConstantTranslator[pDesc->srcAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ONE ||
 						gVkBlendConstantTranslator[pDesc->dstAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ZERO);
 
+				//VkBool32 blendEnable = 1;
+
 				pAttachments[i].blendEnable = blendEnable;
 				pAttachments[i].colorWriteMask = pDesc->masks[blendDescIndex];
 				pAttachments[i].srcColorBlendFactor = gVkBlendConstantTranslator[pDesc->srcFactors[blendDescIndex]];
@@ -976,21 +978,24 @@ namespace SG
 				pAttachments[i].dstAlphaBlendFactor = gVkBlendConstantTranslator[pDesc->dstAlphaFactors[blendDescIndex]];
 				pAttachments[i].alphaBlendOp = gVkBlendOpTranslator[pDesc->blendAlphaModes[blendDescIndex]];
 			}
+
 			if (pDesc->independentBlend)
 				++blendDescIndex;
 		}
 
-		VkPipelineColorBlendStateCreateInfo createInfo = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO ,nullptr };
-		createInfo.flags = 0;
-		createInfo.logicOpEnable = VK_FALSE;
-		createInfo.logicOp = VK_LOGIC_OP_CLEAR;
-		createInfo.pAttachments = pAttachments;
-		createInfo.blendConstants[0] = 0.0f;
-		createInfo.blendConstants[1] = 0.0f;
-		createInfo.blendConstants[2] = 0.0f;
-		createInfo.blendConstants[3] = 0.0f;
+		VkPipelineColorBlendStateCreateInfo cb = {};
+		cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		cb.pNext = nullptr;
+		cb.flags = 0;
+		cb.logicOpEnable = VK_FALSE;
+		cb.logicOp = VK_LOGIC_OP_CLEAR;
+		cb.pAttachments = pAttachments;
+		cb.blendConstants[0] = 0.0f;
+		cb.blendConstants[1] = 0.0f;
+		cb.blendConstants[2] = 0.0f;
+		cb.blendConstants[3] = 0.0f;
 
-		return createInfo;
+		return cb;
 	}
 
 	static inline VkPipelineDepthStencilStateCreateInfo util_to_depth_desc(const DepthStateDesc* pDesc)
@@ -1221,7 +1226,7 @@ namespace SG
 
 #pragma region (Internal Init Function)
 
-	void create_instance(const char* appName, const RendererCreateDesc* pDesc, uint32_t userDefinedInstanceLayerCount,
+	void create_instance(const char* apname, const RendererCreateDesc* pDesc, uint32_t userDefinedInstanceLayerCount,
 		const char** userDefinedInstanceLayers, Renderer* pRenderer)
 	{
 		// These are the extensions that we have loaded
@@ -1250,7 +1255,7 @@ namespace SG
 
 		SG_DECLARE_ZERO(VkApplicationInfo, appInfo);
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		appInfo.pApplicationName = appName;
+		appInfo.pApplicationName = apname;
 		appInfo.applicationVersion = VK_MAKE_VERSION(0, 2, 0);
 		appInfo.pEngineName = "Seagull";
 		appInfo.engineVersion = VK_MAKE_VERSION(0, 2, 0);
@@ -1451,11 +1456,17 @@ namespace SG
 					VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | // Performance warnings are not very vaild on desktop
 #endif
 					VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_DEBUG_BIT_EXT/* | VK_DEBUG_REPORT_INFORMATION_BIT_EXT*/;
-				VkResult res = vkCreateDebugReportCallbackEXT(pRenderer->pVkInstance, &createInfo, nullptr, &(pRenderer->pVkDebugReport));
+
+				auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(pRenderer->pVkInstance, "vkCreateDebugReportCallbackEXT");
+				VkResult res = VK_RESULT_MAX_ENUM;
+				if (func)
+				{
+					res = func(pRenderer->pVkInstance, &createInfo, nullptr, &(pRenderer->pVkDebugReport));
+				}
+				//VkResult res = vkCreateDebugReportCallbackEXT(pRenderer->pVkInstance, &createInfo, nullptr, &(pRenderer->pVkDebugReport));
 				if (VK_SUCCESS != res)
 				{
-					internal_log(
-						SG_LOG_TYPE_ERROR, "vkCreateDebugReportCallbackEXT failed - disabling Vulkan debug callbacks", "internal_vk_init_instance");
+					internal_log(SG_LOG_TYPE_ERROR, "vkCreateDebugReportCallbackEXT failed - disabling Vulkan debug callbacks", "internal_vk_init_instance");
 				}
 			}
 #endif
@@ -1481,7 +1492,12 @@ namespace SG
 #else
 		if (pRenderer->pVkDebugReport)
 		{
-			vkDestroyDebugReportCallbackEXT(pRenderer->pVkInstance, pRenderer->pVkDebugReport, nullptr);
+			auto func = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(pRenderer->pVkInstance, "vkDestroyDebugReportCallbackEXT");
+			if (func)
+			{
+				func(pRenderer->pVkInstance, pRenderer->pVkDebugReport, nullptr);
+			}
+			//vkDestroyDebugReportCallbackEXT(pRenderer->pVkInstance, pRenderer->pVkDebugReport, nullptr);
 			pRenderer->pVkDebugReport = nullptr;
 		}
 #endif
@@ -2698,6 +2714,328 @@ namespace SG
 		SG_SAFE_FREE(pDescriptorSet);
 	}
 
+	void update_descriptor_set(Renderer* pRenderer, uint32_t index, DescriptorSet* pDescriptorSet, uint32_t count, const DescriptorData* pParams)
+	{
+#if defined(SG_ENABLE_GRAPHICS_DEBUG)
+#define VALIDATE_DESCRIPTOR(descriptor,...)																\
+	if (!(descriptor))																					\
+	{																									\
+		eastl::string msg = __FUNCTION__ + eastl::string(" : ") + eastl::string().sprintf(__VA_ARGS__);	\
+		SG_LOG_ERROR(msg.c_str());																		\
+		failed_assert(__FILE__, __LINE__, msg.c_str());													\
+		continue;																						\
+	}
+#else
+#define VALIDATE_DESCRIPTOR(descriptor,...)
+#endif
+
+		ASSERT(pRenderer);
+		ASSERT(pDescriptorSet);
+		ASSERT(pDescriptorSet->pHandles);
+		ASSERT(index < pDescriptorSet->maxSets);
+
+		const RootSignature* pRootSignature = pDescriptorSet->pRootSignature;
+		DescriptorUpdateFrequency updateFreq = (DescriptorUpdateFrequency)pDescriptorSet->updateFrequency;
+		DescriptorUpdateData* pUpdateData = pDescriptorSet->ppUpdateData[index];
+		bool update = false;
+
+#ifdef SG_ENABLE_RAYTRACING
+		VkWriteDescriptorSet* raytracingWrites = NULL;
+		VkWriteDescriptorSetAccelerationStructureNV* raytracingWritesNV = NULL;
+		uint32_t raytracingWriteCount = 0;
+
+		if (pRootSignature->vkRaytracingDescriptorCounts[updateFreq])
+		{
+			raytracingWrites = (VkWriteDescriptorSet*)alloca(pRootSignature->vkRaytracingDescriptorCounts[updateFreq] * sizeof(VkWriteDescriptorSet));
+			raytracingWritesNV = (VkWriteDescriptorSetAccelerationStructureNV*)alloca(pRootSignature->vkRaytracingDescriptorCounts[updateFreq] * sizeof(VkWriteDescriptorSetAccelerationStructureNV));
+		}
+#endif
+
+		for (uint32_t i = 0; i < count; ++i)
+		{
+			const DescriptorData* pParam = pParams + i;
+			uint32_t paramIndex = pParam->index;
+
+			VALIDATE_DESCRIPTOR(pParam->name || (paramIndex != -1), "DescriptorData has NULL name and invalid index");
+
+			const DescriptorInfo* pDesc = (paramIndex != -1) ? (pRootSignature->descriptors + paramIndex) : get_descriptor(pRootSignature, pParam->name);
+			if (paramIndex != -1)
+			{
+				VALIDATE_DESCRIPTOR(pDesc, "Invalid descriptor with param index (%u)", paramIndex);
+			}
+			else
+			{
+				VALIDATE_DESCRIPTOR(pDesc, "Invalid descriptor with param name (%s)", pParam->name);
+			}
+
+			const DescriptorType type = (DescriptorType)pDesc->type;
+			const uint32_t arrayCount = eastl::max(1U, pParam->count);
+
+			VALIDATE_DESCRIPTOR(pDesc->updateFrequency == updateFreq,
+				"Descriptor (%s) - Mismatching update frequency and set index", pDesc->name);
+
+			switch (type)
+			{
+			case SG_DESCRIPTOR_TYPE_SAMPLER:
+			{
+				// Index is invalid when descriptor is a static sampler
+				VALIDATE_DESCRIPTOR(pDesc->indexInParent != -1,
+					"Trying to update a static sampler (%s). All static samplers must be set in addRootSignature and cannot be updated later",
+					pDesc->name);
+
+				VALIDATE_DESCRIPTOR(pParam->ppSamplers, "NULL Sampler (%s)", pDesc->name);
+
+				for (uint32_t arr = 0; arr < arrayCount; ++arr)
+				{
+					VALIDATE_DESCRIPTOR(pParam->ppSamplers[arr], "NULL Sampler (%s [%u] )", pDesc->name, arr);
+
+					pUpdateData[pDesc->handleIndex + arr].imageInfo = { pParam->ppSamplers[arr]->pVkSampler, VK_NULL_HANDLE };
+					update = true;
+				}
+				break;
+			}
+			case SG_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+			{
+				VALIDATE_DESCRIPTOR(pParam->ppTextures, "NULL Texture (%s)", pDesc->name);
+
+				DescriptorNameToIndexMap::const_iterator it = pRootSignature->descriptorNameToIndexMap->mMap.find(pDesc->name);
+				if (it == pRootSignature->descriptorNameToIndexMap->mMap.end())
+				{
+					SG_LOG_ERROR("No Static Sampler called (%s)", pDesc->name);
+					ASSERT(false);
+				}
+
+				for (uint32_t arr = 0; arr < arrayCount; ++arr)
+				{
+					VALIDATE_DESCRIPTOR(pParam->ppTextures[arr], "NULL Texture (%s [%u] )", pDesc->name, arr);
+
+					pUpdateData[pDesc->handleIndex + arr].imageInfo =
+					{
+						nullptr,										// Sampler
+						pParam->ppTextures[arr]->pVkSRVDescriptor,		// Image View
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// Image Layout 
+					};
+
+					update = true;
+				}
+				break;
+			}
+			case SG_DESCRIPTOR_TYPE_TEXTURE:
+			{
+				VALIDATE_DESCRIPTOR(pParam->ppTextures, "NULL Texture (%s)", pDesc->name);
+
+				if (!pParam->bindStencilResource)
+				{
+					for (uint32_t arr = 0; arr < arrayCount; ++arr)
+					{
+						VALIDATE_DESCRIPTOR(pParam->ppTextures[arr], "NULL Texture (%s [%u] )", pDesc->name, arr);
+
+						pUpdateData[pDesc->handleIndex + arr].imageInfo =
+						{
+							VK_NULL_HANDLE,                                    // Sampler
+							pParam->ppTextures[arr]->pVkSRVDescriptor,         // Image View
+							VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL           // Image Layout
+						};
+
+						update = true;
+					}
+				}
+				else
+				{
+					for (uint32_t arr = 0; arr < arrayCount; ++arr)
+					{
+						VALIDATE_DESCRIPTOR(pParam->ppTextures[arr], "NULL Texture (%s [%u] )", pDesc->name, arr);
+
+						pUpdateData[pDesc->handleIndex + arr].imageInfo =
+						{
+							VK_NULL_HANDLE,                                    // Sampler
+							pParam->ppTextures[arr]->pVkSRVStencilDescriptor, // Image View
+							VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL           // Image Layout
+						};
+
+						update = true;
+					}
+				}
+				break;
+			}
+			case SG_DESCRIPTOR_TYPE_RW_TEXTURE:
+			{
+				VALIDATE_DESCRIPTOR(pParam->ppTextures, "NULL RW Texture (%s)", pDesc->name);
+
+				if (pParam->bindMipChain)
+				{
+					VALIDATE_DESCRIPTOR(pParam->ppTextures[0], "NULL RW Texture (%s)", pDesc->name);
+
+					for (uint32_t arr = 0; arr < pParam->ppTextures[0]->mipLevels; ++arr)
+					{
+						pUpdateData[pDesc->handleIndex + arr].imageInfo = {
+							VK_NULL_HANDLE,                                          // Sampler
+							pParam->ppTextures[0]->pVkUAVDescriptors[arr],			 // Image View
+							VK_IMAGE_LAYOUT_GENERAL                                  // Image Layout
+						};
+
+						update = true;
+					}
+				}
+				else
+				{
+					const uint32_t mipSlice = pParam->UAVMipSlice;
+
+					for (uint32_t arr = 0; arr < arrayCount; ++arr)
+					{
+						VALIDATE_DESCRIPTOR(pParam->ppTextures[arr], "NULL RW Texture (%s [%u] )", pDesc->name, arr);
+						VALIDATE_DESCRIPTOR(
+							mipSlice < pParam->ppTextures[arr]->mipLevels, "Descriptor : (%s [%u] ) Mip Slice (%u) exceeds mip levels (%u)",
+							pDesc->name, arr, mipSlice, pParam->ppTextures[arr]->mipLevels);
+
+						pUpdateData[pDesc->handleIndex + arr].imageInfo = {
+							VK_NULL_HANDLE,                                          // Sampler
+							pParam->ppTextures[arr]->pVkUAVDescriptors[mipSlice],    // Image View
+							VK_IMAGE_LAYOUT_GENERAL                                  // Image Layout
+						};
+
+						update = true;
+					}
+				}
+				break;
+			}
+			case SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+			{
+				if (pDesc->vkType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+				{
+					VALIDATE_DESCRIPTOR(pParam->ppBuffers, "NULL Uniform Buffer (%s)", pDesc->name);
+					VALIDATE_DESCRIPTOR(pParam->ppBuffers[0], "NULL Uniform Buffer (%s [%u] )", pDesc->name, 0);
+					VALIDATE_DESCRIPTOR(arrayCount == 1, "Descriptor (%s) : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC does not support arrays", pDesc->name);
+					VALIDATE_DESCRIPTOR(pParam->sizes, "Descriptor (%s) : Must provide pSizes for VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC", pDesc->name);
+					VALIDATE_DESCRIPTOR(pParam->sizes[0] > 0, "Descriptor (%s) - pSizes[%u] is zero", pDesc->name, 0);
+					VALIDATE_DESCRIPTOR(pParam->sizes[0] <= pRenderer->pVkActiveGPUProperties->properties.limits.maxUniformBufferRange,
+						"Descriptor (%s) - pSizes[%u] is %ull which exceeds max size %u", pDesc->name, 0,
+						pParam->sizes[0],
+						pRenderer->pVkActiveGPUProperties->properties.limits.maxUniformBufferRange);
+
+					pDescriptorSet->pDynamicSizeOffsets[index].offset = pParam->offsets ? (uint32_t)pParam->offsets[0] : 0;
+					pUpdateData[pDesc->handleIndex + 0].bufferInfo =
+					{
+						pParam->ppBuffers[0]->pVkBuffer,
+						pParam->ppBuffers[0]->offset,
+						pParam->sizes[0]
+					};
+
+					// If this is a different size we have to update the VkDescriptorBufferInfo::range so a call to vkUpdateDescriptorSet is necessary
+					if (pParam->sizes[0] != (uint32_t)pDescriptorSet->pDynamicSizeOffsets[index].size)
+					{
+						pDescriptorSet->pDynamicSizeOffsets[index].size = (uint32_t)pParam->sizes[0];
+						update = true;
+					}
+
+					break;
+				}
+			case SG_DESCRIPTOR_TYPE_BUFFER:
+			case SG_DESCRIPTOR_TYPE_BUFFER_RAW:
+			case SG_DESCRIPTOR_TYPE_RW_BUFFER:
+			case SG_DESCRIPTOR_TYPE_RW_BUFFER_RAW:
+			{
+				VALIDATE_DESCRIPTOR(pParam->ppBuffers, "NULL Buffer (%s)", pDesc->name);
+
+				for (uint32_t arr = 0; arr < arrayCount; ++arr)
+				{
+					VALIDATE_DESCRIPTOR(pParam->ppBuffers[arr], "NULL Buffer (%s [%u] )", pDesc->name, arr);
+
+					pUpdateData[pDesc->handleIndex + arr].bufferInfo =
+					{
+						pParam->ppBuffers[arr]->pVkBuffer,
+						pParam->ppBuffers[arr]->offset,
+						VK_WHOLE_SIZE
+					};
+					if (pParam->offsets)
+					{
+						VALIDATE_DESCRIPTOR(pParam->sizes, "Descriptor (%s) - pSizes must be provided with pOffsets", pDesc->name);
+						VALIDATE_DESCRIPTOR(pParam->sizes[arr] > 0, "Descriptor (%s) - pSizes[%u] is zero", pDesc->name, arr);
+						VALIDATE_DESCRIPTOR(pParam->sizes[arr] <= pRenderer->pVkActiveGPUProperties->properties.limits.maxUniformBufferRange,
+							"Descriptor (%s) - pSizes[%u] is %ull which exceeds max size %u", pDesc->name, arr,
+							pParam->sizes[arr],
+							pRenderer->pVkActiveGPUProperties->properties.limits.maxUniformBufferRange);
+
+						pUpdateData[pDesc->handleIndex + arr].bufferInfo.offset = pParam->offsets[arr];
+						pUpdateData[pDesc->handleIndex + arr].bufferInfo.range = pParam->sizes[arr];
+					}
+
+					update = true;
+				}
+
+			}
+			break;
+			}
+			case SG_DESCRIPTOR_TYPE_TEXEL_BUFFER:
+			{
+				VALIDATE_DESCRIPTOR(pParam->ppBuffers, "NULL Texel Buffer (%s)", pDesc->name);
+
+				for (uint32_t arr = 0; arr < arrayCount; ++arr)
+				{
+					VALIDATE_DESCRIPTOR(pParam->ppBuffers[arr], "NULL Texel Buffer (%s [%u] )", pDesc->name, arr);
+					pUpdateData[pDesc->handleIndex + arr].bufferView = pParam->ppBuffers[arr]->pVkUniformTexelView;
+					update = true;
+				}
+
+				break;
+			}
+			case SG_DESCRIPTOR_TYPE_RW_TEXEL_BUFFER:
+			{
+				VALIDATE_DESCRIPTOR(pParam->ppBuffers, "NULL RW Texel Buffer (%s)", pDesc->name);
+
+				for (uint32_t arr = 0; arr < arrayCount; ++arr)
+				{
+					VALIDATE_DESCRIPTOR(pParam->ppBuffers[arr], "NULL RW Texel Buffer (%s [%u] )", pDesc->name, arr);
+					pUpdateData[pDesc->handleIndex + arr].bufferView = pParam->ppBuffers[arr]->pVkStorageTexelView;
+					update = true;
+				}
+
+				break;
+			}
+#ifdef SG_ENABLE_RAYTRACING
+			case SG_DESCRIPTOR_TYPE_RAY_TRACING:
+			{
+				VALIDATE_DESCRIPTOR(pParam->ppAccelerationStructures, "NULL Acceleration Structure (%s)", pDesc->name);
+
+				for (uint32_t arr = 0; arr < arrayCount; ++arr)
+				{
+					VALIDATE_DESCRIPTOR(pParam->ppAccelerationStructures[arr], "Acceleration Structure (%s [%u] )", pDesc->name, arr);
+
+					VkWriteDescriptorSet* pWrite = raytracingWrites + raytracingWriteCount;
+					VkWriteDescriptorSetAccelerationStructureNV* pWriteNV = raytracingWritesNV + raytracingWriteCount;
+
+					pWrite->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+					pWrite->pNext = pWriteNV;
+					pWrite->dstSet = pDescriptorSet->pHandles[index];
+					pWrite->descriptorCount = 1;
+					pWrite->descriptorType = (VkDescriptorType)pDesc->vkType;
+					pWrite->dstArrayElement = arr;
+					pWrite->dstBinding = pDesc->reg;
+
+					vk_FillRaytracingDescriptorData(pParam->ppAccelerationStructures[arr], pWriteNV);
+
+					++raytracingWriteCount;
+				}
+				break;
+			}
+#endif
+			default:
+				break;
+			}
+		}
+
+		// If this was called to just update a dynamic offset skip the update
+		if (update)
+			vkUpdateDescriptorSetWithTemplate(pRenderer->pVkDevice, pDescriptorSet->pHandles[index],
+				pRootSignature->updateTemplates[updateFreq], pUpdateData);
+
+#ifdef SG_ENABLE_RAYTRACING
+		// Raytracing Update Descriptor Set since it does not support update template
+		if (raytracingWriteCount)
+			vkUpdateDescriptorSets(pRenderer->pVkDevice, raytracingWriteCount, raytracingWrites, 0, NULL);
+#endif
+	}
+
 #pragma endregion (Descriptor Set)
 
 #pragma region (Buffer Function)
@@ -3872,7 +4210,7 @@ void cmd_set_viewport(Cmd* pCmd, float x, float y, float width, float height, fl
 
 	SG_DECLARE_ZERO(VkViewport, viewport);
 	viewport.x = x;
-	viewport.y = y + height;
+	viewport.y = y;
 	viewport.width = width;
 	viewport.height = height;
 	viewport.minDepth = minDepth;
@@ -4114,14 +4452,14 @@ void cmd_bind_descriptor_set(Cmd* pCmd, uint32_t index, DescriptorSet* pDescript
 		pDescriptorSet->dynamicOffsetCount, pDescriptorSet->dynamicOffsetCount ? &pDescriptorSet->pDynamicSizeOffsets[index].offset : nullptr);
 }
 
-void cmd_bind_push_constants(Cmd* pCmd, RootSignature* pRootSignature, const char* pName, const void* pConstants)
+void cmd_bind_push_constants(Cmd* pCmd, RootSignature* pRootSignature, const char* name, const void* pConstants)
 {
 	ASSERT(pCmd);
 	ASSERT(pConstants);
 	ASSERT(pRootSignature);
-	ASSERT(pName);
+	ASSERT(name);
 
-	const DescriptorInfo* pDesc = get_descriptor(pRootSignature, pName);
+	const DescriptorInfo* pDesc = get_descriptor(pRootSignature, name);
 	ASSERT(pDesc);
 	ASSERT(SG_DESCRIPTOR_TYPE_ROOT_CONSTANT == pDesc->type);
 
@@ -5456,9 +5794,9 @@ void cmd_resource_barrier(Cmd* pCmd,
 		blendStateDesc.dstAlphaFactors[0] = SG_BLEND_CONST_ZERO;
 		blendStateDesc.dstFactors[0] = SG_BLEND_CONST_ZERO;
 		blendStateDesc.srcAlphaFactors[0] = SG_BLEND_CONST_ONE;
-		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_ZERO;
+		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_ONE;
 
-		blendStateDesc.masks[0] = BLEND_ALL;
+		blendStateDesc.masks[0] = SG_BLEND_COLOR_MASK_ALL;
 		blendStateDesc.renderTargetMask = SG_BLEND_STATE_TARGET_ALL; // apply to all the render targets
 		blendStateDesc.independentBlend = false;
 		gDefaultBlendDesc = util_to_blend_desc(&blendStateDesc, gDefaultBlendAttachments);
@@ -6242,6 +6580,7 @@ void cmd_resource_barrier(Cmd* pCmd,
 
 			SG_DECLARE_ZERO(VkPipelineColorBlendStateCreateInfo, cb);
 			SG_DECLARE_ZERO(VkPipelineColorBlendAttachmentState, cbAtt[SG_MAX_RENDER_TARGET_ATTACHMENTS]);
+			auto test = util_to_blend_desc(pDesc->pBlendState, cbAtt);
 			cb = pDesc->pBlendState ? util_to_blend_desc(pDesc->pBlendState, cbAtt) : gDefaultBlendDesc;
 			cb.attachmentCount = pDesc->renderTargetCount;
 
@@ -6479,9 +6818,9 @@ void cmd_resource_barrier(Cmd* pCmd,
 
 #pragma region (Renderer)
 
-	void init_renderer(const char* appName, const RendererCreateDesc* pDesc, Renderer** ppRenderer)
+	void init_renderer(const char* apname, const RendererCreateDesc* pDesc, Renderer** ppRenderer)
 	{
-		ASSERT(appName);
+		ASSERT(apname);
 		ASSERT(pDesc);
 		ASSERT(ppRenderer);
 
@@ -6493,8 +6832,8 @@ void cmd_resource_barrier(Cmd* pCmd,
 		pRenderer->enableGpuBasedValidation = pDesc->enableGPUBasedValidation;
 		pRenderer->api = SG_RENDERER_API_VULKAN;
 
-		pRenderer->name = (char*)sg_calloc(strlen(appName) + 1, sizeof(char));
-		strcpy(pRenderer->name, appName);
+		pRenderer->name = (char*)sg_calloc(strlen(apname) + 1, sizeof(char));
+		strcpy(pRenderer->name, apname);
 
 		// Initialize the vulkan internal bits
 		{
@@ -6545,7 +6884,7 @@ void cmd_resource_barrier(Cmd* pCmd,
 			//		}
 			//#endif
 
-			create_instance(appName, pDesc, instanceLayerCount, instanceLayers, pRenderer);
+			create_instance(apname, pDesc, instanceLayerCount, instanceLayers, pRenderer);
 //#endif
 		
 			// this include the creations of physical device, device and device queue
@@ -6963,7 +7302,7 @@ void cmd_resource_barrier(Cmd* pCmd,
 #if defined(USE_NSIGHT_AFTERMATH)
 		if (pCmd->pRenderer->mAftermathSupport)
 		{
-			vkCmdSetCheckpointNV(pCmd->pVkCmdBuf, pName);
+			vkCmdSetCheckpointNV(pCmd->pVkCmdBuf, name);
 		}
 #endif
 	}
