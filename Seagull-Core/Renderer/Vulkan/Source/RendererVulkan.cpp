@@ -342,8 +342,8 @@ namespace SG
 
 	TinyImageFormat get_recommended_swapchain_format(bool hintHDR)
 	{
-		//if (hintHDR)
-		//	return TinyImageFormat_A2B10G10R10_UNORM; // VK_FORMAT_A2B10G10R10_UNORM_PACK32
+		if (hintHDR)
+			return TinyImageFormat_A2B10G10R10_UNORM; // VK_FORMAT_A2B10G10R10_UNORM_PACK32
 
 		// TODO: figure out this properly. BGRA not supported on android.
 #if !defined(VK_USE_PLATFORM_ANDROID_KHR) && !defined(VK_USE_PLATFORM_VI_NN)
@@ -4210,9 +4210,9 @@ void cmd_set_viewport(Cmd* pCmd, float x, float y, float width, float height, fl
 
 	SG_DECLARE_ZERO(VkViewport, viewport);
 	viewport.x = x;
-	viewport.y = y;
+	viewport.y = y + height;
 	viewport.width = width;
-	viewport.height = height;
+	viewport.height = -height;
 	viewport.minDepth = minDepth;
 	viewport.maxDepth = maxDepth;
 	vkCmdSetViewport(pCmd->pVkCmdBuf, 0, 1, &viewport);

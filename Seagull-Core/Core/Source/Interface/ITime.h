@@ -8,7 +8,7 @@ namespace SG
 	class Timer
 	{
 	public:
-		Timer(const eastl::string_view& name);
+		Timer(const eastl::string_view& name = "NoName");
 
 		float GetTotalTime() const; // in seconds
 		float GetDeltaTime() const; // in seconds

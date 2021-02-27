@@ -7,6 +7,19 @@ using namespace SG;
 
 #define COUNT_OF(a) (sizeof(a) / sizeof(a[0]))
 
+struct Vertex
+{
+	Vec2 Position;
+	Vec2 TexCoord;
+};
+
+struct UniformBuffer
+{
+	alignas(16) Matrix4 model;
+	alignas(16) Matrix4 view;
+	alignas(16) Matrix4 projection;
+};
+
 class CustomRenderer : public IApp
 {
 public:
@@ -44,7 +57,7 @@ public:
 			
 			QueueCreateDesc queueCreate = {};
 			queueCreate.type = SG_QUEUE_TYPE_GRAPHICS;
-			//queueCreate.flag = SG_QUEUE_FLAG_INIT_MICROPROFILE;
+			queueCreate.flag = SG_QUEUE_FLAG_INIT_MICROPROFILE;
 			add_queue(mRenderer, &queueCreate, &mGraphicQueue);
 
 			for (uint32_t i = 0; i < IMAGE_COUNT; i++)
@@ -97,11 +110,10 @@ public:
 			rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
 			add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
 
-			DescriptorSetCreateDesc descriptorSetCreate = {};
-			descriptorSetCreate.pRootSignature = mRootSignature;
-			descriptorSetCreate.updateFrequency = SG_DESCRIPTOR_UPDATE_FREQ_NONE;
-			descriptorSetCreate.maxSets = 1;
+			DescriptorSetCreateDesc descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
 			add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
+			descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
+			add_descriptor_set(mRenderer, &descriptorSetCreate, &mUboDescriptorSet);
 
 			BufferLoadDesc loadVertexBuffer = {};
 			loadVertexBuffer.desc.descriptors = SG_DESCRIPTOR_TYPE_VERTEX_BUFFER;
@@ -118,6 +130,18 @@ public:
 			loadIndexBuffer.pData = mIndices;
 			loadIndexBuffer.ppBuffer = &mIndexBuffer;
 			add_resource(&loadIndexBuffer, nullptr);
+
+			BufferLoadDesc uboCreate;
+			uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
+			uboCreate.desc.size = sizeof(UniformBuffer);
+			uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
+			uboCreate.pData = nullptr;
+			for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+			{
+				uboCreate.ppBuffer = &mUniformBuffer[i];
+				add_resource(&uboCreate, nullptr);
+			}
 		}
 
 		if (!CreateSwapChain())
@@ -126,12 +150,20 @@ public:
 		if (!CreateGraphicPipeline())
 			return false;
 
+		wait_for_all_resource_loads();
+
 		DescriptorData updateData[2] = {};
 		updateData[0].name = "Texture";
 		updateData[0].ppTextures = &mTexture;
 		update_descriptor_set(mRenderer, 0, mDescriptorSet, 1, updateData);
 
-		wait_for_all_resource_loads();
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			DescriptorData bufferUpdate[1] = {};
+			bufferUpdate[0].name = "ubo";
+			bufferUpdate[0].ppBuffers = &mUniformBuffer[i];
+			update_descriptor_set(mRenderer, i, mUboDescriptorSet, 1, bufferUpdate);
+		}
 
 		return true;
 	}
@@ -146,10 +178,15 @@ public:
 		if (mSettings.resetGraphic || mSettings.quit)
 		{
 			remove_descriptor_set(mRenderer, mDescriptorSet);
+			remove_descriptor_set(mRenderer, mUboDescriptorSet);
 
 			remove_resource(mVertexBuffer);
 			remove_resource(mIndexBuffer);
 			remove_resource(mTexture);
+			for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+			{
+				remove_resource(mUniformBuffer[i]);
+			}
 
 			remove_sampler(mRenderer, mSampler);
 			remove_shader(mRenderer, mTriangleShader);
@@ -176,6 +213,17 @@ public:
 
 	virtual bool OnUpdate(float deltaTime) override
 	{
+		static float time = 0;
+		time += deltaTime;
+
+		mUbo.model = glm::rotate(Matrix4(1.0f), glm::radians(-90.0f), Vec3(0.0f, 1.0f, 0.0f));
+		mUbo.model *= glm::rotate(Matrix4(1.0f), time * 1.5f * glm::radians(-90.0f), Vec3(0.0f, 0.0f, 1.0f));
+		//mUbo.model *= glm::rotate(Matrix4(1.0f), time * glm::radians(90.0f), Vec3(1.0f, 0.0f, 0.0f));
+		mUbo.view = glm::lookAt(Vec3(glm::sin(time * 2.0f) * 1.5 + 3.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f));
+		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)1920 / (float)1080,
+			0.0001f, 100000.0f);
+		mUbo.projection[1][1] *= -1;
+
 		//SG_LOG_INFO("Frame: %.1f", 1.0f / deltaTime);
 		return true;
 	}
@@ -198,6 +246,12 @@ public:
 		// reset command pool for this frame 
 		reset_command_pool(mRenderer, mCmdPools[mCurrentIndex]);
 		
+		BufferUpdateDesc uboUpdate = {};
+		uboUpdate.pBuffer = mUniformBuffer[mCurrentIndex];
+		begin_update_resource(&uboUpdate);
+		*(UniformBuffer*)uboUpdate.pMappedData = mUbo;
+		end_update_resource(&uboUpdate, nullptr);
+
 		const uint32_t stride = 4 * sizeof(float);
 
 		Cmd* cmd = mCmds[mCurrentIndex];
@@ -223,14 +277,11 @@ public:
 		
 		cmd_bind_pipeline(cmd, mPipeline);
 		cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
+		cmd_bind_descriptor_set(cmd, mCurrentIndex, mUboDescriptorSet);
 		cmd_bind_vertex_buffer(cmd, 1, &mVertexBuffer, &stride, nullptr);
 		cmd_bind_index_buffer(cmd, mIndexBuffer, SG_INDEX_TYPE_UINT32, 0);
 
 		cmd_draw_indexed(cmd, COUNT_OF(mIndices), 0, 0);
-
-		//loadAction = {};
-		//loadAction.loadActionsColor[0] = SG_LOAD_ACTION_LOAD;
-		//cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, &loadAction, nullptr, nullptr, -1, -1);
 
 		// end the render pass
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
@@ -308,8 +359,7 @@ private:
 		vertexLayout.attribs[1].offset = 2 * sizeof(float);
 
 		RasterizerStateDesc rasterizeState = {};
-		rasterizeState.cullMode = SG_CULL_MODE_BACK;
-		rasterizeState.frontFace = SG_FRONT_FACE_CW;
+		rasterizeState.cullMode = SG_CULL_MODE_NONE;
 
 		DepthStateDesc depthStateDesc = {};
 
@@ -318,7 +368,11 @@ private:
 		blendStateDesc.srcFactors[1] = SG_BLEND_CONST_ONE;
 		blendStateDesc.srcAlphaFactors[0] = SG_BLEND_CONST_ONE;
 		blendStateDesc.srcAlphaFactors[1] = SG_BLEND_CONST_ONE;
-		blendStateDesc.renderTargetMask = SG_BLEND_STATE_TARGET_ALL;
+		//blendStateDesc.srcFactors[0] = SG_BLEND_CONST_SRC_COLOR;
+		//blendStateDesc.srcFactors[1] = SG_BLEND_CONST_SRC_COLOR;
+		//blendStateDesc.srcAlphaFactors[0] = SG_BLEND_CONST_SRC_ALPHA;
+		//blendStateDesc.srcAlphaFactors[1] = SG_BLEND_CONST_SRC_ALPHA;
+		blendStateDesc.renderTargetMask = SG_BLEND_STATE_TARGET_0;
 		blendStateDesc.masks[0] = SG_BLEND_COLOR_MASK_ALL;
 		blendStateDesc.masks[1] = SG_BLEND_COLOR_MASK_ALL;
 
@@ -360,29 +414,28 @@ private:
 
 	RootSignature* mRootSignature = nullptr;
 	DescriptorSet* mDescriptorSet = nullptr;
+	DescriptorSet* mUboDescriptorSet = nullptr;
 	Pipeline* mPipeline = nullptr;
 
 	Texture* mTexture = nullptr;
 	Buffer* mVertexBuffer = nullptr;
 	Buffer* mIndexBuffer = nullptr;
 
-	float mVertices[16] = {
-		0.5f,  0.5f, 1.0f, 0.0f, // 0 top_right 
-	   -0.5f,  0.5f, 0.0f, 0.0f, // 1 top_left
-	   -0.5f, -0.5f, 0.0f, 1.0f, // 2 bot_left
-		0.5f, -0.5f, 1.0f, 1.0f, // 3 bot_right
-	};
+	Buffer* mUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 
-	//float mVertices[12] = {
-	//	0.0, -0.5, 1.0f, 0.0f,
-	//	0.5,  0.5, 0.0f, 0.0f,
-	//	-0.5, 0.5, 0.0f, 1.0f
-	//};
+	Vertex mVertices[4] = {
+		{{ 0.5f,  0.5f }, { 1.0f, 0.0f }}, // 0 top_right 
+		{{-0.5f,  0.5f }, { 0.0f, 0.0f }}, // 1 top_left
+		{{-0.5f, -0.5f }, { 0.0f, 1.0f }}, // 2 bot_left
+		{{ 0.5f, -0.5f }, { 1.0f, 1.0f }}  // 3 bot_right
+	};
 
 	const uint32_t mIndices[6] = {
 		0, 1, 2,
 		2, 3, 0,
 	};
+
+	UniformBuffer mUbo;
 
 	uint32_t mCurrentIndex = 0;
 };

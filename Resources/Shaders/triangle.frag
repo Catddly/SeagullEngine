@@ -1,7 +1,7 @@
 #version 450 core
 
-layout(set = 0, binding = 0) uniform sampler Sampler;
-layout(set = 0, binding = 1) uniform texture2D Texture;
+layout(SG_UPDATE_FREQ_NONE, binding = 0) uniform sampler Sampler;
+layout(SG_UPDATE_FREQ_NONE, binding = 1) uniform texture2D Texture;
 
 layout(location = 0) in vec2 outTexCoord;
 

@@ -1736,12 +1736,12 @@ namespace SG
 	typedef struct RootSignatureCreateDesc
 	{
 		Shader** ppShaders;
-		uint32_t               shaderCount;
-		uint32_t               maxBindlessTextures;
+		uint32_t shaderCount;
+		uint32_t  maxBindlessTextures;
 		const char** ppStaticSamplerNames;
 		Sampler** ppStaticSamplers;
-		uint32_t               staticSamplerCount;
-		RootSignatureFlags     flags;
+		uint32_t staticSamplerCount;
+		RootSignatureFlags flags;
 	} RootSignatureCreateDesc;
 
 	typedef struct SG_ALIGN(RootSignature, 64)
@@ -1819,7 +1819,7 @@ namespace SG
 	typedef struct DescriptorSetCreateDesc
 	{
 		RootSignature* pRootSignature;
-		DescriptorUpdateFrequency  updateFrequency;
+		DescriptorUpdateFrequency updateFrequency;
 		uint32_t maxSets;
 		uint32_t nodeIndex;
 	} DescriptorSetCreateDesc;

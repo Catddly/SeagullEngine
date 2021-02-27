@@ -9,6 +9,9 @@ namespace SG
 	class IApp
 	{
 	public:
+		IApp() = default;
+		~IApp() = default;
+
 		virtual bool OnInit() = 0;
 		virtual void OnExit() = 0;
 

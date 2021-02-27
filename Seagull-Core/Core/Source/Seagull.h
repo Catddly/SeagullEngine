@@ -6,6 +6,13 @@
 #include "Interface/IMemory.h"
 #include "Interface/ITime.h"
 
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_ENABLE_EXPERIMENTAL
+#include <include/glm.hpp>
+#include <include/gtc/matrix_transform.hpp>
+#include <include/ext/matrix_clip_space.hpp>
+
 #include "Math/MathTypes.h"
 
 #ifdef SG_GRAPHIC_API_VULKAN
