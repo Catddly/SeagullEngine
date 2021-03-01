@@ -265,7 +265,7 @@ namespace SG
 	/// If token is non NULL, the resource will be available after is_token_completed(token) returns true.
 	void add_resource(BufferLoadDesc* pBufferDesc, SyncToken* token);
 	void add_resource(TextureLoadDesc* pTextureDesc, SyncToken* token);
-	//void add_resource(GeometryLoadDesc* pGeomDesc, SyncToken* token);
+	void add_resource(GeometryLoadDesc* pGeomDesc, SyncToken* token);
 
 	void begin_update_resource(BufferUpdateDesc* pBufferDesc);
 	void begin_update_resource(TextureUpdateDesc* pTextureDesc);
@@ -276,7 +276,7 @@ namespace SG
 
 	void remove_resource(Buffer* pBuffer);
 	void remove_resource(Texture* pTexture);
-	//void remove_resource(Geometry* pGeom);
+	void remove_resource(Geometry* pGeom);
 
 	// MARK: Waiting for Loads
 

@@ -56,7 +56,7 @@ namespace SG
 		bool maximized;
 		bool minimized;
 		bool hide;
-		bool noresizeFrame;
+		bool noResizeFrame;
 		bool borderlessWindow;
 		bool overrideDefaultPosition;
 		bool centered;

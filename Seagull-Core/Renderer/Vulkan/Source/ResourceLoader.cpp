@@ -7,13 +7,19 @@
 //#include "../ThirdParty/OpenSource/tinyktx/tinyktx.h"
 //
 //#include "../ThirdParty/OpenSource/basis_universal/transcoder/basisu_transcoder.h"
-//#define CGLTF_IMPLEMENTATION
-//#include "../ThirdParty/OpenSource/cgltf/cgltf.h"
+
+#define CGLTF_IMPLEMENTATION
+#include <include/cgltf.h>
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+using namespace tinyobj;
 
 #include "Interface/ILog.h"
 #include "Interface/IThread.h"
 
 #include <include/EASTL/algorithm.h>
+#include <include/EASTL/unordered_map.h>
 
 //#if defined(__ANDROID__) && defined(SG_GRAPHIC_API_VULKAN)
 //#include <shaderc/shaderc.h>
@@ -97,6 +103,52 @@ namespace SG
 #endif
 
 #define MAX_FRAMES 3U
+
+//struct VertexTemp
+//{
+//	SG::Vec3 position;
+//	SG::Vec3 normal;
+//	SG::Vec2 texCoord;
+//
+//	bool operator==(const VertexTemp& rhs)
+//	{
+//		return this->position == rhs.position &&
+//			this->normal == rhs.normal &&
+//			this->texCoord == rhs.texCoord;
+//	}
+//};
+//
+//namespace eastl
+//{
+//	template <>
+//	struct hash<SG::Vec2>
+//	{
+//		size_t operator()(SG::Vec2 const& vec2) const
+//		{
+//			return ((hash<float>()(vec2[0])) ^ (hash<float>()(vec2[1]) << 1));
+//		}
+//	};
+//
+//	template <>
+//	struct hash<SG::Vec3>
+//	{
+//		size_t operator()(SG::Vec3 const& vec3) const
+//		{
+//			return ((hash<float>()(vec3[0]) ^
+//				(hash<float>()(vec3[1]) << 1)) >> 1) ^ (hash<float>()(vec3[2]) << 1);
+//		}
+//	};
+//
+//	template <> 
+//	struct hash<VertexTemp>
+//	{
+//		size_t operator()(VertexTemp const& vertex) const
+//		{
+//			return ((hash<SG::Vec3>()(vertex.position) ^
+//				(hash<SG::Vec3>()(vertex.normal) << 1)) >> 1) ^ (hash<SG::Vec2>()(vertex.texCoord) << 1);
+//		}
+//	};
+//}
 
 namespace SG
 {
@@ -1043,461 +1095,531 @@ namespace SG
 		return SG_UPLOAD_FUNCTION_RESULT_COMPLETED;
 	}
 
-	//static UploadFunctionResult load_geometry(Renderer* pRenderer, CopyEngine* pCopyEngine, size_t activeSet, UpdateRequest& pGeometryLoad)
-	//{
-	//	GeometryLoadDesc* pDesc = &pGeometryLoad.geomLoadDesc;
+	static inline constexpr ShaderSemantic util_cgltf_attrib_type_to_shader_semantic(cgltf_attribute_type type, uint32_t index)
+	{
+		switch (type)
+		{
+			case cgltf_attribute_type_position: return SG_SEMANTIC_POSITION;
+			case cgltf_attribute_type_normal:   return SG_SEMANTIC_NORMAL;
+			case cgltf_attribute_type_tangent:  return SG_SEMANTIC_TANGENT;
+			case cgltf_attribute_type_color:    return SG_SEMANTIC_COLOR;
+			case cgltf_attribute_type_joints:   return SG_SEMANTIC_JOINTS;
+			case cgltf_attribute_type_weights:  return SG_SEMANTIC_WEIGHTS;
+			case cgltf_attribute_type_texcoord:
+				return (ShaderSemantic)(SG_SEMANTIC_TEXCOORD0 + index);
+			default:
+				return SG_SEMANTIC_TEXCOORD0;
+		}
+	}
 
-	//	char iext[SG_MAX_FILEPATH] = { 0 };
-	//	sgfs_get_path_extension(pDesc->fileName, iext);
+	static inline constexpr TinyImageFormat util_cgltf_type_to_image_format(cgltf_type type, cgltf_component_type compType)
+	{
+		switch (type)
+		{
+		case cgltf_type_scalar:
+			if (cgltf_component_type_r_8 == compType)
+				return TinyImageFormat_R8_SINT;
+			else if (cgltf_component_type_r_16 == compType)
+				return TinyImageFormat_R16_SINT;
+			else if (cgltf_component_type_r_16u == compType)
+				return TinyImageFormat_R16_UINT;
+			else if (cgltf_component_type_r_32f == compType)
+				return TinyImageFormat_R32_SFLOAT;
+			else if (cgltf_component_type_r_32u == compType)
+				return TinyImageFormat_R32_UINT;
+		case cgltf_type_vec2:
+			if (cgltf_component_type_r_8 == compType)
+				return TinyImageFormat_R8G8_SINT;
+			else if (cgltf_component_type_r_16 == compType)
+				return TinyImageFormat_R16G16_SINT;
+			else if (cgltf_component_type_r_16u == compType)
+				return TinyImageFormat_R16G16_UINT;
+			else if (cgltf_component_type_r_32f == compType)
+				return TinyImageFormat_R32G32_SFLOAT;
+			else if (cgltf_component_type_r_32u == compType)
+				return TinyImageFormat_R32G32_UINT;
+		case cgltf_type_vec3:
+			if (cgltf_component_type_r_8 == compType)
+				return TinyImageFormat_R8G8B8_SINT;
+			else if (cgltf_component_type_r_16 == compType)
+				return TinyImageFormat_R16G16B16_SINT;
+			else if (cgltf_component_type_r_16u == compType)
+				return TinyImageFormat_R16G16B16_UINT;
+			else if (cgltf_component_type_r_32f == compType)
+				return TinyImageFormat_R32G32B32_SFLOAT;
+			else if (cgltf_component_type_r_32u == compType)
+				return TinyImageFormat_R32G32B32_UINT;
+		case cgltf_type_vec4:
+			if (cgltf_component_type_r_8 == compType)
+				return TinyImageFormat_R8G8B8A8_SINT;
+			else if (cgltf_component_type_r_16 == compType)
+				return TinyImageFormat_R16G16B16A16_SINT;
+			else if (cgltf_component_type_r_16u == compType)
+				return TinyImageFormat_R16G16B16A16_UINT;
+			else if (cgltf_component_type_r_32f == compType)
+				return TinyImageFormat_R32G32B32A32_SFLOAT;
+			else if (cgltf_component_type_r_32u == compType)
+				return TinyImageFormat_R32G32B32A32_UINT;
+			// #NOTE: Not applicable to vertex formats
+		case cgltf_type_mat2:
+		case cgltf_type_mat3:
+		case cgltf_type_mat4:
+		default:
+			return TinyImageFormat_UNDEFINED;
+		}
+	}
 
-	//	// Geometry in gltf container
-	//	if (iext[0] != 0 && (stricmp(iext, "gltf") == 0 || stricmp(iext, "glb") == 0))
-	//	{
-	//		FileStream file = {};
-	//		if (!sgfs_open_stream_from_path(SG_RD_MESHES, pDesc->fileName, SG_FM_READ_BINARY, &file))
-	//		{
-	//			LOGF(eERROR, "Failed to open gltf file %s", pDesc->pFileName);
-	//			ASSERT(false);
-	//			return UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
-	//		}
+	static UploadFunctionResult load_geometry(Renderer* pRenderer, CopyEngine* pCopyEngine, size_t activeSet, UpdateRequest& pGeometryLoad)
+	{
+		GeometryLoadDesc* pDesc = &pGeometryLoad.geomLoadDesc;
 
-	//		ssize_t fileSize = fsGetStreamFileSize(&file);
-	//		void* fileData = tf_malloc(fileSize);
-	//		cgltf_result result = cgltf_result_invalid_gltf;
+		char iext[SG_MAX_FILEPATH] = { 0 };
+		sgfs_get_path_extension(pDesc->fileName, iext);
 
-	//		fsReadFromStream(&file, fileData, fileSize);
+		// Geometry in gltf container
+		if (iext[0] != 0 && (stricmp(iext, "gltf") == 0 || stricmp(iext, "glb") == 0))
+		{
+			FileStream file = {};
+			if (!sgfs_open_stream_from_path(SG_RD_MESHES, pDesc->fileName, SG_FM_READ_BINARY, &file))
+			{
+				SG_LOG_ERROR("Failed to open gltf file %s", pDesc->fileName);
+				ASSERT(false);
+				return SG_UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
+			}
 
-	//		cgltf_options options = {};
-	//		cgltf_data* data = NULL;
-	//		options.memory_alloc = [](void* user, cgltf_size size) { return tf_malloc(size); };
-	//		options.memory_free = [](void* user, void* ptr) { tf_free(ptr); };
-	//		result = cgltf_parse(&options, fileData, fileSize, &data);
-	//		fsCloseStream(&file);
+			ssize_t fileSize = sgfs_get_stream_file_size(&file);
+			void* fileData = sg_malloc(fileSize);
+			cgltf_result result = cgltf_result_invalid_gltf;
 
-	//		if (cgltf_result_success != result)
-	//		{
-	//			LOGF(eERROR, "Failed to parse gltf file %s with error %u", pDesc->pFileName, (uint32_t)result);
-	//			ASSERT(false);
-	//			tf_free(fileData);
-	//			return UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
-	//		}
+			sgfs_read_from_stream(&file, fileData, fileSize);
 
-	//#if defined(FORGE_DEBUG)
-	//		result = cgltf_validate(data);
-	//		if (cgltf_result_success != result)
-	//		{
-	//			LOGF(eWARNING, "GLTF validation finished with error %u for file %s", (uint32_t)result, pDesc->pFileName);
-	//		}
-	//#endif
+			cgltf_options options = {};
+			cgltf_data* data = nullptr;
+			// use seagull memory allocation
+			options.memory.alloc = [](void* user, cgltf_size size) { return sg_malloc(size); };
+			options.memory.free = [](void* user, void* ptr) { sg_free(ptr); };
+			result = cgltf_parse(&options, fileData, fileSize, &data);
 
-	//		// Load buffers located in separate files (.bin) using our file system
-	//		for (uint32_t i = 0; i < data->buffers_count; ++i)
-	//		{
-	//			const char* uri = data->buffers[i].uri;
+			sgfs_close_stream(&file);
 
-	//			if (!uri || data->buffers[i].data)
-	//			{
-	//				continue;
-	//			}
+			if (cgltf_result_success != result)
+			{
+				SG_LOG_ERROR("Failed to parse gltf file %s with error %u", pDesc->fileName, (uint32_t)result);
+				ASSERT(false);
+				sg_free(fileData);
+				return SG_UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
+			}
 
-	//			if (strncmp(uri, "data:", 5) != 0 && !strstr(uri, "://"))
-	//			{
-	//				char parent[FS_MAX_PATH] = { 0 };
-	//				fsGetParentPath(pDesc->pFileName, parent);
-	//				char path[FS_MAX_PATH] = { 0 };
-	//				fsAppendPathComponent(parent, uri, path);
-	//				FileStream fs = {};
-	//				if (fsOpenStreamFromPath(RD_MESHES, path, FM_READ_BINARY, &fs))
-	//				{
-	//					ASSERT(fsGetStreamFileSize(&fs) >= (ssize_t)data->buffers[i].size);
-	//					data->buffers[i].data = tf_malloc(data->buffers[i].size);
-	//					fsReadFromStream(&fs, data->buffers[i].data, data->buffers[i].size);
-	//				}
-	//				fsCloseStream(&fs);
-	//			}
-	//		}
+	#if defined(SG_DEBUG)
+			result = cgltf_validate(data);
+			if (cgltf_result_success != result)
+			{
+				SG_LOG_WARNING("GLTF validation finished with error %u for file %s", (uint32_t)result, pDesc->fileName);
+			}
+	#endif
 
-	//		result = cgltf_load_buffers(&options, data, pDesc->pFileName);
-	//		if (cgltf_result_success != result)
-	//		{
-	//			LOGF(eERROR, "Failed to load buffers from gltf file %s with error %u", pDesc->pFileName, (uint32_t)result);
-	//			ASSERT(false);
-	//			tf_free(fileData);
-	//			return UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
-	//		}
+			// Load buffers located in separate files (.bin) using our file system
+			for (uint32_t i = 0; i < data->buffers_count; ++i)
+			{
+				const char* uri = data->buffers[i].uri;
 
-	//		typedef void (*PackingFunction)(uint32_t count, uint32_t stride, uint32_t offset, const uint8_t* src, uint8_t* dst);
+				if (!uri || data->buffers[i].data)
+				{
+					continue;
+				}
 
-	//		uint32_t vertexStrides[SEMANTIC_TEXCOORD9 + 1] = {};
-	//		uint32_t vertexAttribCount[SEMANTIC_TEXCOORD9 + 1] = {};
-	//		uint32_t vertexOffsets[SEMANTIC_TEXCOORD9 + 1] = {};
-	//		uint32_t vertexBindings[SEMANTIC_TEXCOORD9 + 1] = {};
-	//		cgltf_attribute* vertexAttribs[SEMANTIC_TEXCOORD9 + 1] = {};
-	//		PackingFunction vertexPacking[SEMANTIC_TEXCOORD9 + 1] = {};
-	//		for (uint32_t i = 0; i < SEMANTIC_TEXCOORD9 + 1; ++i)
-	//			vertexOffsets[i] = UINT_MAX;
+				if (strncmp(uri, "data:", 5) != 0 && !strstr(uri, "://"))
+				{
+					char parent[SG_MAX_FILEPATH] = { 0 };
+					sgfs_get_parent_path(pDesc->fileName, parent);
+					char path[SG_MAX_FILEPATH] = { 0 };
+					sgfs_append_path_component(parent, uri, path);
+					FileStream fs = {};
+					if (sgfs_open_stream_from_path(SG_RD_MESHES, path, SG_FM_READ_BINARY, &fs))
+					{
+						ASSERT(sgfs_get_stream_file_size(&fs) >= (ssize_t)data->buffers[i].size);
+						data->buffers[i].data = sg_malloc(data->buffers[i].size);
+						sgfs_read_from_stream(&fs, data->buffers[i].data, data->buffers[i].size);
+					}
+					sgfs_close_stream(&fs);
+				}
+			}
 
-	//		uint32_t indexCount = 0;
-	//		uint32_t vertexCount = 0;
-	//		uint32_t drawCount = 0;
-	//		uint32_t jointCount = 0;
-	//		uint32_t vertexBufferCount = 0;
+			result = cgltf_load_buffers(&options, data, pDesc->fileName);
+			if (cgltf_result_success != result)
+			{
+				SG_LOG_ERROR("Failed to load buffers from gltf file %s with error %u", pDesc->fileName, (uint32_t)result);
+				ASSERT(false);
+				sg_free(fileData);
+				return SG_UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
+			}
 
-	//		// Find number of traditional draw calls required to draw this piece of geometry
-	//		// Find total index count, total vertex count
-	//		for (uint32_t i = 0; i < data->meshes_count; ++i)
-	//		{
-	//			for (uint32_t p = 0; p < data->meshes[i].primitives_count; ++p)
-	//			{
-	//				const cgltf_primitive* prim = &data->meshes[i].primitives[p];
-	//				indexCount += (uint32_t)prim->indices->count;
-	//				vertexCount += (uint32_t)prim->attributes->data->count;
-	//				++drawCount;
+			typedef void (*PackingFunction)(uint32_t count, uint32_t stride, uint32_t offset, const uint8_t* src, uint8_t* dst);
 
-	//				for (uint32_t i = 0; i < prim->attributes_count; ++i)
-	//					vertexAttribs[util_cgltf_attrib_type_to_semantic(prim->attributes[i].type, prim->attributes[i].index)] = &prim->attributes[i];
-	//			}
-	//		}
+			uint32_t vertexStrides[SG_SEMANTIC_TEXCOORD9 + 1] = {};
+			uint32_t vertexAttribCount[SG_SEMANTIC_TEXCOORD9 + 1] = {};
+			uint32_t vertexOffsets[SG_SEMANTIC_TEXCOORD9 + 1] = {};
+			uint32_t vertexBindings[SG_SEMANTIC_TEXCOORD9 + 1] = {};
+			cgltf_attribute* vertexAttribs[SG_SEMANTIC_TEXCOORD9 + 1] = {};
+			PackingFunction vertexPacking[SG_SEMANTIC_TEXCOORD9 + 1] = {};
+			for (uint32_t i = 0; i < SG_SEMANTIC_TEXCOORD9 + 1; ++i)
+				vertexOffsets[i] = UINT_MAX;
 
-	//		// Determine vertex stride for each binding
-	//		for (uint32_t i = 0; i < pDesc->pVertexLayout->mAttribCount; ++i)
-	//		{
-	//			const VertexAttrib* attr = &pDesc->pVertexLayout->mAttribs[i];
-	//			const cgltf_attribute* cgltfAttr = vertexAttribs[attr->mSemantic];
-	//			ASSERT(cgltfAttr);
+			uint32_t indexCount = 0;
+			uint32_t vertexCount = 0;
+			uint32_t drawCount = 0;
+			uint32_t jointCount = 0;
+			uint32_t vertexBufferCount = 0;
 
-	//			const uint32_t dstFormatSize = TinyImageFormat_BitSizeOfBlock(attr->mFormat) >> 3;
-	//			const uint32_t srcFormatSize = (uint32_t)cgltfAttr->data->stride;
+			// Find number of traditional draw calls required to draw this piece of geometry
+			// Find total index count, total vertex count
+			for (uint32_t i = 0; i < data->meshes_count; ++i)
+			{
+				for (uint32_t p = 0; p < data->meshes[i].primitives_count; ++p)
+				{
+					const cgltf_primitive* prim = &data->meshes[i].primitives[p];
+					indexCount += (uint32_t)prim->indices->count;
+					vertexCount += (uint32_t)prim->attributes->data->count;
+					++drawCount;
 
-	//			vertexStrides[attr->mBinding] += dstFormatSize ? dstFormatSize : srcFormatSize;
-	//			vertexOffsets[attr->mSemantic] = attr->mOffset;
-	//			vertexBindings[attr->mSemantic] = attr->mBinding;
-	//			++vertexAttribCount[attr->mBinding];
+					for (uint32_t i = 0; i < prim->attributes_count; ++i)
+						vertexAttribs[util_cgltf_attrib_type_to_shader_semantic(prim->attributes[i].type, prim->attributes[i].index)] = &prim->attributes[i];
+				}
+			}
 
-	//			// Compare vertex attrib format to the gltf attrib type
-	//			// Select a packing function if dst format is packed version
-	//			// Texcoords - Pack float2 to half2
-	//			// Directions - Pack float3 to float2 to unorm2x16 (Normal, Tangent)
-	//			// Position - No packing yet
-	//			const TinyImageFormat srcFormat = util_cgltf_type_to_image_format(cgltfAttr->data->type, cgltfAttr->data->component_type);
-	//			const TinyImageFormat dstFormat = attr->mFormat == TinyImageFormat_UNDEFINED ? srcFormat : attr->mFormat;
+			// Determine vertex stride for each binding
+			for (uint32_t i = 0; i < pDesc->pVertexLayout->attribCount; ++i)
+			{
+				const VertexAttrib* attr = &pDesc->pVertexLayout->attribs[i];
+				const cgltf_attribute* cgltfAttr = vertexAttribs[attr->semantic];
+				ASSERT(cgltfAttr);
 
-	//			if (dstFormat != srcFormat)
-	//			{
-	//				// Select appropriate packing function which will be used when filling the vertex buffer
-	//				switch (cgltfAttr->type)
-	//				{
-	//				case cgltf_attribute_type_texcoord:
-	//				{
-	//					if (sizeof(uint32_t) == dstFormatSize && sizeof(float[2]) == srcFormatSize)
-	//						vertexPacking[attr->mSemantic] = util_pack_float2_to_half2;
-	//					// #TODO: Add more variations if needed
-	//					break;
-	//				}
-	//				case cgltf_attribute_type_normal:
-	//				case cgltf_attribute_type_tangent:
-	//				{
-	//					if (sizeof(uint32_t) == dstFormatSize && (sizeof(float[3]) == srcFormatSize || sizeof(float[4]) == srcFormatSize))
-	//						vertexPacking[attr->mSemantic] = util_pack_float3_direction_to_half2;
-	//					// #TODO: Add more variations if needed
-	//					break;
-	//				}
-	//				default:
-	//					break;
-	//				}
-	//			}
-	//		}
+				const uint32_t dstFormatSize = TinyImageFormat_BitSizeOfBlock(attr->format) >> 3;
+				const uint32_t srcFormatSize = (uint32_t)cgltfAttr->data->stride;
 
-	//		// Determine number of vertex buffers needed based on number of unique bindings found
-	//		// For each unique binding the vertex stride will be non zero
-	//		for (uint32_t i = 0; i < MAX_VERTEX_BINDINGS; ++i)
-	//			if (vertexStrides[i])
-	//				++vertexBufferCount;
+				vertexStrides[attr->binding] += dstFormatSize ? dstFormatSize : srcFormatSize;
+				vertexOffsets[attr->semantic] = attr->offset;
+				vertexBindings[attr->semantic] = attr->binding;
+				++vertexAttribCount[attr->binding];
 
-	//		for (uint32_t i = 0; i < data->skins_count; ++i)
-	//			jointCount += (uint32_t)data->skins[i].joints_count;
+				// Compare vertex attrib format to the gltf attrib type
+				// Select a packing function if dst format is packed version
+				// Texcoords - Pack float2 to half2
+				// Directions - Pack float3 to float2 to unorm2x16 (Normal, Tangent)
+				// Position - No packing yet
+				const TinyImageFormat srcFormat = util_cgltf_type_to_image_format(cgltfAttr->data->type, cgltfAttr->data->component_type);
+				const TinyImageFormat dstFormat = attr->format == TinyImageFormat_UNDEFINED ? srcFormat : attr->format;
 
-	//		// Determine index stride
-	//		// This depends on vertex count rather than the stride specified in gltf
-	//		// since gltf assumes we have index buffer per primitive which is non optimal
-	//		const uint32_t indexStride = vertexCount > UINT16_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
+				if (dstFormat != srcFormat)
+				{
+					// Select appropriate packing function which will be used when filling the vertex buffer
+					switch (cgltfAttr->type)
+					{
+					case cgltf_attribute_type_texcoord:
+					{
+						if (sizeof(uint32_t) == dstFormatSize && sizeof(float[2]) == srcFormatSize)
+							vertexPacking[attr->semantic] = util_pack_float2_to_half2;
+						// #TODO: Add more variations if needed
+						break;
+					}
+					case cgltf_attribute_type_normal:
+					case cgltf_attribute_type_tangent:
+					{
+						if (sizeof(uint32_t) == dstFormatSize && (sizeof(float[3]) == srcFormatSize || sizeof(float[4]) == srcFormatSize))
+							vertexPacking[attr->semantic] = util_pack_float3_direction_to_half2;
+						// #TODO: Add more variations if needed
+						break;
+					}
+					default:
+						break;
+					}
+				}
+			}
 
-	//		uint32_t totalSize = 0;
-	//		totalSize += round_up(sizeof(Geometry), 16);
-	//		totalSize += round_up(drawCount * sizeof(IndirectDrawIndexArguments), 16);
-	//		totalSize += round_up(jointCount * sizeof(mat4), 16);
-	//		totalSize += round_up(jointCount * sizeof(uint32_t), 16);
+			// determine number of vertex buffers needed based on number of unique bindings found
+			// for each unique binding the vertex stride will be non zero
+			for (uint32_t i = 0; i < SG_MAX_VERTEX_BINDINGS; ++i)
+				if (vertexStrides[i])
+					++vertexBufferCount;
 
-	//		Geometry* geom = (Geometry*)tf_calloc(1, totalSize);
-	//		ASSERT(geom);
+			for (uint32_t i = 0; i < data->skins_count; ++i)
+				jointCount += (uint32_t)data->skins[i].joints_count;
 
-	//		geom->pDrawArgs = (IndirectDrawIndexArguments*)(geom + 1);
-	//		geom->pInverseBindPoses = (mat4*)((uint8_t*)geom->pDrawArgs + round_up(drawCount * sizeof(*geom->pDrawArgs), 16));
-	//		geom->pJointRemaps = (uint32_t*)((uint8_t*)geom->pInverseBindPoses + round_up(jointCount * sizeof(*geom->pInverseBindPoses), 16));
+			// Determine index stride
+			// This depends on vertex count rather than the stride specified in gltf
+			// since gltf assumes we have index buffer per primitive which is non optimal
+			const uint32_t indexStride = vertexCount > UINT16_MAX ? sizeof(uint32_t) : sizeof(uint16_t);
 
-	//		uint32_t shadowSize = 0;
-	//		if (pDesc->flags & GEOMETRY_LOAD_FLAG_SHADOWED)
-	//		{
-	//			shadowSize += (uint32_t)vertexAttribs[SEMANTIC_POSITION]->data->stride * vertexCount;
-	//			shadowSize += indexCount * indexStride;
+			uint32_t totalSize = 0;
+			totalSize += round_up(sizeof(Geometry), 16);
+			totalSize += round_up(drawCount * sizeof(IndirectDrawIndexArguments), 16);
+			totalSize += round_up(jointCount * sizeof(Matrix4), 16);
+			totalSize += round_up(jointCount * sizeof(uint32_t), 16);
 
-	//			geom->pShadow = (Geometry::ShadowData*)tf_calloc(1, sizeof(Geometry::ShadowData) + shadowSize);
-	//			geom->pShadow->pIndices = geom->pShadow + 1;
-	//			geom->pShadow->pAttributes[SEMANTIC_POSITION] = (uint8_t*)geom->pShadow->pIndices + (indexCount * indexStride);
-	//			// #TODO: Add more if needed
-	//		}
+			Geometry* geom = (Geometry*)sg_calloc(1, totalSize);
+			ASSERT(geom);
 
-	//		geom->mVertexBufferCount = vertexBufferCount;
-	//		geom->mDrawArgCount = drawCount;
-	//		geom->mIndexCount = indexCount;
-	//		geom->mVertexCount = vertexCount;
-	//		geom->mIndexType = (sizeof(uint16_t) == indexStride) ? INDEX_TYPE_UINT16 : INDEX_TYPE_UINT32;
-	//		geom->mJointCount = jointCount;
+			geom->pDrawArgs = (IndirectDrawIndexArguments*)(geom + 1);
+			geom->pInverseBindPoses = (Matrix4*)((uint8_t*)geom->pDrawArgs + round_up(drawCount * sizeof(*geom->pDrawArgs), 16));
+			geom->pJointRemaps = (uint32_t*)((uint8_t*)geom->pInverseBindPoses + round_up(jointCount * sizeof(*geom->pInverseBindPoses), 16));
 
-	//		// Allocate buffer memory
-	//		const bool structuredBuffers = (pDesc->flags & GEOMETRY_LOAD_FLAG_STRUCTURED_BUFFERS);
+			uint32_t shadowSize = 0;
+			if (pDesc->flags & SG_GEOMETRY_LOAD_FLAG_SHADOWED)
+			{
+				shadowSize += (uint32_t)vertexAttribs[SG_SEMANTIC_POSITION]->data->stride * vertexCount;
+				shadowSize += indexCount * indexStride;
 
-	//		// Index buffer
-	//		BufferDesc indexBufferDesc = {};
-	//		indexBufferDesc.descriptors = DESCRIPTOR_TYPE_INDEX_BUFFER |
-	//			(structuredBuffers ?
-	//				(DESCRIPTOR_TYPE_BUFFER | DESCRIPTOR_TYPE_RW_BUFFER) :
-	//				(DESCRIPTOR_TYPE_BUFFER_RAW | DESCRIPTOR_TYPE_RW_BUFFER_RAW));
-	//		indexBufferDesc.mSize = indexStride * indexCount;
-	//		indexBufferDesc.elementCount = indexBufferDesc.mSize / (structuredBuffers ? indexStride : sizeof(uint32_t));
-	//		indexBufferDesc.structStride = indexStride;
-	//		indexBufferDesc.memoryUsage = RESOURCE_MEMORY_USAGE_GPU_ONLY;
-	//		addBuffer(pRenderer, &indexBufferDesc, &geom->pIndexBuffer);
+				geom->pShadow = (Geometry::ShadowData*)sg_calloc(1, sizeof(Geometry::ShadowData) + shadowSize);
+				geom->pShadow->pIndices = geom->pShadow + 1;
+				geom->pShadow->pAttributes[SG_SEMANTIC_POSITION] = (uint8_t*)geom->pShadow->pIndices + (indexCount * indexStride);
+				// #TODO: Add more if needed
+			}
 
-	//		BufferUpdateDesc indexUpdateDesc = {};
-	//		BufferUpdateDesc vertexUpdateDesc[MAX_VERTEX_BINDINGS] = {};
+			geom->vertexBufferCount = vertexBufferCount;
+			geom->drawArgCount = drawCount;
+			geom->indexCount = indexCount;
+			geom->vertexCount = vertexCount;
+			geom->indexType = (sizeof(uint16_t) == indexStride) ? SG_INDEX_TYPE_UINT16 : SG_INDEX_TYPE_UINT32;
+			geom->jointCount = jointCount;
 
-	//		indexUpdateDesc.mSize = indexCount * indexStride;
-	//		indexUpdateDesc.pBuffer = geom->pIndexBuffer;
-	//#if UMA
-	//		indexUpdateDesc.mInternal.mMappedRange = { (uint8_t*)geom->pIndexBuffer->pCpuMappedAddress };
-	//#else
-	//		indexUpdateDesc.mInternal.mMappedRange = allocateStagingMemory(indexUpdateDesc.mSize, RESOURCE_BUFFER_ALIGNMENT);
-	//#endif
-	//		indexUpdateDesc.pMappedData = indexUpdateDesc.mInternal.mMappedRange.pData;
+			// Allocate buffer memory
+			const bool structuredBuffers = (pDesc->flags & SG_GEOMETRY_LOAD_FLAG_STRUCTURED_BUFFERS);
 
-	//		uint32_t bufferCounter = 0;
-	//		for (uint32_t i = 0; i < MAX_VERTEX_BINDINGS; ++i)
-	//		{
-	//			if (!vertexStrides[i])
-	//				continue;
+			// Index buffer
+			BufferCreateDesc indexBufferDesc = {};
+			indexBufferDesc.descriptors = SG_DESCRIPTOR_TYPE_INDEX_BUFFER |
+				(structuredBuffers ?
+					(SG_DESCRIPTOR_TYPE_BUFFER | SG_DESCRIPTOR_TYPE_RW_BUFFER) :
+					(SG_DESCRIPTOR_TYPE_BUFFER_RAW | SG_DESCRIPTOR_TYPE_RW_BUFFER_RAW));
+			indexBufferDesc.size = indexStride * indexCount;
+			indexBufferDesc.elementCount = indexBufferDesc.size / (structuredBuffers ? indexStride : sizeof(uint32_t));
+			indexBufferDesc.structStride = indexStride;
+			indexBufferDesc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_GPU_ONLY;
+			add_buffer(pRenderer, &indexBufferDesc, &geom->pIndexBuffer);
 
-	//			BufferDesc vertexBufferDesc = {};
-	//			vertexBufferDesc.descriptors = DESCRIPTOR_TYPE_VERTEX_BUFFER |
-	//				(structuredBuffers ?
-	//					(DESCRIPTOR_TYPE_BUFFER | DESCRIPTOR_TYPE_RW_BUFFER) :
-	//					(DESCRIPTOR_TYPE_BUFFER_RAW | DESCRIPTOR_TYPE_RW_BUFFER_RAW));
-	//			vertexBufferDesc.mSize = vertexStrides[i] * vertexCount;
-	//			vertexBufferDesc.elementCount = vertexBufferDesc.mSize / (structuredBuffers ? vertexStrides[i] : sizeof(uint32_t));
-	//			vertexBufferDesc.structStride = vertexStrides[i];
-	//			vertexBufferDesc.memoryUsage = RESOURCE_MEMORY_USAGE_GPU_ONLY;
-	//			addBuffer(pRenderer, &vertexBufferDesc, &geom->pVertexBuffers[bufferCounter]);
+			BufferUpdateDesc indexUpdateDesc = {};
+			BufferUpdateDesc vertexUpdateDesc[SG_MAX_VERTEX_BINDINGS] = {};
 
-	//			geom->mVertexStrides[bufferCounter] = vertexStrides[i];
+			indexUpdateDesc.size = indexCount * indexStride;
+			indexUpdateDesc.pBuffer = geom->pIndexBuffer;
+	#if UMA
+			indexUpdateDesc.mInternal.mappedRange = { (uint8_t*)geom->pIndexBuffer->pCpuMappedAddress };
+	#else
+			indexUpdateDesc.mInternal.mappedRange = allocate_staging_memory(indexUpdateDesc.size, SG_RESOURCE_BUFFER_ALIGNMENT);
+	#endif
+			indexUpdateDesc.pMappedData = indexUpdateDesc.mInternal.mappedRange.pData;
 
-	//			vertexUpdateDesc[i].pBuffer = geom->pVertexBuffers[bufferCounter];
-	//			vertexUpdateDesc[i].mSize = vertexBufferDesc.mSize;
-	//#if UMA
-	//			vertexUpdateDesc[i].mInternal.mMappedRange = { (uint8_t*)geom->pVertexBuffers[bufferCounter]->pCpuMappedAddress, 0 };
-	//#else
-	//			vertexUpdateDesc[i].mInternal.mMappedRange = allocateStagingMemory(vertexUpdateDesc[i].mSize, RESOURCE_BUFFER_ALIGNMENT);
-	//#endif
-	//			vertexUpdateDesc[i].pMappedData = vertexUpdateDesc[i].mInternal.mMappedRange.pData;
-	//			++bufferCounter;
-	//		}
+			uint32_t bufferCounter = 0;
+			for (uint32_t i = 0; i < SG_MAX_VERTEX_BINDINGS; ++i)
+			{
+				if (!vertexStrides[i])
+					continue;
 
-	//		indexCount = 0;
-	//		vertexCount = 0;
-	//		drawCount = 0;
+				BufferCreateDesc vertexBufferDesc = {};
+				vertexBufferDesc.descriptors = SG_DESCRIPTOR_TYPE_VERTEX_BUFFER |
+					(structuredBuffers ?
+						(SG_DESCRIPTOR_TYPE_BUFFER | SG_DESCRIPTOR_TYPE_RW_BUFFER) :
+						(SG_DESCRIPTOR_TYPE_BUFFER_RAW | SG_DESCRIPTOR_TYPE_RW_BUFFER_RAW));
+				vertexBufferDesc.size = vertexStrides[i] * vertexCount;
+				vertexBufferDesc.elementCount = vertexBufferDesc.size / (structuredBuffers ? vertexStrides[i] : sizeof(uint32_t));
+				vertexBufferDesc.structStride = vertexStrides[i];
+				vertexBufferDesc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_GPU_ONLY;
+				add_buffer(pRenderer, &vertexBufferDesc, &geom->pVertexBuffers[bufferCounter]);
 
-	//		for (uint32_t i = 0; i < data->meshes_count; ++i)
-	//		{
-	//			for (uint32_t p = 0; p < data->meshes[i].primitives_count; ++p)
-	//			{
-	//				const cgltf_primitive* prim = &data->meshes[i].primitives[p];
-	//				/************************************************************************/
-	//				// Fill index buffer for this primitive
-	//				/************************************************************************/
-	//				if (sizeof(uint16_t) == indexStride)
-	//				{
-	//					uint16_t* dst = (uint16_t*)indexUpdateDesc.pMappedData;
-	//					for (uint32_t idx = 0; idx < prim->indices->count; ++idx)
-	//						dst[indexCount + idx] = vertexCount + (uint16_t)cgltf_accessor_read_index(prim->indices, idx);
-	//				}
-	//				else
-	//				{
-	//					uint32_t* dst = (uint32_t*)indexUpdateDesc.pMappedData;
-	//					for (uint32_t idx = 0; idx < prim->indices->count; ++idx)
-	//						dst[indexCount + idx] = vertexCount + (uint32_t)cgltf_accessor_read_index(prim->indices, idx);
-	//				}
-	//				/************************************************************************/
-	//				// Fill vertex buffers for this primitive
-	//				/************************************************************************/
-	//				for (uint32_t a = 0; a < prim->attributes_count; ++a)
-	//				{
-	//					cgltf_attribute* attr = &prim->attributes[a];
-	//					uint32_t index = util_cgltf_attrib_type_to_semantic(attr->type, attr->index);
+				geom->vertexStrides[bufferCounter] = vertexStrides[i];
 
-	//					if (vertexOffsets[index] != UINT_MAX)
-	//					{
-	//						const uint32_t binding = vertexBindings[index];
-	//						const uint32_t offset = vertexOffsets[index];
-	//						const uint32_t stride = vertexStrides[binding];
-	//						const uint8_t* src = (uint8_t*)attr->data->buffer_view->buffer->data + attr->data->offset + attr->data->buffer_view->offset;
+				vertexUpdateDesc[i].pBuffer = geom->pVertexBuffers[bufferCounter];
+				vertexUpdateDesc[i].size = vertexBufferDesc.size;
+	#if UMA
+				vertexUpdateDesc[i].mInternal.mappedRange = { (uint8_t*)geom->pVertexBuffers[bufferCounter]->pCpuMappedAddress, 0 };
+#else
+				vertexUpdateDesc[i].mInternal.mappedRange = allocate_staging_memory(vertexUpdateDesc[i].size, SG_RESOURCE_BUFFER_ALIGNMENT);
+	#endif
+				vertexUpdateDesc[i].pMappedData = vertexUpdateDesc[i].mInternal.mappedRange.pData;
+				++bufferCounter;
+			}
 
-	//						// If this vertex attribute is not interleaved with any other attribute use fast path instead of copying one by one
-	//						// In this case a simple memcpy will be enough to transfer the data to the buffer
-	//						if (1 == vertexAttribCount[binding])
-	//						{
-	//							uint8_t* dst = (uint8_t*)vertexUpdateDesc[binding].pMappedData + vertexCount * stride;
-	//							if (vertexPacking[index])
-	//								vertexPacking[index]((uint32_t)attr->data->count, (uint32_t)attr->data->stride, 0, src, dst);
-	//							else
-	//								memcpy(dst, src, attr->data->count * attr->data->stride);
-	//						}
-	//						else
-	//						{
-	//							uint8_t* dst = (uint8_t*)vertexUpdateDesc[binding].pMappedData + vertexCount * stride;
-	//							// Loop through all vertices copying into the correct place in the vertex buffer
-	//							// Example:
-	//							// [ POSITION | NORMAL | TEXCOORD ] => [ 0 | 12 | 24 ], [ 32 | 44 | 52 ], ... (vertex stride of 32 => 12 + 12 + 8)
-	//							if (vertexPacking[index])
-	//								vertexPacking[index]((uint32_t)attr->data->count, (uint32_t)attr->data->stride, offset, src, dst);
-	//							else
-	//								for (uint32_t e = 0; e < attr->data->count; ++e)
-	//									memcpy(dst + e * stride + offset, src + e * attr->data->stride, attr->data->stride);
-	//						}
-	//					}
-	//				}
-	//				/************************************************************************/
-	//				// Fill draw arguments for this primitive
-	//				/************************************************************************/
-	//				geom->pDrawArgs[drawCount].mIndexCount = (uint32_t)prim->indices->count;
-	//				geom->pDrawArgs[drawCount].mInstanceCount = 1;
-	//				geom->pDrawArgs[drawCount].mStartIndex = indexCount;
-	//				geom->pDrawArgs[drawCount].mStartInstance = 0;
-	//				// Since we already offset indices when creating the index buffer, vertex offset will be zero
-	//				// With this approach, we can draw everything in one draw call or use the traditional draw per subset without the
-	//				// need for changing shader code
-	//				geom->pDrawArgs[drawCount].mVertexOffset = 0;
+			indexCount = 0;
+			vertexCount = 0;
+			drawCount = 0;
 
-	//				indexCount += (uint32_t)prim->indices->count;
-	//				vertexCount += (uint32_t)prim->attributes->data->count;
-	//				++drawCount;
-	//			}
-	//		}
+			for (uint32_t i = 0; i < data->meshes_count; ++i)
+			{
+				for (uint32_t p = 0; p < data->meshes[i].primitives_count; ++p)
+				{
+					const cgltf_primitive* prim = &data->meshes[i].primitives[p];
+					// Fill index buffer for this primitive
+					if (sizeof(uint16_t) == indexStride)
+					{
+						uint16_t* dst = (uint16_t*)indexUpdateDesc.pMappedData;
+						for (uint32_t idx = 0; idx < prim->indices->count; ++idx)
+							dst[indexCount + idx] = vertexCount + (uint16_t)cgltf_accessor_read_index(prim->indices, idx);
+					}
+					else
+					{
+						uint32_t* dst = (uint32_t*)indexUpdateDesc.pMappedData;
+						for (uint32_t idx = 0; idx < prim->indices->count; ++idx)
+							dst[indexCount + idx] = vertexCount + (uint32_t)cgltf_accessor_read_index(prim->indices, idx);
+					}
 
-	//		UploadFunctionResult uploadResult = UPLOAD_FUNCTION_RESULT_COMPLETED;
-	//#if !UMA
-	//		uploadResult = updateBuffer(pRenderer, pCopyEngine, activeSet, indexUpdateDesc);
+					// Fill vertex buffers for this primitive
+					for (uint32_t a = 0; a < prim->attributes_count; ++a)
+					{
+						cgltf_attribute* attr = &prim->attributes[a];
+						uint32_t index = util_cgltf_attrib_type_to_shader_semantic(attr->type, attr->index);
 
-	//		for (uint32_t i = 0; i < MAX_VERTEX_BINDINGS; ++i)
-	//		{
-	//			if (vertexUpdateDesc[i].pMappedData)
-	//			{
-	//				uploadResult = updateBuffer(pRenderer, pCopyEngine, activeSet, vertexUpdateDesc[i]);
-	//			}
-	//		}
-	//#endif
+						if (vertexOffsets[index] != UINT_MAX)
+						{
+							const uint32_t binding = vertexBindings[index];
+							const uint32_t offset = vertexOffsets[index];
+							const uint32_t stride = vertexStrides[binding];
+							const uint8_t* src = (uint8_t*)attr->data->buffer_view->buffer->data + attr->data->offset + attr->data->buffer_view->offset;
 
-	//		// Load the remap joint indices generated in the offline process
-	//		uint32_t remapCount = 0;
-	//		for (uint32_t i = 0; i < data->skins_count; ++i)
-	//		{
-	//			const cgltf_skin* skin = &data->skins[i];
-	//			uint32_t extrasSize = (uint32_t)(skin->extras.end_offset - skin->extras.start_offset);
-	//			if (extrasSize)
-	//			{
-	//				const char* jointRemaps = (const char*)data->json + skin->extras.start_offset;
-	//				jsmn_parser parser = {};
-	//				jsmntok_t* tokens = (jsmntok_t*)tf_malloc((skin->joints_count + 1) * sizeof(jsmntok_t));
-	//				jsmn_parse(&parser, (const char*)jointRemaps, extrasSize, tokens, skin->joints_count + 1);
-	//				ASSERT(tokens[0].size == skin->joints_count + 1);
-	//				cgltf_accessor_unpack_floats(skin->inverse_bind_matrices, (cgltf_float*)geom->pInverseBindPoses, skin->joints_count * sizeof(float[16]) / sizeof(float));
-	//				for (uint32_t r = 0; r < skin->joints_count; ++r)
-	//					geom->pJointRemaps[remapCount + r] = atoi(jointRemaps + tokens[1 + r].start);
-	//				tf_free(tokens);
-	//			}
+							// If this vertex attribute is not interleaved with any other attribute use fast path instead of copying one by one
+							// In this case a simple memcpy will be enough to transfer the data to the buffer
+							if (1 == vertexAttribCount[binding])
+							{
+								uint8_t* dst = (uint8_t*)vertexUpdateDesc[binding].pMappedData + vertexCount * stride;
+								if (vertexPacking[index])
+									vertexPacking[index]((uint32_t)attr->data->count, (uint32_t)attr->data->stride, 0, src, dst);
+								else
+									memcpy(dst, src, attr->data->count * attr->data->stride);
+							}
+							else
+							{
+								uint8_t* dst = (uint8_t*)vertexUpdateDesc[binding].pMappedData + vertexCount * stride;
+								// Loop through all vertices copying into the correct place in the vertex buffer
+								// Example:
+								// [ POSITION | NORMAL | TEXCOORD ] => [ 0 | 12 | 24 ], [ 32 | 44 | 52 ], ... (vertex stride of 32 => 12 + 12 + 8)
+								if (vertexPacking[index])
+									vertexPacking[index]((uint32_t)attr->data->count, (uint32_t)attr->data->stride, offset, src, dst);
+								else
+									for (uint32_t e = 0; e < attr->data->count; ++e)
+										memcpy(dst + e * stride + offset, src + e * attr->data->stride, attr->data->stride);
+							}
+						}
+					}
 
-	//			remapCount += (uint32_t)skin->joints_count;
-	//		}
+					// Fill draw arguments for this primitive
+					geom->pDrawArgs[drawCount].indexCount = (uint32_t)prim->indices->count;
+					geom->pDrawArgs[drawCount].instanceCount = 1;
+					geom->pDrawArgs[drawCount].startIndex = indexCount;
+					geom->pDrawArgs[drawCount].startInstance = 0;
+					// Since we already offset indices when creating the index buffer, vertex offset will be zero
+					// With this approach, we can draw everything in one draw call or use the traditional draw per subset without the
+					// need for changing shader code
+					geom->pDrawArgs[drawCount].vertexOffset = 0;
 
-	//		// Load the tressfx specific data generated in the offline process
-	//		if (stricmp(data->asset.generator, "tressfx") == 0)
-	//		{
-	//			// { "mVertexCountPerStrand" : "16", "mGuideCountPerStrand" : "3456" }
-	//			uint32_t extrasSize = (uint32_t)(data->asset.extras.end_offset - data->asset.extras.start_offset);
-	//			const char* json = data->json + data->asset.extras.start_offset;
-	//			jsmn_parser parser = {};
-	//			jsmntok_t tokens[5] = {};
-	//			jsmn_parse(&parser, (const char*)json, extrasSize, tokens, 5);
-	//			geom->mHair.mVertexCountPerStrand = atoi(json + tokens[2].start);
-	//			geom->mHair.mGuideCountPerStrand = atoi(json + tokens[4].start);
-	//		}
+					indexCount += (uint32_t)prim->indices->count;
+					vertexCount += (uint32_t)prim->attributes->data->count;
+					++drawCount;
+				}
+			}
 
-	//		if (pDesc->flags & GEOMETRY_LOAD_FLAG_SHADOWED)
-	//		{
-	//			indexCount = 0;
-	//			vertexCount = 0;
+			UploadFunctionResult uploadResult = SG_UPLOAD_FUNCTION_RESULT_COMPLETED;
+	#if !UMA
+			uploadResult = update_buffer(pRenderer, pCopyEngine, activeSet, indexUpdateDesc);
 
-	//			for (uint32_t i = 0; i < data->meshes_count; ++i)
-	//			{
-	//				for (uint32_t p = 0; p < data->meshes[i].primitives_count; ++p)
-	//				{
-	//					const cgltf_primitive* prim = &data->meshes[i].primitives[p];
-	//					/************************************************************************/
-	//					// Fill index buffer for this primitive
-	//					/************************************************************************/
-	//					if (sizeof(uint16_t) == indexStride)
-	//					{
-	//						uint16_t* dst = (uint16_t*)geom->pShadow->pIndices;
-	//						for (uint32_t idx = 0; idx < prim->indices->count; ++idx)
-	//							dst[indexCount + idx] = vertexCount + (uint16_t)cgltf_accessor_read_index(prim->indices, idx);
-	//					}
-	//					else
-	//					{
-	//						uint32_t* dst = (uint32_t*)geom->pShadow->pIndices;
-	//						for (uint32_t idx = 0; idx < prim->indices->count; ++idx)
-	//							dst[indexCount + idx] = vertexCount + (uint32_t)cgltf_accessor_read_index(prim->indices, idx);
-	//					}
+			for (uint32_t i = 0; i < SG_MAX_VERTEX_BINDINGS; ++i)
+			{
+				if (vertexUpdateDesc[i].pMappedData)
+				{
+					uploadResult = update_buffer(pRenderer, pCopyEngine, activeSet, vertexUpdateDesc[i]);
+				}
+			}
+	#endif
 
-	//					for (uint32_t a = 0; a < prim->attributes_count; ++a)
-	//					{
-	//						cgltf_attribute* attr = &prim->attributes[a];
-	//						if (cgltf_attribute_type_position == attr->type)
-	//						{
-	//							const uint8_t* src = (uint8_t*)attr->data->buffer_view->buffer->data + attr->data->offset + attr->data->buffer_view->offset;
-	//							uint8_t* dst = (uint8_t*)geom->pShadow->pAttributes[SEMANTIC_POSITION] + vertexCount * attr->data->stride;
-	//							memcpy(dst, src, attr->data->count * attr->data->stride);
-	//						}
-	//					}
+			// Load the remap joint indices generated in the offline process
+			uint32_t remapCount = 0;
+			for (uint32_t i = 0; i < data->skins_count; ++i)
+			{
+				const cgltf_skin* skin = &data->skins[i];
+				uint32_t extrasSize = (uint32_t)(skin->extras.end_offset - skin->extras.start_offset);
+				if (extrasSize)
+				{
+					const char* jointRemaps = (const char*)data->json + skin->extras.start_offset;
+					jsmn_parser parser = {};
+					jsmntok_t* tokens = (jsmntok_t*)sg_malloc((skin->joints_count + 1) * sizeof(jsmntok_t));
+					jsmn_parse(&parser, (const char*)jointRemaps, extrasSize, tokens, skin->joints_count + 1);
+					ASSERT(tokens[0].size == skin->joints_count + 1);
+					cgltf_accessor_unpack_floats(skin->inverse_bind_matrices, (cgltf_float*)geom->pInverseBindPoses, skin->joints_count * sizeof(float[16]) / sizeof(float));
+					for (uint32_t r = 0; r < skin->joints_count; ++r)
+						geom->pJointRemaps[remapCount + r] = atoi(jointRemaps + tokens[1 + r].start);
+					sg_free(tokens);
+				}
 
-	//					indexCount += (uint32_t)prim->indices->count;
-	//					vertexCount += (uint32_t)prim->attributes->data->count;
-	//				}
-	//			}
-	//		}
+				remapCount += (uint32_t)skin->joints_count;
+			}
 
-	//		data->file_data = fileData;
-	//		cgltf_free(data);
+			// Load the tressfx specific data generated in the offline process
+			if (stricmp(data->asset.generator, "tressfx") == 0)
+			{
+				// { "mVertexCountPerStrand" : "16", "mGuideCountPerStrand" : "3456" }
+				uint32_t extrasSize = (uint32_t)(data->asset.extras.end_offset - data->asset.extras.start_offset);
+				const char* json = data->json + data->asset.extras.start_offset;
+				jsmn_parser parser = {};
+				jsmntok_t tokens[5] = {};
+				jsmn_parse(&parser, (const char*)json, extrasSize, tokens, 5);
+				geom->hair.vertexCountPerStrand = atoi(json + tokens[2].start);
+				geom->hair.guideCountPerStrand = atoi(json + tokens[4].start);
+			}
 
-	//		tf_free(pDesc->pVertexLayout);
+			if (pDesc->flags & SG_GEOMETRY_LOAD_FLAG_SHADOWED)
+			{
+				indexCount = 0;
+				vertexCount = 0;
 
-	//		*pDesc->ppGeometry = geom;
+				for (uint32_t i = 0; i < data->meshes_count; ++i)
+				{
+					for (uint32_t p = 0; p < data->meshes[i].primitives_count; ++p)
+					{
+						const cgltf_primitive* prim = &data->meshes[i].primitives[p];
 
-	//		return uploadResult;
-	//	}
+						// Fill index buffer for this primitive
+						if (sizeof(uint16_t) == indexStride)
+						{
+							uint16_t* dst = (uint16_t*)geom->pShadow->pIndices;
+							for (uint32_t idx = 0; idx < prim->indices->count; ++idx)
+								dst[indexCount + idx] = vertexCount + (uint16_t)cgltf_accessor_read_index(prim->indices, idx);
+						}
+						else
+						{
+							uint32_t* dst = (uint32_t*)geom->pShadow->pIndices;
+							for (uint32_t idx = 0; idx < prim->indices->count; ++idx)
+								dst[indexCount + idx] = vertexCount + (uint32_t)cgltf_accessor_read_index(prim->indices, idx);
+						}
 
-	//	return UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
-	//}
+						for (uint32_t a = 0; a < prim->attributes_count; ++a)
+						{
+							cgltf_attribute* attr = &prim->attributes[a];
+							if (cgltf_attribute_type_position == attr->type)
+							{
+								const uint8_t* src = (uint8_t*)attr->data->buffer_view->buffer->data + attr->data->offset + attr->data->buffer_view->offset;
+								uint8_t* dst = (uint8_t*)geom->pShadow->pAttributes[SG_SEMANTIC_POSITION] + vertexCount * attr->data->stride;
+								memcpy(dst, src, attr->data->count * attr->data->stride);
+							}
+						}
 
-	// Internal Resource Loader Implementation
+						indexCount += (uint32_t)prim->indices->count;
+						vertexCount += (uint32_t)prim->attributes->data->count;
+					}
+				}
+			}
 
+			data->file_data = fileData;
+			cgltf_free(data);
+
+			sg_free(pDesc->pVertexLayout);
+
+			*pDesc->ppGeometry = geom;
+
+			return uploadResult;
+		}
+
+		return SG_UPLOAD_FUNCTION_RESULT_INVALID_REQUEST;
+	}
+
+	// internal Resource Loader Implementation
 	// to check if there are some loading operation is functioning
 	static bool are_tasks_available(ResourceLoader* pLoader)
 	{
@@ -1514,6 +1636,9 @@ namespace SG
 	// for each thread to load the data
 	static void streamer_thread_func(void* pThreadData)
 	{
+		Thread::set_curr_thread_name("ResourceLoading");
+		SG_LOG_DEBUG("Thread ID: %ul is loading resourece", Thread::get_curr_thread_id());
+
 		ResourceLoader* pLoader = (ResourceLoader*)pThreadData;
 		ASSERT(pLoader);
 
@@ -1610,9 +1735,9 @@ namespace SG
 					case SG_UPDATE_REQUEST_LOAD_TEXTURE:
 						result = load_texture(pLoader->pRenderer, &copyEngine, pLoader->nextSet, updateState);
 						break;
-					//case SG_UPDATE_REQUEST_LOAD_GEOMETRY:
-					//	result = load_geometry(pLoader->pRenderer, &copyEngine, pLoader->nextSet, updateState);
-					//	break;
+					case SG_UPDATE_REQUEST_LOAD_GEOMETRY:
+						result = load_geometry(pLoader->pRenderer, &copyEngine, pLoader->nextSet, updateState);
+						break;
 					case SG_UPDATE_REQUEST_INVALID:
 						break;
 					}
@@ -1775,19 +1900,19 @@ namespace SG
 		if (token) *token = eastl::max(t, *token);
 	}
 
-	//static void queue_geometry_load(ResourceLoader* pLoader, GeometryLoadDesc* pGeometryLoad, SyncToken* token)
-	//{
-	//	uint32_t nodeIndex = pGeometryLoad->nodeIndex;
-	//	pLoader->queueMutex.Acquire();
+	static void queue_geometry_load(ResourceLoader* pLoader, GeometryLoadDesc* pGeometryLoad, SyncToken* token)
+	{
+		uint32_t nodeIndex = pGeometryLoad->nodeIndex;
+		pLoader->queueMutex.Acquire();
 
-	//	SyncToken t = sg_atomic64_add_relaxed(&pLoader->tokenCounter, 1) + 1;
+		SyncToken t = sg_atomic64_add_relaxed(&pLoader->tokenCounter, 1) + 1;
 
-	//	pLoader->requestQueue[nodeIndex].emplace_back(UpdateRequest(*pGeometryLoad));
-	//	pLoader->requestQueue[nodeIndex].back().waitIndex = t;
-	//	pLoader->queueMutex.Release();
-	//	pLoader->queueCv.WakeOne();
-	//	if (token) *token = eastl::max(t, *token);
-	//}
+		pLoader->requestQueue[nodeIndex].emplace_back(UpdateRequest(*pGeometryLoad));
+		pLoader->requestQueue[nodeIndex].back().waitIndex = t;
+		pLoader->queueMutex.Release();
+		pLoader->queueCv.WakeOne();
+		if (token) *token = eastl::max(t, *token);
+	}
 
 	static void queue_texture_update(ResourceLoader* pLoader, TextureUpdateDescInternal* pTextureUpdate, SyncToken* token)
 	{
@@ -1969,20 +2094,20 @@ namespace SG
 		}
 	}
 
-	//void add_resource(GeometryLoadDesc* pDesc, SyncToken* token)
-	//{
-	//	ASSERT(pDesc->ppGeometry);
+	void add_resource(GeometryLoadDesc* pDesc, SyncToken* token)
+	{
+		ASSERT(pDesc->ppGeometry);
 
-	//	GeometryLoadDesc updateDesc = *pDesc;
-	//	updateDesc.fileName = pDesc->fileName;
-	//	updateDesc.pVertexLayout = (VertexLayout*)sg_calloc(1, sizeof(VertexLayout));
-	//	memcpy(updateDesc.pVertexLayout, pDesc->pVertexLayout, sizeof(VertexLayout));
-	//	queue_geometry_load(pResourceLoader, &updateDesc, token);
-	//	if (pResourceLoader->desc.singleThreaded)
-	//	{
-	//		streamer_thread_func(pResourceLoader);
-	//	}
-	//}
+		GeometryLoadDesc updateDesc = *pDesc;
+		updateDesc.fileName = pDesc->fileName;
+		updateDesc.pVertexLayout = (VertexLayout*)sg_calloc(1, sizeof(VertexLayout));
+		memcpy(updateDesc.pVertexLayout, pDesc->pVertexLayout, sizeof(VertexLayout));
+		queue_geometry_load(pResourceLoader, &updateDesc, token);
+		if (pResourceLoader->desc.singleThreaded)
+		{
+			streamer_thread_func(pResourceLoader);
+		}
+	}
 
 	void remove_resource(Buffer* pBuffer)
 	{
@@ -1994,15 +2119,15 @@ namespace SG
 		remove_texture(pResourceLoader->pRenderer, pTexture);
 	}
 
-	//void remove_resource(Geometry* pGeom)
-	//{
-	//	remove_resource(pGeom->pIndexBuffer);
+	void remove_resource(Geometry* pGeom)
+	{
+		remove_resource(pGeom->pIndexBuffer);
 
-	//	for (uint32_t i = 0; i < pGeom->vertexBufferCount; ++i)
-	//		remove_resource(pGeom->pVertexBuffers[i]);
+		for (uint32_t i = 0; i < pGeom->vertexBufferCount; ++i)
+			remove_resource(pGeom->pVertexBuffers[i]);
 
-	//	sg_free(pGeom);
-	//}
+		sg_free(pGeom);
+	}
 
 	void begin_update_resource(BufferUpdateDesc* pBufferUpdate)
 	{
@@ -2262,7 +2387,7 @@ namespace SG
 				glslangValidator += "/Bin/glslangValidator";
 			else
 				glslangValidator = "/usr/Bin/glslangValidator";
-
+			
 			const char* args[1] = { commandLine.c_str() };
 
 			char logFileName[SG_MAX_FILEPATH] = { 0 };
@@ -2351,7 +2476,7 @@ namespace SG
 				cArgs.push_back(arg.c_str());
 			}
 
-			if (systemRun(xcrun, &cArgs[0], cArgs.size(), NULL) == 0)
+			if (system_run(xcrun, &cArgs[0], cArgs.size(), NULL) == 0)
 			{
 				// Create a .metallib file from the .air file.
 				args.clear();

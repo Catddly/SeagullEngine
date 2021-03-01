@@ -9,9 +9,26 @@ using namespace SG;
 
 struct Vertex
 {
-	Vec2 Position;
+	Vec3 Position;
 	Vec2 TexCoord;
+
+	static float GetStructSize()
+	{
+		return sizeof(Vertex);
+	}
 };
+
+//struct Vertex
+//{
+//	Vec3 Position;
+//	Vec3 Normal;
+//	Vec2 TexCoord;
+//
+//	static float GetStructSize()
+//	{
+//		return sizeof(Vertex);
+//	}
+//};
 
 struct UniformBuffer
 {
@@ -28,12 +45,14 @@ public:
 		// set the file path
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SHADER_SOURCES, "../../../Resources/Shaders");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_DEBUG,   SG_RD_SHADER_BINARIES, "CompiledShaders");
-		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_GPU_CONFIG, "GPUcfg");
+		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_GPU_CONFIG, "GPUfg");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_TEXTURES, "../../../Resources/Textures");
-		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_MESHES, "Meshes");
+		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_MESHES, "../../../Resources/Meshes");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_FONTS, "Fonts");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_ANIMATIONS, "Animation");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SCRIPTS, "Scripts");
+
+		SG_LOG_DEBUG("Main thread ID: %ul", Thread::get_curr_thread_id());
 
 		return true;
 	}
@@ -79,9 +98,29 @@ public:
 			init_resource_loader_interface(mRenderer);
 
 			TextureLoadDesc textureCreate = {};
-			textureCreate.fileName = "Moon";
+			textureCreate.fileName = "viking_room";
 			textureCreate.ppTexture = &mTexture;
 			add_resource(&textureCreate, nullptr);
+
+			mRoomGeoVertexLayout.attribCount = 2;
+
+			mRoomGeoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
+			mRoomGeoVertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
+			mRoomGeoVertexLayout.attribs[0].binding = 0;
+			mRoomGeoVertexLayout.attribs[0].location = 0;
+			mRoomGeoVertexLayout.attribs[0].offset = 0;
+
+			mRoomGeoVertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
+			mRoomGeoVertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
+			mRoomGeoVertexLayout.attribs[1].binding = 0;
+			mRoomGeoVertexLayout.attribs[1].location = 1;
+			mRoomGeoVertexLayout.attribs[1].offset = 3 * sizeof(float);
+
+			GeometryLoadDesc geoCreate = {};
+			geoCreate.fileName = "model.gltf";
+			geoCreate.ppGeometry = &mRoomGeo;
+			geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
+			add_resource(&geoCreate, nullptr);
 
 			ShaderLoadDesc loadBasicShader = {};
 			loadBasicShader.stages[0] = { "triangle.vert", nullptr, 0, "main" };
@@ -115,25 +154,10 @@ public:
 			descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
 			add_descriptor_set(mRenderer, &descriptorSetCreate, &mUboDescriptorSet);
 
-			BufferLoadDesc loadVertexBuffer = {};
-			loadVertexBuffer.desc.descriptors = SG_DESCRIPTOR_TYPE_VERTEX_BUFFER;
-			loadVertexBuffer.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_GPU_ONLY;
-			loadVertexBuffer.desc.size = sizeof(mVertices);
-			loadVertexBuffer.pData = mVertices;
-			loadVertexBuffer.ppBuffer = &mVertexBuffer;
-			add_resource(&loadVertexBuffer, nullptr);
-
-			BufferLoadDesc loadIndexBuffer = {};
-			loadIndexBuffer.desc.descriptors = SG_DESCRIPTOR_TYPE_INDEX_BUFFER;
-			loadIndexBuffer.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_GPU_ONLY;
-			loadIndexBuffer.desc.size = sizeof(mIndices);
-			loadIndexBuffer.pData = mIndices;
-			loadIndexBuffer.ppBuffer = &mIndexBuffer;
-			add_resource(&loadIndexBuffer, nullptr);
-
 			BufferLoadDesc uboCreate;
 			uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
+			uboCreate.desc.name = "UniformBuffer";
 			uboCreate.desc.size = sizeof(UniformBuffer);
 			uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
 			uboCreate.pData = nullptr;
@@ -144,13 +168,16 @@ public:
 			}
 		}
 
+		if (!CreateDepthBuffer())
+			return false;
+
 		if (!CreateSwapChain())
 			return false;
 
+		wait_for_all_resource_loads();
+
 		if (!CreateGraphicPipeline())
 			return false;
-
-		wait_for_all_resource_loads();
 
 		DescriptorData updateData[2] = {};
 		updateData[0].name = "Texture";
@@ -172,6 +199,8 @@ public:
 	{
 		wait_queue_idle(mGraphicQueue);
 
+		remove_render_target(mRenderer, mDepthBuffer);
+
 		remove_pipeline(mRenderer, mPipeline);
 		remove_swapchain(mRenderer, mSwapChain);
 
@@ -180,9 +209,8 @@ public:
 			remove_descriptor_set(mRenderer, mDescriptorSet);
 			remove_descriptor_set(mRenderer, mUboDescriptorSet);
 
-			remove_resource(mVertexBuffer);
-			remove_resource(mIndexBuffer);
 			remove_resource(mTexture);
+			remove_resource(mRoomGeo);
 			for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 			{
 				remove_resource(mUniformBuffer[i]);
@@ -213,15 +241,14 @@ public:
 
 	virtual bool OnUpdate(float deltaTime) override
 	{
-		static float time = 0;
+		static float time = 1.0f;
 		time += deltaTime;
 
-		mUbo.model = glm::rotate(Matrix4(1.0f), glm::radians(-90.0f), Vec3(0.0f, 1.0f, 0.0f));
-		mUbo.model *= glm::rotate(Matrix4(1.0f), time * 1.5f * glm::radians(-90.0f), Vec3(0.0f, 0.0f, 1.0f));
-		//mUbo.model *= glm::rotate(Matrix4(1.0f), time * glm::radians(90.0f), Vec3(1.0f, 0.0f, 0.0f));
-		mUbo.view = glm::lookAt(Vec3(glm::sin(time * 2.0f) * 1.5 + 3.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f));
-		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)1920 / (float)1080,
-			0.0001f, 100000.0f);
+		mUbo.model = glm::rotate(Matrix4(1.0f), time * 1.5f * glm::radians(45.0f), Vec3(0.0f, 0.0f, 1.0f));
+		mUbo.model *= glm::rotate(Matrix4(1.0f), glm::radians(180.0f), Vec3(1.0f, 0.0f, 0.0f));
+		mUbo.view = glm::lookAt(Vec3(2.0f, 1.4f, -1.3f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f));
+		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)mSettings.width / (float)mSettings.height,
+			0.01f, 100000.0f);
 		mUbo.projection[1][1] *= -1;
 
 		//SG_LOG_INFO("Frame: %.1f", 1.0f / deltaTime);
@@ -252,16 +279,15 @@ public:
 		*(UniformBuffer*)uboUpdate.pMappedData = mUbo;
 		end_update_resource(&uboUpdate, nullptr);
 
-		const uint32_t stride = 4 * sizeof(float);
-
+		const uint32_t stride = Vertex::GetStructSize();
 		Cmd* cmd = mCmds[mCurrentIndex];
 		// begin command buffer
 		begin_cmd(cmd);
 
-		RenderTargetBarrier renderTargetBarriers[2];
+		RenderTargetBarrier renderTargetBarriers;
 
-		renderTargetBarriers[0] = { renderTarget, SG_RESOURCE_STATE_PRESENT, SG_RESOURCE_STATE_RENDER_TARGET };
-		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, renderTargetBarriers);
+		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_PRESENT, SG_RESOURCE_STATE_RENDER_TARGET };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
 
 		LoadActionsDesc loadAction = {};
 		loadAction.loadActionsColor[0] = SG_LOAD_ACTION_CLEAR;
@@ -270,24 +296,37 @@ public:
 		loadAction.clearColorValues[0].b = 0.0f;
 		loadAction.clearColorValues[0].a = 0.0f;
 
+		loadAction.loadActionDepth = SG_LOAD_ACTION_CLEAR;
+		loadAction.clearDepth.depth = 1.0f;
+		loadAction.clearDepth.stencil = 0.0f;
+
 		// begin render pass
-		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, &loadAction, nullptr, nullptr, -1, -1);
+		cmd_bind_render_targets(cmd, 1, &renderTarget, mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
 		cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 		cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 		
 		cmd_bind_pipeline(cmd, mPipeline);
 		cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
 		cmd_bind_descriptor_set(cmd, mCurrentIndex, mUboDescriptorSet);
-		cmd_bind_vertex_buffer(cmd, 1, &mVertexBuffer, &stride, nullptr);
-		cmd_bind_index_buffer(cmd, mIndexBuffer, SG_INDEX_TYPE_UINT32, 0);
 
-		cmd_draw_indexed(cmd, COUNT_OF(mIndices), 0, 0);
+		//cmd_bind_index_buffer(cmd, mIndexBuffer, SG_INDEX_TYPE_UINT32, 0);
+		//cmd_bind_vertex_buffer(cmd, 1, &mVertexBuffer, &stride, nullptr);
+
+		cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
+		Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
+		cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mRoomGeo->vertexStrides, nullptr);
+
+		for (uint32_t i = 0; i < mRoomGeo->drawArgCount; i++)
+		{	
+			IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
+			cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
+		}
 
 		// end the render pass
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
 
-		renderTargetBarriers[0] = { renderTarget, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_PRESENT };
-		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, renderTargetBarriers);
+		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_PRESENT };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
 
 		end_cmd(cmd);
 
@@ -347,7 +386,7 @@ private:
 		VertexLayout vertexLayout = {};
 		vertexLayout.attribCount = 2;
 		vertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
-		vertexLayout.attribs[0].format = TinyImageFormat_R32G32_SFLOAT;
+		vertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
 		vertexLayout.attribs[0].binding = 0;
 		vertexLayout.attribs[0].location = 0;
 		vertexLayout.attribs[0].offset = 0;
@@ -356,22 +395,22 @@ private:
 		vertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
 		vertexLayout.attribs[1].binding = 0;
 		vertexLayout.attribs[1].location = 1;
-		vertexLayout.attribs[1].offset = 2 * sizeof(float);
+		vertexLayout.attribs[1].offset = 3 * sizeof(float);
 
 		RasterizerStateDesc rasterizeState = {};
 		rasterizeState.cullMode = SG_CULL_MODE_NONE;
+		rasterizeState.frontFace = SG_FRONT_FACE_CW;
 
 		DepthStateDesc depthStateDesc = {};
+		depthStateDesc.depthTest = true;
+		depthStateDesc.depthWrite = true;
+		depthStateDesc.depthFunc = SG_COMPARE_MODE_LESS;
 
 		BlendStateDesc blendStateDesc = {};
 		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_ONE;
 		blendStateDesc.srcFactors[1] = SG_BLEND_CONST_ONE;
 		blendStateDesc.srcAlphaFactors[0] = SG_BLEND_CONST_ONE;
 		blendStateDesc.srcAlphaFactors[1] = SG_BLEND_CONST_ONE;
-		//blendStateDesc.srcFactors[0] = SG_BLEND_CONST_SRC_COLOR;
-		//blendStateDesc.srcFactors[1] = SG_BLEND_CONST_SRC_COLOR;
-		//blendStateDesc.srcAlphaFactors[0] = SG_BLEND_CONST_SRC_ALPHA;
-		//blendStateDesc.srcAlphaFactors[1] = SG_BLEND_CONST_SRC_ALPHA;
 		blendStateDesc.renderTargetMask = SG_BLEND_STATE_TARGET_0;
 		blendStateDesc.masks[0] = SG_BLEND_COLOR_MASK_ALL;
 		blendStateDesc.masks[1] = SG_BLEND_COLOR_MASK_ALL;
@@ -381,7 +420,10 @@ private:
 		GraphicsPipelineDesc& graphicPipe = pipelineCreate.graphicsDesc;
 		graphicPipe.primitiveTopo = SG_PRIMITIVE_TOPO_TRI_LIST;
 		graphicPipe.renderTargetCount = 1;
+
 		graphicPipe.pColorFormats = &mSwapChain->ppRenderTargets[0]->format;
+		graphicPipe.pDepthState = &depthStateDesc;
+
 		graphicPipe.sampleCount = mSwapChain->ppRenderTargets[0]->sampleCount;
 		graphicPipe.sampleQuality = mSwapChain->ppRenderTargets[0]->sampleQuality;
 
@@ -390,11 +432,32 @@ private:
 
 		graphicPipe.pVertexLayout = &vertexLayout;
 		graphicPipe.pRasterizerState = &rasterizeState;
-		graphicPipe.pDepthState = nullptr;
+
+		graphicPipe.depthStencilFormat = mDepthBuffer->format;
+
 		graphicPipe.pBlendState = &blendStateDesc;
 		add_pipeline(mRenderer, &pipelineCreate, &mPipeline);
 
 		return mPipeline != nullptr;
+	}
+
+	bool CreateDepthBuffer()
+	{
+		RenderTargetCreateDesc depthRT = {};
+		depthRT.arraySize = 1;
+		depthRT.clearValue = { { 1.0f, 0 } };
+		depthRT.depth = 1;
+		depthRT.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
+		depthRT.format = TinyImageFormat_D24_UNORM_S8_UINT;
+		depthRT.startState = SG_RESOURCE_STATE_SHADER_RESOURCE;
+		depthRT.height = mSettings.height;
+		depthRT.width = mSettings.width;
+		depthRT.sampleCount = SG_SAMPLE_COUNT_1;
+		depthRT.sampleQuality = 0;
+		depthRT.name = "DepthBuffer";
+
+		add_render_target(mRenderer, &depthRT, &mDepthBuffer);
+		return mDepthBuffer != nullptr;
 	}
 private:
 	Renderer* mRenderer = nullptr;
@@ -414,20 +477,22 @@ private:
 
 	RootSignature* mRootSignature = nullptr;
 	DescriptorSet* mDescriptorSet = nullptr;
-	DescriptorSet* mUboDescriptorSet = nullptr;
 	Pipeline* mPipeline = nullptr;
 
 	Texture* mTexture = nullptr;
-	Buffer* mVertexBuffer = nullptr;
-	Buffer* mIndexBuffer = nullptr;
+
+	RenderTarget* mDepthBuffer = nullptr;
+
+	VertexLayout mRoomGeoVertexLayout = {};
+	Geometry* mRoomGeo = nullptr;
 
 	Buffer* mUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 
 	Vertex mVertices[4] = {
-		{{ 0.5f,  0.5f }, { 1.0f, 0.0f }}, // 0 top_right 
-		{{-0.5f,  0.5f }, { 0.0f, 0.0f }}, // 1 top_left
-		{{-0.5f, -0.5f }, { 0.0f, 1.0f }}, // 2 bot_left
-		{{ 0.5f, -0.5f }, { 1.0f, 1.0f }}  // 3 bot_right
+		{{ 0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f }}, // 0 top_right 
+		{{-0.5f,  0.5f, 0.0f }, { 0.0f, 0.0f }}, // 1 top_left
+		{{-0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f }}, // 2 bot_left
+		{{ 0.5f, -0.5f, 0.0f }, { 1.0f, 1.0f }}  // 3 bot_right
 	};
 
 	const uint32_t mIndices[6] = {
@@ -436,6 +501,7 @@ private:
 	};
 
 	UniformBuffer mUbo;
+	DescriptorSet* mUboDescriptorSet = nullptr;
 
 	uint32_t mCurrentIndex = 0;
 };

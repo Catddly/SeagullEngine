@@ -38,7 +38,7 @@ namespace SG
 
 	static IApp* pApp = nullptr;
 	static bool  gWindowClassInitialized = false;
-	static WNDCLASSW gWindowClass;
+	static WNDCLASSEX gWindowClassEx;
 	static MonitorDescription* gMonitors = nullptr;
 	static uint32_t gMonitorCount = 0;
 	static WindowDescription* gWindow = nullptr;
@@ -49,6 +49,7 @@ namespace SG
 	static custom_message_processor sCustomMsgProc = nullptr;
 
 	DWORD prepare_window_style_mask(WindowDescription* pWindow);
+	DWORD prepare_window_style_mask_ex(WindowDescription* pWindow);
 
 	// helper functions
 	/// update window rect from monitor
@@ -131,6 +132,7 @@ namespace SG
 			pApp->mSettings.windowX = info.rcMonitor.left;
 			pApp->mSettings.windowY = info.rcMonitor.top;
 
+			// set the window position to the center of the screen
 			SetWindowPos(hwnd, HWND_NOTOPMOST,
 				info.rcMonitor.left, info.rcMonitor.top,
 				info.rcMonitor.right - info.rcMonitor.left,
@@ -143,19 +145,24 @@ namespace SG
 		}
 		else
 		{
-			DWORD windowStyle = prepare_window_style_mask(pWindow);
-			SetWindowLong(hwnd, GWL_STYLE, windowStyle);
-			SetWindowPos(hwnd, HWND_NOTOPMOST,
-				pWindow->windowedRect.left,
-				pWindow->windowedRect.top,
-				get_rect_width(pWindow->windowedRect),
-				get_rect_height(pWindow->windowedRect),
-				SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+			{
+				DWORD windowStyle = prepare_window_style_mask(pWindow);
+				SetWindowLong(hwnd, GWL_STYLE, windowStyle);
+				DWORD windowStyleEx = prepare_window_style_mask_ex(pWindow);
+				SetWindowLong(hwnd, GWL_EXSTYLE, windowStyleEx);
 
-			if (pWindow->maximized)
-				ShowWindow(hwnd, SW_MAXIMIZE);
-			else
-				ShowWindow(hwnd, SW_NORMAL);
+				SetWindowPos(hwnd, HWND_NOTOPMOST,
+					pWindow->windowedRect.left,
+					pWindow->windowedRect.top,
+					get_rect_width(pWindow->windowedRect),
+					get_rect_height(pWindow->windowedRect),
+					SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+
+				if (pWindow->maximized)
+					ShowWindow(hwnd, SW_MAXIMIZE);
+				else
+					ShowWindow(hwnd, SW_NORMAL);
+			}
 		}
 	}
 
@@ -332,7 +339,7 @@ namespace SG
 		{
 			windowStyle = WS_POPUP | WS_THICKFRAME; // WS_THICKFRAME(no window stretching)
 		}
-		if (pWindow->noresizeFrame)
+		if (pWindow->noResizeFrame)
 		{
 			windowStyle ^= WS_THICKFRAME | WS_MAXIMIZEBOX;
 		}
@@ -340,6 +347,12 @@ namespace SG
 		{
 			windowStyle |= WS_VISIBLE;
 		}
+		return windowStyle;
+	}
+
+	DWORD prepare_window_style_mask_ex(WindowDescription* pWindow)
+	{
+		DWORD windowStyle = WS_EX_OVERLAPPEDWINDOW;
 		return windowStyle;
 	}
 
@@ -408,9 +421,11 @@ namespace SG
 			(LONG)(X + windowWidth),
 			(LONG)(Y + windowHeight)
 		};
-		DWORD windowStyle = prepare_window_style_mask(pWindow);
 
-		AdjustWindowRect(&rect, windowStyle, FALSE);
+		DWORD windowStyle = prepare_window_style_mask(pWindow);
+		DWORD windowStyleEx = prepare_window_style_mask_ex(pWindow);
+
+		AdjustWindowRectEx(&rect, windowStyle, FALSE, windowStyleEx);
 		offset_rect_to_display(pWindow, &rect);
 
 		SetWindowPos((HWND)pWindow->handle.window,
@@ -440,6 +455,8 @@ namespace SG
 
 		DWORD windowStyle = prepare_window_style_mask(pWindow);
 		SetWindowLong(hwnd, GWL_STYLE, windowStyle);
+		DWORD windowStyleEx = prepare_window_style_mask_ex(pWindow);
+		SetWindowLong(hwnd, GWL_EXSTYLE, windowStyleEx);
 
 		if (pWindow->centered)
 			center_window(pWindow);
@@ -452,7 +469,7 @@ namespace SG
 				(LONG)(clientRectStyleAdjusted.left + get_rect_width(rect)),
 				(LONG)(clientRectStyleAdjusted.top + get_rect_height(rect))
 			};
-			AdjustWindowRect(&clientRectStyleAdjusted, windowStyle, FALSE);
+			AdjustWindowRectEx(&clientRectStyleAdjusted, windowStyle, FALSE, windowStyleEx);
 
 			pWindow->windowedRect =
 			{
@@ -520,7 +537,7 @@ namespace SG
 	void set_mouse_position_relative(const WindowDescription* pWindow, int32_t x, int32_t y)
 	{
 		POINT p = { (LONG)x, (LONG)y };
-		ClientToScreen((HWND)pWindow->handle.window, &p); // client window coodinate to screen coodinate
+		ClientToScreen((HWND)pWindow->handle.window, &p); // client window coordinate to screen coordinate
 		SetCursorPos(p.x, p.y);
 	}
 
@@ -563,8 +580,9 @@ namespace SG
 			(LONG)pWindow->clientRect.top + (LONG)pWindow->clientRect.bottom  // height
 		};
 		auto windowStyle = prepare_window_style_mask(pWindow);
+		auto windowStyleEx = prepare_window_style_mask_ex(pWindow);
 
-		AdjustWindowRect(&rect, windowStyle, FALSE);
+		AdjustWindowRectEx(&rect, windowStyle, FALSE, windowStyleEx);
 		// convert char* to wchar_t*
 		WCHAR app[SG_MAX_FILEPATH] = {};
 		size_t charConverted = 0;
@@ -583,7 +601,7 @@ namespace SG
 		bool fullscreen = pWindow->fullScreen;
 		pWindow->fullScreen = false;
 
-		HWND hwnd = CreateWindowW(SG_WINDOW_CLASS, app,
+		HWND hwnd = CreateWindowEx(windowStyleEx, SG_WINDOW_CLASS, app,
 			windowStyle, windowX, windowY,
 			rect.right - windowX, rect.bottom - windowY,
 			NULL, NULL, (HINSTANCE)GetModuleHandle(NULL), 0);
@@ -617,7 +635,7 @@ namespace SG
 		}
 		else
 		{
-			// TODO: logging(failed to create the window)
+			SG_LOG_ERROR("Failed to create window class!");
 		}
 
 		set_mouse_position_relative(pWindow,
@@ -836,16 +854,17 @@ namespace SG
 
 		if (!gWindowClassInitialized)
 		{
-			HINSTANCE instance = (HINSTANCE)GetModuleHandle(NULL);
-			memset(&gWindowClass, 0, sizeof(gWindowClass));
-			gWindowClass.style = 0;
-			gWindowClass.lpfnWndProc = WinProc;
-			gWindowClass.hInstance = instance;
-			gWindowClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-			gWindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-			gWindowClass.lpszClassName = SG_WINDOW_CLASS;
+			HINSTANCE instance = (HINSTANCE)GetModuleHandleW(NULL);
+			memset(&gWindowClassEx, 0, sizeof(gWindowClassEx));
+			gWindowClassEx.style = 0;
+			gWindowClassEx.lpfnWndProc = WinProc;
+			gWindowClassEx.hInstance = instance;
+			gWindowClassEx.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+			gWindowClassEx.hCursor = LoadCursor(NULL, IDC_ARROW);
+			gWindowClassEx.lpszClassName = SG_WINDOW_CLASS;
+			gWindowClassEx.cbSize = sizeof(WNDCLASSEX);
 
-			bool success = RegisterClassW(&gWindowClass) != 0;
+			bool success = RegisterClassEx(&gWindowClassEx) != 0;
 
 			if (!success)
 			{
@@ -859,7 +878,7 @@ namespace SG
 						FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errorMessageID,
 						MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
 					eastl::string message(messageBuffer, size);
-					//LOGF(eERROR, message.c_str());
+					SG_LOG_ERROR("%s", message.c_str());
 					return;
 				}
 				else
@@ -914,7 +933,7 @@ namespace SG
 
 		if (!sgfs_init_file_system(&fsInitDesc))
 			return EXIT_FAILURE;
-		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_DEBUG, SG_RD_LOG, ""); // TODO: complete the file system
+		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_DEBUG, SG_RD_LOG, "Log");
 
 		// logging init
 		Logger::OnInit(app->GetName());
@@ -926,8 +945,6 @@ namespace SG
 		WindowDescription myWindow{};
 		gWindow = &myWindow;
 		pApp->mWindow = &myWindow;
-
-		//Timer deltaTimer;
 
 		// if the monitor index isn't correct, then we use the default monitor
 		if (pSettings->monitorIndex < 0 || pSettings->monitorIndex >= (int)gMonitorCount)
@@ -954,7 +971,7 @@ namespace SG
 		gWindow->windowedRect = gWindow->clientRect;
 		gWindow->fullScreen = pSettings->fullScreen;
 		gWindow->maximized = false;
-		gWindow->noresizeFrame = !pSettings->enableResize;
+		gWindow->noResizeFrame = !pSettings->enableResize;
 		gWindow->borderlessWindow = pSettings->borderlessWindow;
 		gWindow->centered = pSettings->centered;
 		gWindow->forceLowDPI = pSettings->forceLowDPI;
@@ -985,7 +1002,6 @@ namespace SG
 		bool quit = false;
 		Timer GlobalTimer("AppGlobalTimer");
 		GlobalTimer.Reset();
-		//SG_LOG_INFO("Start Time: (%.2f s)", GlobalTimer.GetTotalTime());
 		while (!quit)
 		{
 			GlobalTimer.Tick();

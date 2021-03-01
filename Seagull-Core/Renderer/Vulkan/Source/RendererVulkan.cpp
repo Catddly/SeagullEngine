@@ -961,13 +961,13 @@ namespace SG
 		{
 			if (pDesc->renderTargetMask & (1 << i))
 			{
-				VkBool32 blendEnable =
-					(gVkBlendConstantTranslator[pDesc->srcFactors[blendDescIndex]] != VK_BLEND_FACTOR_ONE ||
-						gVkBlendConstantTranslator[pDesc->dstFactors[blendDescIndex]] != VK_BLEND_FACTOR_ZERO ||
-						gVkBlendConstantTranslator[pDesc->srcAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ONE ||
-						gVkBlendConstantTranslator[pDesc->dstAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ZERO);
+				//VkBool32 blendEnable =
+				//	(gVkBlendConstantTranslator[pDesc->srcFactors[blendDescIndex]] != VK_BLEND_FACTOR_ONE ||
+				//		gVkBlendConstantTranslator[pDesc->dstFactors[blendDescIndex]] != VK_BLEND_FACTOR_ZERO ||
+				//		gVkBlendConstantTranslator[pDesc->srcAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ONE ||
+				//		gVkBlendConstantTranslator[pDesc->dstAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ZERO);
 
-				//VkBool32 blendEnable = 1;
+				VkBool32 blendEnable = 1;
 
 				pAttachments[i].blendEnable = blendEnable;
 				pAttachments[i].colorWriteMask = pDesc->masks[blendDescIndex];
@@ -1243,6 +1243,7 @@ namespace SG
 		auto* exts = (VkExtensionProperties*)alloca(sizeof(VkExtensionProperties) * extCount);
 		vkEnumerateInstanceExtensionProperties(nullptr, &extCount, exts);
 
+#if defined(SG_ENUM_VK_EXT_AND_LAYER)
 		for (uint32_t i = 0; i < layerCount; ++i)
 		{
 			internal_log(SG_LOG_TYPE_INFO, layers[i].layerName, "vkinstance-layer");
@@ -1252,6 +1253,7 @@ namespace SG
 		{
 			internal_log(SG_LOG_TYPE_INFO, exts[i].extensionName, "vkinstance-ext");
 		}
+#endif
 
 		SG_DECLARE_ZERO(VkApplicationInfo, appInfo);
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -1791,6 +1793,7 @@ namespace SG
 		auto* exts = (VkExtensionProperties*)alloca(sizeof(VkExtensionProperties) * extCount);
 		vkEnumerateDeviceExtensionProperties(pRenderer->pVkActiveGPU, NULL, &extCount, exts);
 
+#if defined(SG_ENUM_VK_EXT_AND_LAYER)
 		for (uint32_t i = 0; i < layerCount; ++i)
 		{
 			internal_log(SG_LOG_TYPE_INFO, layers[i].layerName, "vkdevice-layer");
@@ -1802,6 +1805,7 @@ namespace SG
 		{
 			internal_log(SG_LOG_TYPE_INFO, exts[i].extensionName, "vkdevice-ext");
 		}
+#endif
 
 		uint32_t extension_count = 0;
 		bool     dedicatedAllocationExtension = false;
@@ -7017,9 +7021,9 @@ void cmd_resource_barrier(Cmd* pCmd,
 		util_find_queue_family_index(pRenderer, 0, SG_QUEUE_TYPE_COMPUTE, nullptr, &pRenderer->computeQueueFamilyIndex, nullptr);
 		util_find_queue_family_index(pRenderer, 0, SG_QUEUE_TYPE_TRANSFER, nullptr, &pRenderer->transferQueueFamilyIndex, nullptr);
 
-		SG_LOG_INFO("Graphic queue family index: %d", pRenderer->graphicsQueueFamilyIndex);
-		SG_LOG_INFO("Transfer queue family index: %d", pRenderer->transferQueueFamilyIndex);
-		SG_LOG_INFO("Compute queue family index: %d", pRenderer->computeQueueFamilyIndex);
+		//SG_LOG_INFO("Graphic queue family index: %d", pRenderer->graphicsQueueFamilyIndex);
+		//SG_LOG_INFO("Transfer queue family index: %d", pRenderer->transferQueueFamilyIndex);
+		//SG_LOG_INFO("Compute queue family index: %d", pRenderer->computeQueueFamilyIndex);
 
 		add_default_resources(pRenderer);
 
