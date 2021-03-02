@@ -69,14 +69,15 @@ project "Seagull-Core"
         "%{IncludeDir.mimalloc}",
         "%{IncludeDir.eastl}",
         "%{IncludeDir.glm}",
-        "%{IncludeDir.tinyImageFormat}"
+        "%{IncludeDir.tinyImageFormat}",
+        "%{IncludeDir.gainput}"
     }
     
     -- link libraries
     links
     {
         "mimalloc",
-        "eastl",
+        "eastl"
     }
 
 filter "system:windows"

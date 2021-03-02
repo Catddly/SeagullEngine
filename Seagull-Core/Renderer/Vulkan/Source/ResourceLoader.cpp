@@ -11,10 +11,6 @@
 #define CGLTF_IMPLEMENTATION
 #include <include/cgltf.h>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-using namespace tinyobj;
-
 #include "Interface/ILog.h"
 #include "Interface/IThread.h"
 

@@ -54,119 +54,158 @@ public:
 
 		SG_LOG_DEBUG("Main thread ID: %ul", Thread::get_curr_thread_id());
 
+		RendererCreateDesc rendererCreate = {};
+		init_renderer("Seagull Renderer", &rendererCreate, &mRenderer);
+
+		if (!mRenderer)
+		{
+			SG_LOG_ERROR("Failed to initialize renderer!");
+			return false;
+		}
+
+		QueueCreateDesc queueCreate = {};
+		queueCreate.type = SG_QUEUE_TYPE_GRAPHICS;
+		queueCreate.flag = SG_QUEUE_FLAG_INIT_MICROPROFILE;
+		add_queue(mRenderer, &queueCreate, &mGraphicQueue);
+
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			CmdPoolCreateDesc cmdPoolCreate = {};
+			cmdPoolCreate.pQueue = mGraphicQueue;
+			cmdPoolCreate.transient = false;
+			add_command_pool(mRenderer, &cmdPoolCreate, &mCmdPools[i]);
+
+			CmdCreateDesc cmdCreate = {};
+			cmdCreate.pPool = mCmdPools[i];
+			add_cmd(mRenderer, &cmdCreate, &mCmds[i]);
+
+			add_fence(mRenderer, &mRenderCompleteFences[i]);
+			add_semaphore(mRenderer, &mRenderCompleteSemaphores[i]);
+		}
+		add_semaphore(mRenderer, &mImageAcquiredSemaphore);
+
+		init_resource_loader_interface(mRenderer);
+
+		TextureLoadDesc textureCreate = {};
+		textureCreate.fileName = "viking_room";
+		textureCreate.ppTexture = &mTexture;
+		add_resource(&textureCreate, nullptr);
+
+		mRoomGeoVertexLayout.attribCount = 2;
+
+		mRoomGeoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
+		mRoomGeoVertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
+		mRoomGeoVertexLayout.attribs[0].binding = 0;
+		mRoomGeoVertexLayout.attribs[0].location = 0;
+		mRoomGeoVertexLayout.attribs[0].offset = 0;
+
+		mRoomGeoVertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
+		mRoomGeoVertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
+		mRoomGeoVertexLayout.attribs[1].binding = 0;
+		mRoomGeoVertexLayout.attribs[1].location = 1;
+		mRoomGeoVertexLayout.attribs[1].offset = 3 * sizeof(float);
+
+		GeometryLoadDesc geoCreate = {};
+		geoCreate.fileName = "model.gltf";
+		geoCreate.ppGeometry = &mRoomGeo;
+		geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
+		add_resource(&geoCreate, nullptr);
+
+		ShaderLoadDesc loadBasicShader = {};
+		loadBasicShader.stages[0] = { "triangle.vert", nullptr, 0, "main" };
+		loadBasicShader.stages[1] = { "triangle.frag", nullptr, 0, "main" };
+		add_shader(mRenderer, &loadBasicShader, &mTriangleShader);
+
+		SamplerCreateDesc samplerCreate = {};
+		samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCreate.addressV = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCreate.addressW = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCreate.minFilter = SG_FILTER_LINEAR;
+		samplerCreate.magFilter = SG_FILTER_LINEAR;
+		samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
+		add_sampler(mRenderer, &samplerCreate, &mSampler);
+
+		BufferLoadDesc uboCreate;
+		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
+		uboCreate.desc.name = "UniformBuffer";
+		uboCreate.desc.size = sizeof(UniformBuffer);
+		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
+		uboCreate.pData = nullptr;
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			uboCreate.ppBuffer = &mUniformBuffer[i];
+			add_resource(&uboCreate, nullptr);
+		}
+		
+		// init the input system 
+		//if (!init_input_system(mWindow))
+		//	return false;
+
+		//InputActionDesc actionDesc;
+		//actionDesc.binding = InputBindings::SG_BUTTON_FULLSCREEN;
+		//actionDesc.pFunction = [](InputActionContext* pContext) -> bool
+		//{
+		//	toggle_fullscreen(((IApp*)pContext->pUserData)->mWindow);
+		//	return true;
+		//};
+		//actionDesc.pUserData = this; // pass in the instance of this app for the input system to use
+		//register_input_action(&actionDesc); // register this input action to the input system
+
 		return true;
 	}
 
 	virtual void OnExit() override
 	{
+		//exit_input_system();
+
+		wait_queue_idle(mGraphicQueue);
+
+		remove_resource(mTexture);
+		remove_resource(mRoomGeo);
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			remove_resource(mUniformBuffer[i]);
+		}
+
+		remove_sampler(mRenderer, mSampler);
+		remove_shader(mRenderer, mTriangleShader);
+
+		exit_resource_loader_interface(mRenderer);
+
+		for (uint32_t i = 0; i < IMAGE_COUNT; ++i)
+		{
+			remove_fence(mRenderer, mRenderCompleteFences[i]);
+			remove_semaphore(mRenderer, mRenderCompleteSemaphores[i]);
+
+			remove_cmd(mRenderer, mCmds[i]);
+			remove_command_pool(mRenderer, mCmdPools[i]);
+		}
+		remove_semaphore(mRenderer, mImageAcquiredSemaphore);
+
+		remove_queue(mRenderer, mGraphicQueue);
+		remove_renderer(mRenderer);
 	}
 
 	virtual bool Load() override
 	{
-		if (!mRenderer || mSettings.resetGraphic)
-		{
-			RendererCreateDesc rendererCreate = {};
-			init_renderer("Seagull Renderer", &rendererCreate, &mRenderer);
+		Shader* submitShaders[] = { mTriangleShader };
+		const char* staticSamplers[] = { "Sampler" };
+		RootSignatureCreateDesc rootSignatureCreate = {};
+		rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
+		rootSignatureCreate.ppStaticSamplers = &mSampler;
+		rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
+		//rootSignatureCreate.staticSamplerCount = 0;
+		//rootSignatureCreate.ppStaticSamplers = nullptr;
+		//rootSignatureCreate.ppStaticSamplerNames = nullptr;
+		rootSignatureCreate.ppShaders = submitShaders;
+		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
+		add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
 
-			if (!mRenderer)
-			{
-				SG_LOG_ERROR("Failed to initialize renderer!");
-				return false;
-			}
-			
-			QueueCreateDesc queueCreate = {};
-			queueCreate.type = SG_QUEUE_TYPE_GRAPHICS;
-			queueCreate.flag = SG_QUEUE_FLAG_INIT_MICROPROFILE;
-			add_queue(mRenderer, &queueCreate, &mGraphicQueue);
-
-			for (uint32_t i = 0; i < IMAGE_COUNT; i++)
-			{
-				CmdPoolCreateDesc cmdPoolCreate = {};
-				cmdPoolCreate.pQueue = mGraphicQueue;
-				cmdPoolCreate.transient = false;
-				add_command_pool(mRenderer, &cmdPoolCreate, &mCmdPools[i]);
-
-				CmdCreateDesc cmdCreate = {};
-				cmdCreate.pPool = mCmdPools[i];
-				add_cmd(mRenderer, &cmdCreate, &mCmds[i]);
-
-				add_fence(mRenderer, &mRenderCompleteFences[i]);
-				add_semaphore(mRenderer, &mRenderCompleteSemaphores[i]);
-			}
-			add_semaphore(mRenderer, &mImageAcquiredSemaphore);
-
-			init_resource_loader_interface(mRenderer);
-
-			TextureLoadDesc textureCreate = {};
-			textureCreate.fileName = "viking_room";
-			textureCreate.ppTexture = &mTexture;
-			add_resource(&textureCreate, nullptr);
-
-			mRoomGeoVertexLayout.attribCount = 2;
-
-			mRoomGeoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
-			mRoomGeoVertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
-			mRoomGeoVertexLayout.attribs[0].binding = 0;
-			mRoomGeoVertexLayout.attribs[0].location = 0;
-			mRoomGeoVertexLayout.attribs[0].offset = 0;
-
-			mRoomGeoVertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
-			mRoomGeoVertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
-			mRoomGeoVertexLayout.attribs[1].binding = 0;
-			mRoomGeoVertexLayout.attribs[1].location = 1;
-			mRoomGeoVertexLayout.attribs[1].offset = 3 * sizeof(float);
-
-			GeometryLoadDesc geoCreate = {};
-			geoCreate.fileName = "model.gltf";
-			geoCreate.ppGeometry = &mRoomGeo;
-			geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
-			add_resource(&geoCreate, nullptr);
-
-			ShaderLoadDesc loadBasicShader = {};
-			loadBasicShader.stages[0] = { "triangle.vert", nullptr, 0, "main" };
-			loadBasicShader.stages[1] = { "triangle.frag", nullptr, 0, "main" };
-			add_shader(mRenderer, &loadBasicShader, &mTriangleShader);
-
-			SamplerCreateDesc samplerCreate = {};
-			samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-			samplerCreate.addressV = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-			samplerCreate.addressW = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-			samplerCreate.minFilter = SG_FILTER_LINEAR;
-			samplerCreate.magFilter = SG_FILTER_LINEAR;
-			samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
-			add_sampler(mRenderer, &samplerCreate, &mSampler);
-
-			Shader* submitShaders[] = { mTriangleShader };
-			const char* staticSamplers[] = { "Sampler" };
-			RootSignatureCreateDesc rootSignatureCreate = {};
-			rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
-			rootSignatureCreate.ppStaticSamplers = &mSampler;
-			rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
-			//rootSignatureCreate.staticSamplerCount = 0;
-			//rootSignatureCreate.ppStaticSamplers = nullptr;
-			//rootSignatureCreate.ppStaticSamplerNames = nullptr;
-			rootSignatureCreate.ppShaders = submitShaders;
-			rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
-			add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
-
-			DescriptorSetCreateDesc descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
-			add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
-			descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
-			add_descriptor_set(mRenderer, &descriptorSetCreate, &mUboDescriptorSet);
-
-			BufferLoadDesc uboCreate;
-			uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
-			uboCreate.desc.name = "UniformBuffer";
-			uboCreate.desc.size = sizeof(UniformBuffer);
-			uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
-			uboCreate.pData = nullptr;
-			for (uint32_t i = 0; i < IMAGE_COUNT; i++)
-			{
-				uboCreate.ppBuffer = &mUniformBuffer[i];
-				add_resource(&uboCreate, nullptr);
-			}
-		}
+		DescriptorSetCreateDesc descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
+		add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
+		descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
+		add_descriptor_set(mRenderer, &descriptorSetCreate, &mUboDescriptorSet);
 
 		if (!CreateDepthBuffer())
 			return false;
@@ -182,7 +221,7 @@ public:
 		DescriptorData updateData[2] = {};
 		updateData[0].name = "Texture";
 		updateData[0].ppTextures = &mTexture;
-		update_descriptor_set(mRenderer, 0, mDescriptorSet, 1, updateData);
+		update_descriptor_set(mRenderer, 0, mDescriptorSet, 1, updateData); // update the descriptor sets use 
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
@@ -204,37 +243,10 @@ public:
 		remove_pipeline(mRenderer, mPipeline);
 		remove_swapchain(mRenderer, mSwapChain);
 
-		if (mSettings.resetGraphic || mSettings.quit)
-		{
-			remove_descriptor_set(mRenderer, mDescriptorSet);
-			remove_descriptor_set(mRenderer, mUboDescriptorSet);
+		remove_descriptor_set(mRenderer, mDescriptorSet);
+		remove_descriptor_set(mRenderer, mUboDescriptorSet);
 
-			remove_resource(mTexture);
-			remove_resource(mRoomGeo);
-			for (uint32_t i = 0; i < IMAGE_COUNT; i++)
-			{
-				remove_resource(mUniformBuffer[i]);
-			}
-
-			remove_sampler(mRenderer, mSampler);
-			remove_shader(mRenderer, mTriangleShader);
-			remove_root_signature(mRenderer, mRootSignature);
-
-			for (uint32_t i = 0; i < IMAGE_COUNT; ++i)
-			{
-				remove_fence(mRenderer, mRenderCompleteFences[i]);
-				remove_semaphore(mRenderer, mRenderCompleteSemaphores[i]);
-
-				remove_cmd(mRenderer, mCmds[i]);
-				remove_command_pool(mRenderer, mCmdPools[i]);
-			}
-			remove_semaphore(mRenderer, mImageAcquiredSemaphore);
-
-			exit_resource_loader_interface(mRenderer);
-
-			remove_queue(mRenderer, mGraphicQueue);
-			remove_renderer(mRenderer);
-		}
+		remove_root_signature(mRenderer, mRootSignature);
 
 		return true;
 	}
@@ -376,7 +388,7 @@ private:
 		swapChainCreate.imageCount = IMAGE_COUNT;
 		swapChainCreate.colorFormat = get_recommended_swapchain_format(true);
 		swapChainCreate.enableVsync = mSettings.defaultVSyncEnable;
-		SG::add_swapchain(mRenderer, &swapChainCreate, &mSwapChain);
+		add_swapchain(mRenderer, &swapChainCreate, &mSwapChain);
 
 		return mSwapChain != nullptr;
 	}

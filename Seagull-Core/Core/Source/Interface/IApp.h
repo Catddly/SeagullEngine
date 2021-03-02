@@ -45,7 +45,7 @@ namespace SG
 			bool    forceLowDPI = false;
 		} mSettings;
 
-		WindowDescription* mWindow = nullptr;
+		WindowDesc* mWindow = nullptr;
 		const char* mCommandLine = "";
 
 		static int          argc;

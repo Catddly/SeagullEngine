@@ -44,7 +44,7 @@ namespace SG
 	static inline int32_t get_rect_width(const RectDescription& rect) { return rect.right - rect.left; }
 	static inline int32_t get_rect_height(const RectDescription& rect) { return rect.bottom - rect.top; }
 
-	typedef struct WindowDescription
+	typedef struct WindowDesc
 	{
 		WindowHandle handle;
 		RectDescription windowedRect;
@@ -61,7 +61,7 @@ namespace SG
 		bool overrideDefaultPosition;
 		bool centered;
 		bool forceLowDPI;
-	} WindowDescription;
+	} WindowDesc;
 
 	typedef struct Resolution
 	{
@@ -95,21 +95,23 @@ namespace SG
 	void request_shutdown();
 
 	// custom processing of core pipiline messages
-	typedef int32_t(*custom_message_processor)(WindowDescription* pWindow, void* pMsg);
+	typedef int32_t(*custom_message_processor)(WindowDesc* pWindow, void* pMsg);
 	void set_custom_message_processor(custom_message_processor pMsgProcessor);
 
 	// window handling
-	void open_window(const char* appName, WindowDescription* pWindow);
-	void close_window(const WindowDescription* pWindow);
+	void open_window(const char* appName, WindowDesc* pWindow);
+	void close_window(const WindowDesc* pWindow);
 
-	void set_window_rect(WindowDescription* pWindow, const RectDescription& rect);
-	void set_window_size(WindowDescription* pWindow, uint32_t width, uint32_t height);
+	void set_window_rect(WindowDesc* pWindow, const RectDescription& rect);
+	void set_window_size(WindowDesc* pWindow, uint32_t width, uint32_t height);
 
-	void show_window(WindowDescription* pWindow);
-	void hide_window(WindowDescription* pWindow);
-	void maximize_window(WindowDescription* pWindow);
-	void minimize_window(WindowDescription* pWindow);
-	void center_window(WindowDescription* pWindow);
+	void show_window(WindowDesc* pWindow);
+	void hide_window(WindowDesc* pWindow);
+	void maximize_window(WindowDesc* pWindow);
+	void minimize_window(WindowDesc* pWindow);
+	void center_window(WindowDesc* pWindow);
+
+	void toggle_fullscreen(WindowDesc* pWindow);
 
 	// mouse and cursor handling
 	void* create_cursor(const char* path);
@@ -117,7 +119,7 @@ namespace SG
 
 	bool  is_cursor_inside_tracking_area(RectDescription* pRect);
 
-	void set_mouse_position_relative(const WindowDescription* pWindow, int32_t x, int32_t y);
+	void set_mouse_position_relative(const WindowDesc* pWindow, int32_t x, int32_t y);
 	void set_mouse_position_absolutely(int32_t x, int32_t y);
 
 	void get_recommanded_resolution(RectDescription* pRect);

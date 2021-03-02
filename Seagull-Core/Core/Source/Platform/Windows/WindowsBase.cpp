@@ -41,19 +41,19 @@ namespace SG
 	static WNDCLASSEX gWindowClassEx;
 	static MonitorDescription* gMonitors = nullptr;
 	static uint32_t gMonitorCount = 0;
-	static WindowDescription* gWindow = nullptr;
+	static WindowDesc* gWindow = nullptr;
 	static bool gWindowIsResizing = false;
 	static bool gCursorVisible = true;
 	static bool gCursorInsideRectangle = false;
 
 	static custom_message_processor sCustomMsgProc = nullptr;
 
-	DWORD prepare_window_style_mask(WindowDescription* pWindow);
-	DWORD prepare_window_style_mask_ex(WindowDescription* pWindow);
+	DWORD prepare_window_style_mask(WindowDesc* pWindow);
+	DWORD prepare_window_style_mask_ex(WindowDesc* pWindow);
 
 	// helper functions
 	/// update window rect from monitor
-	static void update_window_fullscreen_rect(WindowDescription* pWindow)
+	static void update_window_fullscreen_rect(WindowDesc* pWindow)
 	{
 		HMONITOR currMonitor = MonitorFromWindow((HWND)pApp->mWindow->handle.window, MONITOR_DEFAULTTONEAREST);
 		MONITORINFOEX info;
@@ -66,7 +66,7 @@ namespace SG
 		pWindow->fullscreenRect.bottom = info.rcMonitor.bottom;
 	}
 
-	static void update_window_windowed_rect(WindowDescription* pWindow)
+	static void update_window_windowed_rect(WindowDesc* pWindow)
 	{
 		RECT windowedRect;
 		HWND hwnd = (HWND)pWindow->handle.window;
@@ -79,7 +79,7 @@ namespace SG
 		pWindow->windowedRect.bottom = windowedRect.bottom;
 	}
 
-	static void update_window_client_rect(WindowDescription* pWindow)
+	static void update_window_client_rect(WindowDesc* pWindow)
 	{
 		RECT clientRect;
 		HWND hwnd = (HWND)pWindow->handle.window;
@@ -92,7 +92,7 @@ namespace SG
 		pWindow->clientRect.bottom = clientRect.bottom;
 	}
 
-	static void on_resize(WindowDescription* pWindow, int32_t newSizeX, int32_t newSizeY)
+	static void on_resize(WindowDesc* pWindow, int32_t newSizeX, int32_t newSizeY)
 	{
 		if (pApp == nullptr || !pApp->mSettings.initialized) // app doesn't exist
 			return;
@@ -108,7 +108,7 @@ namespace SG
 		pApp->Load();
 	}
 
-	static void adjust_window(WindowDescription* pWindow)
+	static void adjust_window(WindowDesc* pWindow)
 	{
 		HWND hwnd = (HWND)pWindow->handle.window;
 
@@ -332,7 +332,7 @@ namespace SG
 		return 0;
 	}
 
-	DWORD prepare_window_style_mask(WindowDescription* pWindow)
+	DWORD prepare_window_style_mask(WindowDesc* pWindow)
 	{
 		DWORD windowStyle = WS_OVERLAPPEDWINDOW;
 		if (pWindow->borderlessWindow)
@@ -350,7 +350,7 @@ namespace SG
 		return windowStyle;
 	}
 
-	DWORD prepare_window_style_mask_ex(WindowDescription* pWindow)
+	DWORD prepare_window_style_mask_ex(WindowDesc* pWindow)
 	{
 		DWORD windowStyle = WS_EX_OVERLAPPEDWINDOW;
 		return windowStyle;
@@ -387,7 +387,7 @@ namespace SG
 		ChangeDisplaySettingsW(&devMode, CDS_FULLSCREEN);
 	}
 
-	void offset_rect_to_display(WindowDescription* pwindow, LPRECT rect)
+	void offset_rect_to_display(WindowDesc* pwindow, LPRECT rect)
 	{
 		int32_t displayOffsetX = pwindow->fullscreenRect.left;
 		int32_t displayOffsetY = pwindow->fullscreenRect.top;
@@ -400,7 +400,7 @@ namespace SG
 		rect->bottom += (LONG)displayOffsetY;
 	}
 
-	void center_window(WindowDescription* pWindow)
+	void center_window(WindowDesc* pWindow)
 	{
 		update_window_fullscreen_rect(pWindow);
 
@@ -443,7 +443,7 @@ namespace SG
 		};
 	}
 
-	void set_window_rect(WindowDescription* pWindow, const RectDescription& rect)
+	void set_window_rect(WindowDesc* pWindow, const RectDescription& rect)
 	{
 		HWND hwnd = (HWND)pWindow->handle.window;
 
@@ -487,7 +487,7 @@ namespace SG
 		}
 	}
 
-	void set_window_size(WindowDescription* pWindow, uint32_t width, uint32_t height)
+	void set_window_size(WindowDesc* pWindow, uint32_t width, uint32_t height)
 	{
 		RectDescription newClientRect =
 		{
@@ -499,7 +499,7 @@ namespace SG
 		set_window_rect(pWindow, newClientRect);
 	}
 
-	void toggle_borderless_window(WindowDescription* pWindow, uint32_t width, uint32_t height)
+	void toggle_borderless_window(WindowDesc* pWindow, uint32_t width, uint32_t height)
 	{
 		if (!pWindow->fullScreen)
 		{
@@ -512,7 +512,7 @@ namespace SG
 		}
 	};
 
-	void toggle_fullscreen(WindowDescription* pWindow)
+	void toggle_fullscreen(WindowDesc* pWindow)
 	{
 		pWindow->fullScreen = !pWindow->fullScreen;
 		adjust_window(pWindow);
@@ -534,7 +534,7 @@ namespace SG
 		return gCursorInsideRectangle;
 	}
 
-	void set_mouse_position_relative(const WindowDescription* pWindow, int32_t x, int32_t y)
+	void set_mouse_position_relative(const WindowDesc* pWindow, int32_t x, int32_t y)
 	{
 		POINT p = { (LONG)x, (LONG)y };
 		ClientToScreen((HWND)pWindow->handle.window, &p); // client window coordinate to screen coordinate
@@ -563,7 +563,7 @@ namespace SG
 		return quit;
 	}
 
-	void open_window(const char* appName, WindowDescription* pWindow)
+	void open_window(const char* appName, WindowDesc* pWindow)
 	{
 		update_window_fullscreen_rect(pWindow);
 
@@ -643,31 +643,31 @@ namespace SG
 			get_rect_height(pWindow->windowedRect) >> 1); // certer of the client window
 	}
 
-	void close_window(const WindowDescription* pWindow)
+	void close_window(const WindowDesc* pWindow)
 	{
 		DestroyWindow((HWND)pWindow->handle.window);
 		handle_messages();
 	}
 
-	void show_window(WindowDescription* pWindow)
+	void show_window(WindowDesc* pWindow)
 	{
 		pWindow->hide = false;
 		ShowWindow((HWND)pWindow->handle.window, SW_SHOW);
 	}
 
-	void hide_window(WindowDescription* pWindow)
+	void hide_window(WindowDesc* pWindow)
 	{
 		pWindow->hide = true;
 		ShowWindow((HWND)pWindow->handle.window, SW_HIDE);
 	}
 
-	void maximize_window(WindowDescription* pWindow)
+	void maximize_window(WindowDesc* pWindow)
 	{
 		pWindow->maximized = true;
 		ShowWindow((HWND)pWindow->handle.window, SW_MAXIMIZE);
 	}
 
-	void minimize_window(WindowDescription* pWindow)
+	void minimize_window(WindowDesc* pWindow)
 	{
 		pWindow->minimized = true;
 		ShowWindow((HWND)pWindow->handle.window, SW_MINIMIZE);
@@ -942,7 +942,7 @@ namespace SG
 		on_window_class_init();
 		
 		auto* pSettings = &pApp->mSettings;
-		WindowDescription myWindow{};
+		WindowDesc myWindow{};
 		gWindow = &myWindow;
 		pApp->mWindow = &myWindow;
 
