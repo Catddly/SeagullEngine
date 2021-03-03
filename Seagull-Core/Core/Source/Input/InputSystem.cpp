@@ -1,3 +1,6 @@
+#include "InputListener.h"
+#include "InputManager.h"
+
 #include <include/EASTL/array.h>
 #include <include/EASTL/unordered_map.h>
 #include <include/EASTL/unordered_set.h>
@@ -8,19 +11,19 @@
 #include "Interface/IInput.h"
 #include "Interface/IMemory.h"
 
-#ifdef GAINPUT_PLATFORM_GGP
-namespace gainput
-{
-	extern void SetWindow(void* pData);
-}
-#endif
+//#ifdef GAINPUT_PLATFORM_GGP
+//namespace gainput
+//{
+//	extern void SetWindow(void* pData);
+//}
+//#endif
 
 #define SG_MAX_INPUT_DEVICES 16U
 
 namespace SG
 {
-	uint32_t MAX_INPUT_GAMEPADS = 4;
-	uint32_t MAX_INPUT_MULTI_TOUCHES = 4;
+	//uint32_t MAX_INPUT_GAMEPADS = 4;
+	//uint32_t MAX_INPUT_MULTI_TOUCHES = 4;
 	uint32_t MAX_INPUT_ACTIONS = 128;
 
 	struct InputAction
@@ -28,8 +31,8 @@ namespace SG
 		InputActionDesc desc;
 	};
 
-	// we create a listener, listen for the input message which comes from gainput
-	struct InputSystemImpl : public gainput::InputListener
+	// we create a listener, listen for the input message
+	struct InputSystemImpl : public InputListener
 	{
 		enum InputControlType
 		{
@@ -131,271 +134,271 @@ namespace SG
 			uint8_t  pressed;
 		};
 
-		const eastl::unordered_map<uint32_t, gainput::MouseButton> mMouseMap =
-		{
-	#ifndef SG_NO_DEFAULT_KEY_BINDINGS
-			{ InputBindings::SG_BUTTON_SOUTH, gainput::MouseButtonLeft },
-			// Following are for UI windows
-			{ InputBindings::SG_BUTTON_MOUSE_RIGHT, gainput::MouseButtonRight },
-			{ InputBindings::SG_BUTTON_MOUSE_MIDDLE, gainput::MouseButtonMiddle },
-			{ InputBindings::SG_BUTTON_MOUSE_SCROLL_UP, gainput::MouseButtonWheelUp },
-			{ InputBindings::SG_BUTTON_MOUSE_SCROLL_DOWN, gainput::MouseButtonWheelDown },
-	#else
-
-			{ InputBindings::SG_BUTTON_MOUSE_LEFT, gainput::MouseButtonLeft },
-			{ InputBindings::SG_BUTTON_MOUSE_RIGHT, gainput::MouseButtonRight },
-			{ InputBindings::SG_BUTTON_MOUSE_MIDDLE, gainput::MouseButtonMiddle },
-			{ InputBindings::SG_BUTTON_MOUSE_SCROLL_UP, gainput::MouseButtonWheelUp },
-			{ InputBindings::SG_BUTTON_MOUSE_SCROLL_DOWN, gainput::MouseButtonWheelDown },
-			{ InputBindings::SG_BUTTON_MOUSE_5, gainput::MouseButton5},
-			{ InputBindings::SG_BUTTON_MOUSE_6, gainput::MouseButton6},
-	#endif
-		};
-
-		const eastl::unordered_map<uint32_t, gainput::Key> mKeyMap =
-		{
-	#ifndef SG_NO_DEFAULT_KEY_BINDINGS
-			{ InputBindings::SG_BUTTON_EXIT, gainput::KeyEscape },
-			{ InputBindings::SG_BUTTON_BACK, gainput::KeyBackSpace },
-			{ InputBindings::SG_BUTTON_NORTH, gainput::KeySpace },
-			{ InputBindings::SG_BUTTON_R3, gainput::KeyF1 },
-			{ InputBindings::SG_BUTTON_L3, gainput::KeyF2 },
-			{ InputBindings::SG_BUTTON_DUMP, gainput::KeyF3 },
-			// Following are for UI text inputs
-			{ InputBindings::SG_BUTTON_KEY_LEFT, gainput::KeyLeft},
-			{ InputBindings::SG_BUTTON_KEY_RIGHT, gainput::KeyRight},
-			{ InputBindings::SG_BUTTON_KEY_SHIFTL, gainput::KeyShiftL},
-			{ InputBindings::SG_BUTTON_KEY_SHIFTR, gainput::KeyShiftR},
-			{ InputBindings::SG_BUTTON_KEY_HOME, gainput::KeyHome},
-			{ InputBindings::SG_BUTTON_KEY_END, gainput::KeyEnd},
-			{ InputBindings::SG_BUTTON_KEY_DELETE, gainput::KeyDelete},
-	#else
-			{ InputBindings::SG_BUTTON_KEY_ESCAPE, gainput::KeyEscape},
-			{ InputBindings::SG_BUTTON_KEY_F1, gainput::KeyF1},
-			{ InputBindings::SG_BUTTON_KEY_F2, gainput::KeyF2},
-			{ InputBindings::SG_BUTTON_KEY_F3, gainput::KeyF3},
-			{ InputBindings::SG_BUTTON_KEY_F4, gainput::KeyF4},
-			{ InputBindings::SG_BUTTON_KEY_F5, gainput::KeyF5},
-			{ InputBindings::SG_BUTTON_KEY_F6, gainput::KeyF6},
-			{ InputBindings::SG_BUTTON_KEY_F7, gainput::KeyF7},
-			{ InputBindings::SG_BUTTON_KEY_F8, gainput::KeyF8},
-			{ InputBindings::SG_BUTTON_KEY_F9, gainput::KeyF9},
-			{ InputBindings::SG_BUTTON_KEY_F10, gainput::KeyF10},
-			{ InputBindings::SG_BUTTON_KEY_F11, gainput::KeyF11},
-			{ InputBindings::SG_BUTTON_KEY_F12, gainput::KeyF12},
-			{ InputBindings::SG_BUTTON_KEY_F13, gainput::KeyF13},
-			{ InputBindings::SG_BUTTON_KEY_F14, gainput::KeyF14},
-			{ InputBindings::SG_BUTTON_KEY_F15, gainput::KeyF15},
-			{ InputBindings::SG_BUTTON_KEY_F16, gainput::KeyF16},
-			{ InputBindings::SG_BUTTON_KEY_F17, gainput::KeyF17},
-			{ InputBindings::SG_BUTTON_KEY_F18, gainput::KeyF18},
-			{ InputBindings::SG_BUTTON_KEY_F19, gainput::KeyF19},
-			{ InputBindings::SG_BUTTON_KEY_PRINT, gainput::KeyPrint},
-			{ InputBindings::SG_BUTTON_KEY_SCROLLLOCK, gainput::KeyScrollLock},
-			{ InputBindings::SG_BUTTON_KEY_BREAK, gainput::KeyBreak},
-			{ InputBindings::SG_BUTTON_KEY_SPACE, gainput::KeySpace},
-			{ InputBindings::SG_BUTTON_KEY_APOSTROPHE, gainput::KeyApostrophe},
-			{ InputBindings::SG_BUTTON_KEY_COMMA, gainput::KeyComma},
-			{ InputBindings::SG_BUTTON_KEY_MINUS, gainput::KeyMinus},
-			{ InputBindings::SG_BUTTON_KEY_PERIOD, gainput::KeyPeriod},
-			{ InputBindings::SG_BUTTON_KEY_SLASH, gainput::KeySlash},
-			{ InputBindings::SG_BUTTON_KEY_0, gainput::Key0},
-			{ InputBindings::SG_BUTTON_KEY_1, gainput::Key1},
-			{ InputBindings::SG_BUTTON_KEY_2, gainput::Key2},
-			{ InputBindings::SG_BUTTON_KEY_3, gainput::Key3},
-			{ InputBindings::SG_BUTTON_KEY_4, gainput::Key4},
-			{ InputBindings::SG_BUTTON_KEY_5, gainput::Key5},
-			{ InputBindings::SG_BUTTON_KEY_6, gainput::Key6},
-			{ InputBindings::SG_BUTTON_KEY_7, gainput::Key7},
-			{ InputBindings::SG_BUTTON_KEY_8, gainput::Key8},
-			{ InputBindings::SG_BUTTON_KEY_9, gainput::Key9},
-			{ InputBindings::SG_BUTTON_KEY_SEMICOLON, gainput::KeySemicolon},
-			{ InputBindings::SG_BUTTON_KEY_LESS, gainput::KeyLess},
-			{ InputBindings::SG_BUTTON_KEY_EQUAL, gainput::KeyEqual},
-			{ InputBindings::SG_BUTTON_KEY_A, gainput::KeyA},
-			{ InputBindings::SG_BUTTON_KEY_B, gainput::KeyB},
-			{ InputBindings::SG_BUTTON_KEY_C, gainput::KeyC},
-			{ InputBindings::SG_BUTTON_KEY_D, gainput::KeyD},
-			{ InputBindings::SG_BUTTON_KEY_E, gainput::KeyE},
-			{ InputBindings::SG_BUTTON_KEY_F, gainput::KeyF},
-			{ InputBindings::SG_BUTTON_KEY_G, gainput::KeyG},
-			{ InputBindings::SG_BUTTON_KEY_H, gainput::KeyH},
-			{ InputBindings::SG_BUTTON_KEY_I, gainput::KeyI},
-			{ InputBindings::SG_BUTTON_KEY_J, gainput::KeyJ},
-			{ InputBindings::SG_BUTTON_KEY_K, gainput::KeyK},
-			{ InputBindings::SG_BUTTON_KEY_L, gainput::KeyL},
-			{ InputBindings::SG_BUTTON_KEY_M, gainput::KeyM},
-			{ InputBindings::SG_BUTTON_KEY_N, gainput::KeyN},
-			{ InputBindings::SG_BUTTON_KEY_O, gainput::KeyO},
-			{ InputBindings::SG_BUTTON_KEY_P, gainput::KeyP},
-			{ InputBindings::SG_BUTTON_KEY_Q, gainput::KeyQ},
-			{ InputBindings::SG_BUTTON_KEY_R, gainput::KeyR},
-			{ InputBindings::SG_BUTTON_KEY_S, gainput::KeyS},
-			{ InputBindings::SG_BUTTON_KEY_T, gainput::KeyT},
-			{ InputBindings::SG_BUTTON_KEY_U, gainput::KeyU},
-			{ InputBindings::SG_BUTTON_KEY_V, gainput::KeyV},
-			{ InputBindings::SG_BUTTON_KEY_W, gainput::KeyW},
-			{ InputBindings::SG_BUTTON_KEY_X, gainput::KeyX},
-			{ InputBindings::SG_BUTTON_KEY_Y, gainput::KeyY},
-			{ InputBindings::SG_BUTTON_KEY_Z, gainput::KeyZ},
-			{ InputBindings::SG_BUTTON_KEY_BRACKETLEFT, gainput::KeyBracketLeft},
-			{ InputBindings::SG_BUTTON_KEY_BACKSLASH, gainput::KeyBackslash},
-			{ InputBindings::SG_BUTTON_KEY_BRACKETRIGHT, gainput::KeyBracketRight},
-			{ InputBindings::SG_BUTTON_KEY_GRAVE, gainput::KeyGrave},
-			{ InputBindings::SG_BUTTON_KEY_LEFT, gainput::KeyLeft},
-			{ InputBindings::SG_BUTTON_KEY_RIGHT, gainput::KeyRight},
-			{ InputBindings::SG_BUTTON_KEY_UP, gainput::KeyUp},
-			{ InputBindings::SG_BUTTON_KEY_DOWN, gainput::KeyDown},
-			{ InputBindings::SG_BUTTON_KEY_INSERT, gainput::KeyInsert},
-			{ InputBindings::SG_BUTTON_KEY_HOME, gainput::KeyHome},
-			{ InputBindings::SG_BUTTON_KEY_DELETE, gainput::KeyDelete},
-			{ InputBindings::SG_BUTTON_KEY_END, gainput::KeyEnd},
-			{ InputBindings::SG_BUTTON_KEY_PAGEUP, gainput::KeyPageUp},
-			{ InputBindings::SG_BUTTON_KEY_PAGEDOWN, gainput::KeyPageDown},
-			{ InputBindings::SG_BUTTON_KEY_NUMLOCK, gainput::KeyNumLock},
-			{ InputBindings::SG_BUTTON_KEY_KPEQUAL, gainput::KeyKpEqual},
-			{ InputBindings::SG_BUTTON_KEY_KPDIVIDE, gainput::KeyKpDivide},
-			{ InputBindings::SG_BUTTON_KEY_KPMULTIPLY, gainput::KeyKpMultiply},
-			{ InputBindings::SG_BUTTON_KEY_KPSUBTRACT, gainput::KeyKpSubtract},
-			{ InputBindings::SG_BUTTON_KEY_KPADD, gainput::KeyKpAdd},
-			{ InputBindings::SG_BUTTON_KEY_KPENTER, gainput::KeyKpEnter},
-			{ InputBindings::SG_BUTTON_KEY_KPINSERT, gainput::KeyKpInsert},
-			{ InputBindings::SG_BUTTON_KEY_KPEND, gainput::KeyKpEnd},
-			{ InputBindings::SG_BUTTON_KEY_KPDOWN, gainput::KeyKpDown},
-			{ InputBindings::SG_BUTTON_KEY_KPPAGEDOWN, gainput::KeyKpPageDown},
-			{ InputBindings::SG_BUTTON_KEY_KPLEFT, gainput::KeyKpLeft},
-			{ InputBindings::SG_BUTTON_KEY_KPBEGIN, gainput::KeyKpBegin},
-			{ InputBindings::SG_BUTTON_KEY_KPRIGHT, gainput::KeyKpRight},
-			{ InputBindings::SG_BUTTON_KEY_KPHOME, gainput::KeyKpHome},
-			{ InputBindings::SG_BUTTON_KEY_KPUP, gainput::KeyKpUp},
-			{ InputBindings::SG_BUTTON_KEY_KPPAGEUP, gainput::KeyKpPageUp},
-			{ InputBindings::SG_BUTTON_KEY_KPDELETE, gainput::KeyKpDelete},
-			{ InputBindings::SG_BUTTON_KEY_BACKSPACE, gainput::KeyBackSpace},
-			{ InputBindings::SG_BUTTON_KEY_TAB, gainput::KeyTab},
-			{ InputBindings::SG_BUTTON_KEY_RETURN, gainput::KeyReturn},
-			{ InputBindings::SG_BUTTON_KEY_CAPSLOCK, gainput::KeyCapsLock},
-			{ InputBindings::SG_BUTTON_KEY_SHIFTL, gainput::KeyShiftL},
-			{ InputBindings::SG_BUTTON_KEY_CTRLL, gainput::KeyCtrlL},
-			{ InputBindings::SG_BUTTON_KEY_SUPERL, gainput::KeySuperL},
-			{ InputBindings::SG_BUTTON_KEY_ALTL, gainput::KeyAltL},
-			{ InputBindings::SG_BUTTON_KEY_ALTR, gainput::KeyAltR},
-			{ InputBindings::SG_BUTTON_KEY_SUPERR, gainput::KeySuperR},
-			{ InputBindings::SG_BUTTON_KEY_MENU, gainput::KeyMenu},
-			{ InputBindings::SG_BUTTON_KEY_CTRLR, gainput::KeyCtrlR},
-			{ InputBindings::SG_BUTTON_KEY_SHIFTR, gainput::KeyShiftR},
-			{ InputBindings::SG_BUTTON_KEY_BACK, gainput::KeyBack},
-			{ InputBindings::SG_BUTTON_KEY_SOFTLEFT, gainput::KeySoftLeft},
-			{ InputBindings::SG_BUTTON_KEY_SOFTRIGHT, gainput::KeySoftRight},
-			{ InputBindings::SG_BUTTON_KEY_CALL, gainput::KeyCall},
-			{ InputBindings::SG_BUTTON_KEY_ENDCALL, gainput::KeyEndcall},
-			{ InputBindings::SG_BUTTON_KEY_STAR, gainput::KeyStar},
-			{ InputBindings::SG_BUTTON_KEY_POUND, gainput::KeyPound},
-			{ InputBindings::SG_BUTTON_KEY_DPADCENTER, gainput::KeyDpadCenter},
-			{ InputBindings::SG_BUTTON_KEY_VOLUMEUP, gainput::KeyVolumeUp},
-			{ InputBindings::SG_BUTTON_KEY_VOLUMEDOWN, gainput::KeyVolumeDown},
-			{ InputBindings::SG_BUTTON_KEY_POWER, gainput::KeyPower},
-			{ InputBindings::SG_BUTTON_KEY_CAMERA, gainput::KeyCamera},
-			{ InputBindings::SG_BUTTON_KEY_CLEAR, gainput::KeyClear},
-			{ InputBindings::SG_BUTTON_KEY_SYMBOL, gainput::KeySymbol},
-			{ InputBindings::SG_BUTTON_KEY_EXPLORER, gainput::KeyExplorer},
-			{ InputBindings::SG_BUTTON_KEY_ENVELOPE, gainput::KeyEnvelope},
-			{ InputBindings::SG_BUTTON_KEY_EQUALS, gainput::KeyEquals},
-			{ InputBindings::SG_BUTTON_KEY_AT, gainput::KeyAt},
-			{ InputBindings::SG_BUTTON_KEY_HEADSETHOOK, gainput::KeyHeadsethook},
-			{ InputBindings::SG_BUTTON_KEY_FOCUS, gainput::KeyFocus},
-			{ InputBindings::SG_BUTTON_KEY_PLUS, gainput::KeyPlus},
-			{ InputBindings::SG_BUTTON_KEY_NOTIFICATION, gainput::KeyNotification},
-			{ InputBindings::SG_BUTTON_KEY_SEARCH, gainput::KeySearch},
-			{ InputBindings::SG_BUTTON_KEY_MEDIAPLAYPAUSE, gainput::KeyMediaPlayPause},
-			{ InputBindings::SG_BUTTON_KEY_MEDIASTOP, gainput::KeyMediaStop},
-			{ InputBindings::SG_BUTTON_KEY_MEDIANEXT, gainput::KeyMediaNext},
-			{ InputBindings::SG_BUTTON_KEY_MEDIAPREVIOUS, gainput::KeyMediaPrevious},
-			{ InputBindings::SG_BUTTON_KEY_MEDIAREWIND, gainput::KeyMediaRewind},
-			{ InputBindings::SG_BUTTON_KEY_MEDIAFASTFORWARD, gainput::KeyMediaFastForward},
-			{ InputBindings::SG_BUTTON_KEY_MUTE, gainput::KeyMute},
-			{ InputBindings::SG_BUTTON_KEY_PICTSYMBOLS, gainput::KeyPictsymbols},
-			{ InputBindings::SG_BUTTON_KEY_SWITCHCHARSET, gainput::KeySwitchCharset},
-			{ InputBindings::SG_BUTTON_KEY_FORWARD, gainput::KeyForward},
-			{ InputBindings::SG_BUTTON_KEY_EXTRA1, gainput::KeyExtra1},
-			{ InputBindings::SG_BUTTON_KEY_EXTRA2, gainput::KeyExtra2},
-			{ InputBindings::SG_BUTTON_KEY_EXTRA3, gainput::KeyExtra3},
-			{ InputBindings::SG_BUTTON_KEY_EXTRA4, gainput::KeyExtra4},
-			{ InputBindings::SG_BUTTON_KEY_EXTRA5, gainput::KeyExtra5},
-			{ InputBindings::SG_BUTTON_KEY_EXTRA6, gainput::KeyExtra6},
-			{ InputBindings::SG_BUTTON_KEY_FN, gainput::KeyFn},
-			{ InputBindings::SG_BUTTON_KEY_CIRCUMFLEX, gainput::KeyCircumflex},
-			{ InputBindings::SG_BUTTON_KEY_SSHARP, gainput::KeySsharp},
-			{ InputBindings::SG_BUTTON_KEY_ACUTE, gainput::KeyAcute},
-			{ InputBindings::SG_BUTTON_KEY_ALTGR, gainput::KeyAltGr},
-			{ InputBindings::SG_BUTTON_KEY_NUMBERSIGN, gainput::KeyNumbersign},
-			{ InputBindings::SG_BUTTON_KEY_UDIAERESIS, gainput::KeyUdiaeresis},
-			{ InputBindings::SG_BUTTON_KEY_ADIAERESIS, gainput::KeyAdiaeresis},
-			{ InputBindings::SG_BUTTON_KEY_ODIAERESIS, gainput::KeyOdiaeresis},
-			{ InputBindings::SG_BUTTON_KEY_SECTION, gainput::KeySection},
-			{ InputBindings::SG_BUTTON_KEY_ARING, gainput::KeyAring},
-			{ InputBindings::SG_BUTTON_KEY_DIAERESIS, gainput::KeyDiaeresis},
-			{ InputBindings::SG_BUTTON_KEY_TWOSUPERIOR, gainput::KeyTwosuperior},
-			{ InputBindings::SG_BUTTON_KEY_RIGHTPARENTHESIS, gainput::KeyRightParenthesis},
-			{ InputBindings::SG_BUTTON_KEY_DOLLAR, gainput::KeyDollar},
-			{ InputBindings::SG_BUTTON_KEY_UGRAVE, gainput::KeyUgrave},
-			{ InputBindings::SG_BUTTON_KEY_ASTERISK, gainput::KeyAsterisk},
-			{ InputBindings::SG_BUTTON_KEY_COLON, gainput::KeyColon},
-			{ InputBindings::SG_BUTTON_KEY_EXCLAM, gainput::KeyExclam},
-			{ InputBindings::SG_BUTTON_KEY_BRACELEFT, gainput::KeyBraceLeft},
-			{ InputBindings::SG_BUTTON_KEY_BRACERIGHT, gainput::KeyBraceRight},
-			{ InputBindings::SG_BUTTON_KEY_SYSRQ, gainput::KeySysRq},
-
-	#endif
-		};
-
-		const eastl::unordered_map<uint32_t, gainput::PadButton> mGamepadMap =
-		{
-			{ InputBindings::SG_BUTTON_DPAD_LEFT, gainput::PadButtonLeft },
-			{ InputBindings::SG_BUTTON_DPAD_RIGHT, gainput::PadButtonRight },
-			{ InputBindings::SG_BUTTON_DPAD_UP, gainput::PadButtonUp },
-			{ InputBindings::SG_BUTTON_DPAD_DOWN, gainput::PadButtonDown },
-			{ InputBindings::SG_BUTTON_SOUTH, gainput::PadButtonA }, // A/CROSS
-			{ InputBindings::SG_BUTTON_EAST, gainput::PadButtonB }, // B/CIRCLE
-			{ InputBindings::SG_BUTTON_WEST, gainput::PadButtonX }, // X/SQUARE
-			{ InputBindings::SG_BUTTON_NORTH, gainput::PadButtonY }, // Y/TRIANGLE
-			{ InputBindings::SG_BUTTON_L1, gainput::PadButtonL1 },
-			{ InputBindings::SG_BUTTON_R1, gainput::PadButtonR1 },
-			{ InputBindings::SG_BUTTON_L2, gainput::PadButtonL2 },
-			{ InputBindings::SG_BUTTON_R2, gainput::PadButtonR2 },
-			{ InputBindings::SG_BUTTON_L3, gainput::PadButtonL3 }, // LEFT THUMB
-			{ InputBindings::SG_BUTTON_R3, gainput::PadButtonR3 }, // RIGHT THUMB
-			{ InputBindings::SG_BUTTON_START, gainput::PadButtonStart },
-			{ InputBindings::SG_BUTTON_SELECT, gainput::PadButtonSelect },
-			{ InputBindings::SG_BUTTON_TOUCH, gainput::PadButton17 }, // PS BUTTON
-			{ InputBindings::SG_BUTTON_HOME, gainput::PadButtonHome}, // PS BUTTON
-		};
-
-		const eastl::unordered_map<uint32_t, AxisControl> mGamepadAxisMap =
-		{
-			{ InputBindings::SG_FLOAT_L2, { (uint16_t)gainput::PadButtonAxis4, 1, 1 } },
-			{ InputBindings::SG_FLOAT_R2, { (uint16_t)gainput::PadButtonAxis5, 1, 1 } },
-			{ InputBindings::SG_FLOAT_LEFTSTICK, { (uint16_t)gainput::PadButtonLeftStickX, (1 << 1) | 1, 2 } },
-			{ InputBindings::SG_FLOAT_RIGHTSTICK, { (uint16_t)gainput::PadButtonRightStickX, (1 << 1) | 1, 2 } },
-		};
-
-#ifndef SG_NO_DEFAULT_KEY_BINDINGS
-		const eastl::unordered_map<uint32_t, CompositeControl> mGamepadCompositeMap
-		{
-			{ InputBindings::SG_FLOAT_LEFTSTICK, { { gainput::KeyD, gainput::KeyA, gainput::KeyW, gainput::KeyS }, 4 } },
-		};
-#endif
-
-		const eastl::unordered_map<uint32_t, FloatControl> mGamepadFloatMap =
-		{
-			{ InputBindings::SG_FLOAT_RIGHTSTICK, { (uint16_t)gainput::MouseAxisX, (1 << 1) | 1, true, true } },
-		};
+//		const eastl::unordered_map<uint32_t, gainput::MouseButton> mMouseMap =
+//		{
+//	#ifndef SG_NO_DEFAULT_KEY_BINDINGS
+//			{ InputBindings::SG_BUTTON_SOUTH, gainput::MouseButtonLeft },
+//			// Following are for UI windows
+//			{ InputBindings::SG_BUTTON_MOUSE_RIGHT, gainput::MouseButtonRight },
+//			{ InputBindings::SG_BUTTON_MOUSE_MIDDLE, gainput::MouseButtonMiddle },
+//			{ InputBindings::SG_BUTTON_MOUSE_SCROLL_UP, gainput::MouseButtonWheelUp },
+//			{ InputBindings::SG_BUTTON_MOUSE_SCROLL_DOWN, gainput::MouseButtonWheelDown },
+//	#else
+//
+//			{ InputBindings::SG_BUTTON_MOUSE_LEFT, gainput::MouseButtonLeft },
+//			{ InputBindings::SG_BUTTON_MOUSE_RIGHT, gainput::MouseButtonRight },
+//			{ InputBindings::SG_BUTTON_MOUSE_MIDDLE, gainput::MouseButtonMiddle },
+//			{ InputBindings::SG_BUTTON_MOUSE_SCROLL_UP, gainput::MouseButtonWheelUp },
+//			{ InputBindings::SG_BUTTON_MOUSE_SCROLL_DOWN, gainput::MouseButtonWheelDown },
+//			{ InputBindings::SG_BUTTON_MOUSE_5, gainput::MouseButton5},
+//			{ InputBindings::SG_BUTTON_MOUSE_6, gainput::MouseButton6},
+//	#endif
+//		};
+//
+//		const eastl::unordered_map<uint32_t, gainput::Key> mKeyMap =
+//		{
+//	#ifndef SG_NO_DEFAULT_KEY_BINDINGS
+//			{ InputBindings::SG_BUTTON_EXIT, gainput::KeyEscape },
+//			{ InputBindings::SG_BUTTON_BACK, gainput::KeyBackSpace },
+//			{ InputBindings::SG_BUTTON_NORTH, gainput::KeySpace },
+//			{ InputBindings::SG_BUTTON_R3, gainput::KeyF1 },
+//			{ InputBindings::SG_BUTTON_L3, gainput::KeyF2 },
+//			{ InputBindings::SG_BUTTON_DUMP, gainput::KeyF3 },
+//			// Following are for UI text inputs
+//			{ InputBindings::SG_BUTTON_KEY_LEFT, gainput::KeyLeft},
+//			{ InputBindings::SG_BUTTON_KEY_RIGHT, gainput::KeyRight},
+//			{ InputBindings::SG_BUTTON_KEY_SHIFTL, gainput::KeyShiftL},
+//			{ InputBindings::SG_BUTTON_KEY_SHIFTR, gainput::KeyShiftR},
+//			{ InputBindings::SG_BUTTON_KEY_HOME, gainput::KeyHome},
+//			{ InputBindings::SG_BUTTON_KEY_END, gainput::KeyEnd},
+//			{ InputBindings::SG_BUTTON_KEY_DELETE, gainput::KeyDelete},
+//	#else
+//			{ InputBindings::SG_BUTTON_KEY_ESCAPE, gainput::KeyEscape},
+//			{ InputBindings::SG_BUTTON_KEY_F1, gainput::KeyF1},
+//			{ InputBindings::SG_BUTTON_KEY_F2, gainput::KeyF2},
+//			{ InputBindings::SG_BUTTON_KEY_F3, gainput::KeyF3},
+//			{ InputBindings::SG_BUTTON_KEY_F4, gainput::KeyF4},
+//			{ InputBindings::SG_BUTTON_KEY_F5, gainput::KeyF5},
+//			{ InputBindings::SG_BUTTON_KEY_F6, gainput::KeyF6},
+//			{ InputBindings::SG_BUTTON_KEY_F7, gainput::KeyF7},
+//			{ InputBindings::SG_BUTTON_KEY_F8, gainput::KeyF8},
+//			{ InputBindings::SG_BUTTON_KEY_F9, gainput::KeyF9},
+//			{ InputBindings::SG_BUTTON_KEY_F10, gainput::KeyF10},
+//			{ InputBindings::SG_BUTTON_KEY_F11, gainput::KeyF11},
+//			{ InputBindings::SG_BUTTON_KEY_F12, gainput::KeyF12},
+//			{ InputBindings::SG_BUTTON_KEY_F13, gainput::KeyF13},
+//			{ InputBindings::SG_BUTTON_KEY_F14, gainput::KeyF14},
+//			{ InputBindings::SG_BUTTON_KEY_F15, gainput::KeyF15},
+//			{ InputBindings::SG_BUTTON_KEY_F16, gainput::KeyF16},
+//			{ InputBindings::SG_BUTTON_KEY_F17, gainput::KeyF17},
+//			{ InputBindings::SG_BUTTON_KEY_F18, gainput::KeyF18},
+//			{ InputBindings::SG_BUTTON_KEY_F19, gainput::KeyF19},
+//			{ InputBindings::SG_BUTTON_KEY_PRINT, gainput::KeyPrint},
+//			{ InputBindings::SG_BUTTON_KEY_SCROLLLOCK, gainput::KeyScrollLock},
+//			{ InputBindings::SG_BUTTON_KEY_BREAK, gainput::KeyBreak},
+//			{ InputBindings::SG_BUTTON_KEY_SPACE, gainput::KeySpace},
+//			{ InputBindings::SG_BUTTON_KEY_APOSTROPHE, gainput::KeyApostrophe},
+//			{ InputBindings::SG_BUTTON_KEY_COMMA, gainput::KeyComma},
+//			{ InputBindings::SG_BUTTON_KEY_MINUS, gainput::KeyMinus},
+//			{ InputBindings::SG_BUTTON_KEY_PERIOD, gainput::KeyPeriod},
+//			{ InputBindings::SG_BUTTON_KEY_SLASH, gainput::KeySlash},
+//			{ InputBindings::SG_BUTTON_KEY_0, gainput::Key0},
+//			{ InputBindings::SG_BUTTON_KEY_1, gainput::Key1},
+//			{ InputBindings::SG_BUTTON_KEY_2, gainput::Key2},
+//			{ InputBindings::SG_BUTTON_KEY_3, gainput::Key3},
+//			{ InputBindings::SG_BUTTON_KEY_4, gainput::Key4},
+//			{ InputBindings::SG_BUTTON_KEY_5, gainput::Key5},
+//			{ InputBindings::SG_BUTTON_KEY_6, gainput::Key6},
+//			{ InputBindings::SG_BUTTON_KEY_7, gainput::Key7},
+//			{ InputBindings::SG_BUTTON_KEY_8, gainput::Key8},
+//			{ InputBindings::SG_BUTTON_KEY_9, gainput::Key9},
+//			{ InputBindings::SG_BUTTON_KEY_SEMICOLON, gainput::KeySemicolon},
+//			{ InputBindings::SG_BUTTON_KEY_LESS, gainput::KeyLess},
+//			{ InputBindings::SG_BUTTON_KEY_EQUAL, gainput::KeyEqual},
+//			{ InputBindings::SG_BUTTON_KEY_A, gainput::KeyA},
+//			{ InputBindings::SG_BUTTON_KEY_B, gainput::KeyB},
+//			{ InputBindings::SG_BUTTON_KEY_C, gainput::KeyC},
+//			{ InputBindings::SG_BUTTON_KEY_D, gainput::KeyD},
+//			{ InputBindings::SG_BUTTON_KEY_E, gainput::KeyE},
+//			{ InputBindings::SG_BUTTON_KEY_F, gainput::KeyF},
+//			{ InputBindings::SG_BUTTON_KEY_G, gainput::KeyG},
+//			{ InputBindings::SG_BUTTON_KEY_H, gainput::KeyH},
+//			{ InputBindings::SG_BUTTON_KEY_I, gainput::KeyI},
+//			{ InputBindings::SG_BUTTON_KEY_J, gainput::KeyJ},
+//			{ InputBindings::SG_BUTTON_KEY_K, gainput::KeyK},
+//			{ InputBindings::SG_BUTTON_KEY_L, gainput::KeyL},
+//			{ InputBindings::SG_BUTTON_KEY_M, gainput::KeyM},
+//			{ InputBindings::SG_BUTTON_KEY_N, gainput::KeyN},
+//			{ InputBindings::SG_BUTTON_KEY_O, gainput::KeyO},
+//			{ InputBindings::SG_BUTTON_KEY_P, gainput::KeyP},
+//			{ InputBindings::SG_BUTTON_KEY_Q, gainput::KeyQ},
+//			{ InputBindings::SG_BUTTON_KEY_R, gainput::KeyR},
+//			{ InputBindings::SG_BUTTON_KEY_S, gainput::KeyS},
+//			{ InputBindings::SG_BUTTON_KEY_T, gainput::KeyT},
+//			{ InputBindings::SG_BUTTON_KEY_U, gainput::KeyU},
+//			{ InputBindings::SG_BUTTON_KEY_V, gainput::KeyV},
+//			{ InputBindings::SG_BUTTON_KEY_W, gainput::KeyW},
+//			{ InputBindings::SG_BUTTON_KEY_X, gainput::KeyX},
+//			{ InputBindings::SG_BUTTON_KEY_Y, gainput::KeyY},
+//			{ InputBindings::SG_BUTTON_KEY_Z, gainput::KeyZ},
+//			{ InputBindings::SG_BUTTON_KEY_BRACKETLEFT, gainput::KeyBracketLeft},
+//			{ InputBindings::SG_BUTTON_KEY_BACKSLASH, gainput::KeyBackslash},
+//			{ InputBindings::SG_BUTTON_KEY_BRACKETRIGHT, gainput::KeyBracketRight},
+//			{ InputBindings::SG_BUTTON_KEY_GRAVE, gainput::KeyGrave},
+//			{ InputBindings::SG_BUTTON_KEY_LEFT, gainput::KeyLeft},
+//			{ InputBindings::SG_BUTTON_KEY_RIGHT, gainput::KeyRight},
+//			{ InputBindings::SG_BUTTON_KEY_UP, gainput::KeyUp},
+//			{ InputBindings::SG_BUTTON_KEY_DOWN, gainput::KeyDown},
+//			{ InputBindings::SG_BUTTON_KEY_INSERT, gainput::KeyInsert},
+//			{ InputBindings::SG_BUTTON_KEY_HOME, gainput::KeyHome},
+//			{ InputBindings::SG_BUTTON_KEY_DELETE, gainput::KeyDelete},
+//			{ InputBindings::SG_BUTTON_KEY_END, gainput::KeyEnd},
+//			{ InputBindings::SG_BUTTON_KEY_PAGEUP, gainput::KeyPageUp},
+//			{ InputBindings::SG_BUTTON_KEY_PAGEDOWN, gainput::KeyPageDown},
+//			{ InputBindings::SG_BUTTON_KEY_NUMLOCK, gainput::KeyNumLock},
+//			{ InputBindings::SG_BUTTON_KEY_KPEQUAL, gainput::KeyKpEqual},
+//			{ InputBindings::SG_BUTTON_KEY_KPDIVIDE, gainput::KeyKpDivide},
+//			{ InputBindings::SG_BUTTON_KEY_KPMULTIPLY, gainput::KeyKpMultiply},
+//			{ InputBindings::SG_BUTTON_KEY_KPSUBTRACT, gainput::KeyKpSubtract},
+//			{ InputBindings::SG_BUTTON_KEY_KPADD, gainput::KeyKpAdd},
+//			{ InputBindings::SG_BUTTON_KEY_KPENTER, gainput::KeyKpEnter},
+//			{ InputBindings::SG_BUTTON_KEY_KPINSERT, gainput::KeyKpInsert},
+//			{ InputBindings::SG_BUTTON_KEY_KPEND, gainput::KeyKpEnd},
+//			{ InputBindings::SG_BUTTON_KEY_KPDOWN, gainput::KeyKpDown},
+//			{ InputBindings::SG_BUTTON_KEY_KPPAGEDOWN, gainput::KeyKpPageDown},
+//			{ InputBindings::SG_BUTTON_KEY_KPLEFT, gainput::KeyKpLeft},
+//			{ InputBindings::SG_BUTTON_KEY_KPBEGIN, gainput::KeyKpBegin},
+//			{ InputBindings::SG_BUTTON_KEY_KPRIGHT, gainput::KeyKpRight},
+//			{ InputBindings::SG_BUTTON_KEY_KPHOME, gainput::KeyKpHome},
+//			{ InputBindings::SG_BUTTON_KEY_KPUP, gainput::KeyKpUp},
+//			{ InputBindings::SG_BUTTON_KEY_KPPAGEUP, gainput::KeyKpPageUp},
+//			{ InputBindings::SG_BUTTON_KEY_KPDELETE, gainput::KeyKpDelete},
+//			{ InputBindings::SG_BUTTON_KEY_BACKSPACE, gainput::KeyBackSpace},
+//			{ InputBindings::SG_BUTTON_KEY_TAB, gainput::KeyTab},
+//			{ InputBindings::SG_BUTTON_KEY_RETURN, gainput::KeyReturn},
+//			{ InputBindings::SG_BUTTON_KEY_CAPSLOCK, gainput::KeyCapsLock},
+//			{ InputBindings::SG_BUTTON_KEY_SHIFTL, gainput::KeyShiftL},
+//			{ InputBindings::SG_BUTTON_KEY_CTRLL, gainput::KeyCtrlL},
+//			{ InputBindings::SG_BUTTON_KEY_SUPERL, gainput::KeySuperL},
+//			{ InputBindings::SG_BUTTON_KEY_ALTL, gainput::KeyAltL},
+//			{ InputBindings::SG_BUTTON_KEY_ALTR, gainput::KeyAltR},
+//			{ InputBindings::SG_BUTTON_KEY_SUPERR, gainput::KeySuperR},
+//			{ InputBindings::SG_BUTTON_KEY_MENU, gainput::KeyMenu},
+//			{ InputBindings::SG_BUTTON_KEY_CTRLR, gainput::KeyCtrlR},
+//			{ InputBindings::SG_BUTTON_KEY_SHIFTR, gainput::KeyShiftR},
+//			{ InputBindings::SG_BUTTON_KEY_BACK, gainput::KeyBack},
+//			{ InputBindings::SG_BUTTON_KEY_SOFTLEFT, gainput::KeySoftLeft},
+//			{ InputBindings::SG_BUTTON_KEY_SOFTRIGHT, gainput::KeySoftRight},
+//			{ InputBindings::SG_BUTTON_KEY_CALL, gainput::KeyCall},
+//			{ InputBindings::SG_BUTTON_KEY_ENDCALL, gainput::KeyEndcall},
+//			{ InputBindings::SG_BUTTON_KEY_STAR, gainput::KeyStar},
+//			{ InputBindings::SG_BUTTON_KEY_POUND, gainput::KeyPound},
+//			{ InputBindings::SG_BUTTON_KEY_DPADCENTER, gainput::KeyDpadCenter},
+//			{ InputBindings::SG_BUTTON_KEY_VOLUMEUP, gainput::KeyVolumeUp},
+//			{ InputBindings::SG_BUTTON_KEY_VOLUMEDOWN, gainput::KeyVolumeDown},
+//			{ InputBindings::SG_BUTTON_KEY_POWER, gainput::KeyPower},
+//			{ InputBindings::SG_BUTTON_KEY_CAMERA, gainput::KeyCamera},
+//			{ InputBindings::SG_BUTTON_KEY_CLEAR, gainput::KeyClear},
+//			{ InputBindings::SG_BUTTON_KEY_SYMBOL, gainput::KeySymbol},
+//			{ InputBindings::SG_BUTTON_KEY_EXPLORER, gainput::KeyExplorer},
+//			{ InputBindings::SG_BUTTON_KEY_ENVELOPE, gainput::KeyEnvelope},
+//			{ InputBindings::SG_BUTTON_KEY_EQUALS, gainput::KeyEquals},
+//			{ InputBindings::SG_BUTTON_KEY_AT, gainput::KeyAt},
+//			{ InputBindings::SG_BUTTON_KEY_HEADSETHOOK, gainput::KeyHeadsethook},
+//			{ InputBindings::SG_BUTTON_KEY_FOCUS, gainput::KeyFocus},
+//			{ InputBindings::SG_BUTTON_KEY_PLUS, gainput::KeyPlus},
+//			{ InputBindings::SG_BUTTON_KEY_NOTIFICATION, gainput::KeyNotification},
+//			{ InputBindings::SG_BUTTON_KEY_SEARCH, gainput::KeySearch},
+//			{ InputBindings::SG_BUTTON_KEY_MEDIAPLAYPAUSE, gainput::KeyMediaPlayPause},
+//			{ InputBindings::SG_BUTTON_KEY_MEDIASTOP, gainput::KeyMediaStop},
+//			{ InputBindings::SG_BUTTON_KEY_MEDIANEXT, gainput::KeyMediaNext},
+//			{ InputBindings::SG_BUTTON_KEY_MEDIAPREVIOUS, gainput::KeyMediaPrevious},
+//			{ InputBindings::SG_BUTTON_KEY_MEDIAREWIND, gainput::KeyMediaRewind},
+//			{ InputBindings::SG_BUTTON_KEY_MEDIAFASTFORWARD, gainput::KeyMediaFastForward},
+//			{ InputBindings::SG_BUTTON_KEY_MUTE, gainput::KeyMute},
+//			{ InputBindings::SG_BUTTON_KEY_PICTSYMBOLS, gainput::KeyPictsymbols},
+//			{ InputBindings::SG_BUTTON_KEY_SWITCHCHARSET, gainput::KeySwitchCharset},
+//			{ InputBindings::SG_BUTTON_KEY_FORWARD, gainput::KeyForward},
+//			{ InputBindings::SG_BUTTON_KEY_EXTRA1, gainput::KeyExtra1},
+//			{ InputBindings::SG_BUTTON_KEY_EXTRA2, gainput::KeyExtra2},
+//			{ InputBindings::SG_BUTTON_KEY_EXTRA3, gainput::KeyExtra3},
+//			{ InputBindings::SG_BUTTON_KEY_EXTRA4, gainput::KeyExtra4},
+//			{ InputBindings::SG_BUTTON_KEY_EXTRA5, gainput::KeyExtra5},
+//			{ InputBindings::SG_BUTTON_KEY_EXTRA6, gainput::KeyExtra6},
+//			{ InputBindings::SG_BUTTON_KEY_FN, gainput::KeyFn},
+//			{ InputBindings::SG_BUTTON_KEY_CIRCUMFLEX, gainput::KeyCircumflex},
+//			{ InputBindings::SG_BUTTON_KEY_SSHARP, gainput::KeySsharp},
+//			{ InputBindings::SG_BUTTON_KEY_ACUTE, gainput::KeyAcute},
+//			{ InputBindings::SG_BUTTON_KEY_ALTGR, gainput::KeyAltGr},
+//			{ InputBindings::SG_BUTTON_KEY_NUMBERSIGN, gainput::KeyNumbersign},
+//			{ InputBindings::SG_BUTTON_KEY_UDIAERESIS, gainput::KeyUdiaeresis},
+//			{ InputBindings::SG_BUTTON_KEY_ADIAERESIS, gainput::KeyAdiaeresis},
+//			{ InputBindings::SG_BUTTON_KEY_ODIAERESIS, gainput::KeyOdiaeresis},
+//			{ InputBindings::SG_BUTTON_KEY_SECTION, gainput::KeySection},
+//			{ InputBindings::SG_BUTTON_KEY_ARING, gainput::KeyAring},
+//			{ InputBindings::SG_BUTTON_KEY_DIAERESIS, gainput::KeyDiaeresis},
+//			{ InputBindings::SG_BUTTON_KEY_TWOSUPERIOR, gainput::KeyTwosuperior},
+//			{ InputBindings::SG_BUTTON_KEY_RIGHTPARENTHESIS, gainput::KeyRightParenthesis},
+//			{ InputBindings::SG_BUTTON_KEY_DOLLAR, gainput::KeyDollar},
+//			{ InputBindings::SG_BUTTON_KEY_UGRAVE, gainput::KeyUgrave},
+//			{ InputBindings::SG_BUTTON_KEY_ASTERISK, gainput::KeyAsterisk},
+//			{ InputBindings::SG_BUTTON_KEY_COLON, gainput::KeyColon},
+//			{ InputBindings::SG_BUTTON_KEY_EXCLAM, gainput::KeyExclam},
+//			{ InputBindings::SG_BUTTON_KEY_BRACELEFT, gainput::KeyBraceLeft},
+//			{ InputBindings::SG_BUTTON_KEY_BRACERIGHT, gainput::KeyBraceRight},
+//			{ InputBindings::SG_BUTTON_KEY_SYSRQ, gainput::KeySysRq},
+//
+//	#endif
+//		};
+//
+//		const eastl::unordered_map<uint32_t, gainput::PadButton> mGamepadMap =
+//		{
+//			{ InputBindings::SG_BUTTON_DPAD_LEFT, gainput::PadButtonLeft },
+//			{ InputBindings::SG_BUTTON_DPAD_RIGHT, gainput::PadButtonRight },
+//			{ InputBindings::SG_BUTTON_DPAD_UP, gainput::PadButtonUp },
+//			{ InputBindings::SG_BUTTON_DPAD_DOWN, gainput::PadButtonDown },
+//			{ InputBindings::SG_BUTTON_SOUTH, gainput::PadButtonA }, // A/CROSS
+//			{ InputBindings::SG_BUTTON_EAST, gainput::PadButtonB }, // B/CIRCLE
+//			{ InputBindings::SG_BUTTON_WEST, gainput::PadButtonX }, // X/SQUARE
+//			{ InputBindings::SG_BUTTON_NORTH, gainput::PadButtonY }, // Y/TRIANGLE
+//			{ InputBindings::SG_BUTTON_L1, gainput::PadButtonL1 },
+//			{ InputBindings::SG_BUTTON_R1, gainput::PadButtonR1 },
+//			{ InputBindings::SG_BUTTON_L2, gainput::PadButtonL2 },
+//			{ InputBindings::SG_BUTTON_R2, gainput::PadButtonR2 },
+//			{ InputBindings::SG_BUTTON_L3, gainput::PadButtonL3 }, // LEFT THUMB
+//			{ InputBindings::SG_BUTTON_R3, gainput::PadButtonR3 }, // RIGHT THUMB
+//			{ InputBindings::SG_BUTTON_START, gainput::PadButtonStart },
+//			{ InputBindings::SG_BUTTON_SELECT, gainput::PadButtonSelect },
+//			{ InputBindings::SG_BUTTON_TOUCH, gainput::PadButton17 }, // PS BUTTON
+//			{ InputBindings::SG_BUTTON_HOME, gainput::PadButtonHome}, // PS BUTTON
+//		};
+//
+//		const eastl::unordered_map<uint32_t, AxisControl> mGamepadAxisMap =
+//		{
+//			{ InputBindings::SG_FLOAT_L2, { (uint16_t)gainput::PadButtonAxis4, 1, 1 } },
+//			{ InputBindings::SG_FLOAT_R2, { (uint16_t)gainput::PadButtonAxis5, 1, 1 } },
+//			{ InputBindings::SG_FLOAT_LEFTSTICK, { (uint16_t)gainput::PadButtonLeftStickX, (1 << 1) | 1, 2 } },
+//			{ InputBindings::SG_FLOAT_RIGHTSTICK, { (uint16_t)gainput::PadButtonRightStickX, (1 << 1) | 1, 2 } },
+//		};
+//
+//#ifndef SG_NO_DEFAULT_KEY_BINDINGS
+//		const eastl::unordered_map<uint32_t, CompositeControl> mGamepadCompositeMap
+//		{
+//			{ InputBindings::SG_FLOAT_LEFTSTICK, { { gainput::KeyD, gainput::KeyA, gainput::KeyW, gainput::KeyS }, 4 } },
+//		};
+//#endif
+//
+//		const eastl::unordered_map<uint32_t, FloatControl> mGamepadFloatMap =
+//		{
+//			{ InputBindings::SG_FLOAT_RIGHTSTICK, { (uint16_t)gainput::MouseAxisX, (1 << 1) | 1, true, true } },
+//		};
 
 		/// Maps the gainput button to the InputBindings::KeyBindings enum
-		eastl::vector<uint32_t>                  mControlMapReverse[SG_MAX_INPUT_DEVICES];
+		//eastl::vector<uint32_t>                  mControlMapReverse[SG_MAX_INPUT_DEVICES];
 		/// List of all input controls per device
 		eastl::vector<eastl::vector<IControl*> > mControls[SG_MAX_INPUT_DEVICES];
 		/// List of gestures
-		eastl::vector<InputAction*>              mGestureControls;
+		//eastl::vector<InputAction*>              mGestureControls;
 		/// List of all text input actions
 		/// These actions will be invoked everytime there is a text character typed on a physical / virtual keyboard
 		eastl::vector<InputAction*>              mTextInputControls;
@@ -416,14 +419,14 @@ namespace SG
 		WindowDesc* pWindow = nullptr;
 
 		/// Gainput Manager which lets us talk with the gainput backend
-		gainput::InputManager* pInputManager = nullptr;
+		InputManager* pInputManager = nullptr;
 
 		InputDeviceType* pDeviceTypes;
-		gainput::DeviceId* pGamepadDeviceIDs;
-		gainput::DeviceId  mouseDeviceID;
-		gainput::DeviceId  rawMouseDeviceID;
-		gainput::DeviceId  keyboardDeviceID;
-		gainput::DeviceId  touchDeviceID;
+		//DeviceId* pGamepadDeviceIDs;
+		DeviceId  mouseDeviceID;
+		DeviceId  rawMouseDeviceID;
+		DeviceId  keyboardDeviceID;
+		//DeviceId  touchDeviceID;
 
 		bool isVirtualKeyboardActive;
 		bool isInputCaptured;
@@ -433,46 +436,42 @@ namespace SG
 		{
 			pWindow = window;
 
-#ifdef GAINPUT_PLATFORM_GGP
-			gainput::SetWindow(pWindow->handle.window);
-#endif
-
 			// clear up defaults
 			isVirtualKeyboardActive = false;
 			useDefaultCapture = true;
 			isInputCaptured = false;
 
-			pGamepadDeviceIDs = (gainput::DeviceId*)sg_calloc(MAX_INPUT_GAMEPADS, sizeof(gainput::DeviceId));
+			//pGamepadDeviceIDs = (DeviceId*)sg_calloc(MAX_INPUT_GAMEPADS, sizeof(DeviceId));
 			pDeviceTypes = (InputDeviceType*)sg_calloc(MAX_INPUT_GAMEPADS + 4, sizeof(InputDeviceType));
 
 			// default device ids
-			mouseDeviceID = gainput::InvalidDeviceId;
-			rawMouseDeviceID = gainput::InvalidDeviceId;
-			keyboardDeviceID = gainput::InvalidDeviceId;
-			for (uint32_t i = 0; i < MAX_INPUT_GAMEPADS; ++i)
-				pGamepadDeviceIDs[i] = gainput::InvalidDeviceId;
-			touchDeviceID = gainput::InvalidDeviceId;
+			mouseDeviceID = InvalidDeviceId;
+			rawMouseDeviceID = InvalidDeviceId;
+			keyboardDeviceID = InvalidDeviceId;
+			//for (uint32_t i = 0; i < MAX_INPUT_GAMEPADS; ++i)
+			//	pGamepadDeviceIDs[i] = InvalidDeviceId;
+			//touchDeviceID = InvalidDeviceId;
 
 			// create input manager
-			pInputManager = sg_new(gainput::InputManager);
+			pInputManager = sg_new(InputManager);
 			ASSERT(pInputManager);
 
 #if defined(SG_PLATFORM_WINDOWS) || defined(XBOX)
 			//pInputManager->SetWindowsInstance(window->handle.window);
 #endif
 			// create all necessary devices
-			mouseDeviceID = pInputManager->CreateDevice<gainput::InputDeviceMouse>();
-			rawMouseDeviceID = pInputManager->CreateDevice<gainput::InputDeviceMouse>(gainput::InputDevice::AutoIndex, gainput::InputDeviceMouse::DV_RAW);
-			keyboardDeviceID = pInputManager->CreateDevice<gainput::InputDeviceKeyboard>();
-			touchDeviceID = pInputManager->CreateDevice<gainput::InputDeviceTouch>();
+			mouseDeviceID = pInputManager->CreateDevice<InputDeviceMouse>();
+			rawMouseDeviceID = pInputManager->CreateDevice<InputDeviceMouse>(InputDevice::AutoIndex, gainput::InputDeviceMouse::DV_RAW);
+			keyboardDeviceID = pInputManager->CreateDevice<InputDeviceKeyboard>();
+			/*touchDeviceID = pInputManager->CreateDevice<InputDeviceTouch>();
 			for (uint32_t i = 0; i < MAX_INPUT_GAMEPADS; ++i)
-				pGamepadDeviceIDs[i] = pInputManager->CreateDevice<gainput::InputDevicePad>();
+				pGamepadDeviceIDs[i] = pInputManager->CreateDevice<gainput::InputDevicePad>();*/
 
 			// assign device types
 			pDeviceTypes[mouseDeviceID] = InputDeviceType::SG_INPUT_DEVICE_MOUSE;
 			pDeviceTypes[rawMouseDeviceID] = InputDeviceType::SG_INPUT_DEVICE_MOUSE;
 			pDeviceTypes[keyboardDeviceID] = InputDeviceType::SG_INPUT_DEVICE_KEYBOARD;
-			pDeviceTypes[touchDeviceID] = InputDeviceType::SG_INPUT_DEVICE_TOUCH;
+			//pDeviceTypes[touchDeviceID] = InputDeviceType::SG_INPUT_DEVICE_TOUCH;
 
 			// create control maps
 			mControls[keyboardDeviceID].resize(gainput::KeyCount_);
@@ -1529,22 +1528,6 @@ namespace SG
 			return pDevicePad->IsAvailable();
 		}
 
-		//bool set_rumble_effect(unsigned gamePadIndex, float left_motor, float right_motor)
-		//{
-		//	if (gamePadIndex >= MAX_INPUT_GAMEPADS)
-		//		return false;
-		//	gainput::InputDevicePad* pDevicePad = (gainput::InputDevicePad*)pInputManager->GetDevice(pGamepadDeviceIDs[gamePadIndex]);
-		//	return pDevicePad->Vibrate(left_motor, right_motor);
-		//}
-
-		//void set_LED_color(unsigned gamePadIndex, uint8_t r, uint8_t g, uint8_t b)
-		//{
-		//	if (gamePadIndex >= MAX_INPUT_GAMEPADS)
-		//		return;
-		//	gainput::InputDevicePad* pDevicePad = (gainput::InputDevicePad*)pInputManager->GetDevice(pGamepadDeviceIDs[gamePadIndex]);
-		//	pDevicePad->SetLEDColor(r, g, b);
-		//}
-
 		//void set_on_device_change_callback(void(*onDeviceChnageCallBack)(const char* name, bool added), unsigned int gamePadIndex)
 		//{
 		//	if (gamePadIndex >= MAX_INPUT_GAMEPADS)
@@ -1580,12 +1563,7 @@ namespace SG
 		{
 			reset_input_states();
 		}
-#elif defined(__ANDROID__)
-		return pInputSystem->pInputManager->HandleInput((AInputEvent*)msg, pWindow->handle.activity);
-#elif defined(__linux__) && !defined(GAINPUT_PLATFORM_GGP)
-		pInputSystem->pInputManager->HandleEvent(*(XEvent*)msg);
 #endif
-
 		return 0;
 	}
 

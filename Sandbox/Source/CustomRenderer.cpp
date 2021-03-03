@@ -138,19 +138,19 @@ public:
 			add_resource(&uboCreate, nullptr);
 		}
 		
-		// init the input system 
-		//if (!init_input_system(mWindow))
-		//	return false;
+		// init the input system
+		if (!init_input_system(mWindow))
+			return false;
 
-		//InputActionDesc actionDesc;
-		//actionDesc.binding = InputBindings::SG_BUTTON_FULLSCREEN;
-		//actionDesc.pFunction = [](InputActionContext* pContext) -> bool
-		//{
-		//	toggle_fullscreen(((IApp*)pContext->pUserData)->mWindow);
-		//	return true;
-		//};
-		//actionDesc.pUserData = this; // pass in the instance of this app for the input system to use
-		//register_input_action(&actionDesc); // register this input action to the input system
+		InputActionDesc actionDesc;
+		actionDesc.binding = InputBindings::SG_BUTTON_FULLSCREEN;
+		actionDesc.pFunction = [](InputActionContext* pContext) -> bool
+		{
+			toggle_fullscreen(((IApp*)pContext->pUserData)->mWindow);
+			return true;
+		};
+		actionDesc.pUserData = this; // pass in the instance of this app for the input system to use
+		register_input_action(&actionDesc); // register this input action to the input system
 
 		return true;
 	}
