@@ -3,8 +3,9 @@
 #include "Interface/IApp.h"
 #include "Interface/ILog.h"
 #include "Interface/IThread.h"
-#include "Interface/IMemory.h"
 #include "Interface/ITime.h"
+#include "Interface/IInput.h"
+#include "Interface/IMemory.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE

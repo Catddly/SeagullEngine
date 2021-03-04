@@ -125,6 +125,16 @@ public:
 		samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
 		add_sampler(mRenderer, &samplerCreate, &mSampler);
 
+		Shader* submitShaders[] = { mTriangleShader };
+		const char* staticSamplers[] = { "Sampler" };
+		RootSignatureCreateDesc rootSignatureCreate = {};
+		rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
+		rootSignatureCreate.ppStaticSamplers = &mSampler;
+		rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
+		rootSignatureCreate.ppShaders = submitShaders;
+		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
+		add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
+
 		BufferLoadDesc uboCreate;
 		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
@@ -137,27 +147,17 @@ public:
 			uboCreate.ppBuffer = &mUniformBuffer[i];
 			add_resource(&uboCreate, nullptr);
 		}
-		
-		// init the input system
-		if (!init_input_system(mWindow))
-			return false;
 
-		InputActionDesc actionDesc;
-		actionDesc.binding = InputBindings::SG_BUTTON_FULLSCREEN;
-		actionDesc.pFunction = [](InputActionContext* pContext) -> bool
-		{
-			toggle_fullscreen(((IApp*)pContext->pUserData)->mWindow);
-			return true;
-		};
-		actionDesc.pUserData = this; // pass in the instance of this app for the input system to use
-		register_input_action(&actionDesc); // register this input action to the input system
+		InputListener::Init(mWindow);
+		mCurrentMousePos.x = InputListener::GetMousePosClient().first;
+		mCurrentMousePos.y = InputListener::GetMousePosClient().second;
 
 		return true;
 	}
 
 	virtual void OnExit() override
 	{
-		//exit_input_system();
+		InputListener::Exit();
 
 		wait_queue_idle(mGraphicQueue);
 
@@ -172,6 +172,8 @@ public:
 		remove_shader(mRenderer, mTriangleShader);
 
 		exit_resource_loader_interface(mRenderer);
+
+		remove_root_signature(mRenderer, mRootSignature);
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; ++i)
 		{
@@ -189,19 +191,6 @@ public:
 
 	virtual bool Load() override
 	{
-		Shader* submitShaders[] = { mTriangleShader };
-		const char* staticSamplers[] = { "Sampler" };
-		RootSignatureCreateDesc rootSignatureCreate = {};
-		rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
-		rootSignatureCreate.ppStaticSamplers = &mSampler;
-		rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
-		//rootSignatureCreate.staticSamplerCount = 0;
-		//rootSignatureCreate.ppStaticSamplers = nullptr;
-		//rootSignatureCreate.ppStaticSamplerNames = nullptr;
-		rootSignatureCreate.ppShaders = submitShaders;
-		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
-		add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
-
 		DescriptorSetCreateDesc descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
 		descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
@@ -246,8 +235,6 @@ public:
 		remove_descriptor_set(mRenderer, mDescriptorSet);
 		remove_descriptor_set(mRenderer, mUboDescriptorSet);
 
-		remove_root_signature(mRenderer, mRootSignature);
-
 		return true;
 	}
 
@@ -256,12 +243,61 @@ public:
 		static float time = 1.0f;
 		time += deltaTime;
 
-		mUbo.model = glm::rotate(Matrix4(1.0f), time * 1.5f * glm::radians(45.0f), Vec3(0.0f, 0.0f, 1.0f));
+		if (InputListener::IsKeyPressed(SG_KEY_W))
+			mCameraPos.x -= deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_S))
+			mCameraPos.x += deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_A))
+			mCameraPos.y -= deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_D))
+			mCameraPos.y += deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_Q))
+			mCameraPos.z -= deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_E))
+			mCameraPos.z += deltaTime * mCameraMoveSpeed;
+
+		if (InputListener::GetMousePosClient().first >= 0 &&
+			InputListener::GetMousePosClient().first <= mSettings.width &&
+			InputListener::GetMousePosClient().second >= 0 &&
+			InputListener::GetMousePosClient().second <= mSettings.height)
+		{
+			auto xOffset = InputListener::GetMousePosClient().first - mCurrentMousePos.x;
+			auto yOffset = InputListener::GetMousePosClient().second - mCurrentMousePos.y;
+			mCurrentMousePos.x = InputListener::GetMousePosClient().first;
+			mCurrentMousePos.y = InputListener::GetMousePosClient().second;
+
+			xOffset *= 0.04f;
+			yOffset *= 0.04f;
+
+			yaw -= xOffset;
+			pitch -= yOffset;
+
+			if (pitch > 89.0f)
+				pitch = 89.0f;
+			if (pitch < -89.0f)
+				pitch = -89.0f;
+
+			mCenterPos.x = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
+			mCenterPos.y = glm::sin(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
+			mCenterPos.z = glm::cos(glm::radians(pitch));
+
+			SG_LOG_DEBUG("Current cursor position: (%f, %f)", mCurrentMousePos.x, mCurrentMousePos.y);
+		}
+
+		//Vec3 pos = mCameraPos;
+		//pos.x -= 2.0f;
+
+		mUbo.model = glm::translate(Matrix4(1.0f), Vec3(0.0f)) *
+			glm::rotate(Matrix4(1.0f), glm::radians(45.0f), Vec3(0.0f, 0.0f, 1.0f));
 		mUbo.model *= glm::rotate(Matrix4(1.0f), glm::radians(180.0f), Vec3(1.0f, 0.0f, 0.0f));
-		mUbo.view = glm::lookAt(Vec3(2.0f, 1.4f, -1.3f), Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f));
+
+		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + mCenterPos, Vec3(0.0f, 0.0f, 1.0f));
 		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)mSettings.width / (float)mSettings.height,
 			0.01f, 100000.0f);
 		mUbo.projection[1][1] *= -1;
+
+		if (InputListener::IsKeyPressed(SG_KEY_ESCAPE))
+			mSettings.quit = true;
 
 		//SG_LOG_INFO("Frame: %.1f", 1.0f / deltaTime);
 		return true;
@@ -516,6 +552,13 @@ private:
 	DescriptorSet* mUboDescriptorSet = nullptr;
 
 	uint32_t mCurrentIndex = 0;
+
+	Vec3 mCameraPos = { 0.0f, 0.0f, 0.0f };
+	Vec3 mCenterPos = { 0.0f, 0.0f, 0.0f };
+	float mCameraMoveSpeed = 1.5f;
+	Vec2 mCurrentMousePos = { 0.0f, 0.0f };
+	float yaw = 0.0f;
+	float pitch = 0.0f;
 };
 
 SG_DEFINE_APPLICATION_MAIN(CustomRenderer)

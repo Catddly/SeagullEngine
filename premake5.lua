@@ -69,8 +69,7 @@ project "Seagull-Core"
         "%{IncludeDir.mimalloc}",
         "%{IncludeDir.eastl}",
         "%{IncludeDir.glm}",
-        "%{IncludeDir.tinyImageFormat}",
-        "%{IncludeDir.gainput}"
+        "%{IncludeDir.tinyImageFormat}"
     }
     
     -- link libraries

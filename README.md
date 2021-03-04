@@ -10,9 +10,6 @@ Third-party libraries:
 	eastl
 	mimalloc
 
-For now, Vulkan is usable in Seagull Engine:
-	For shader compiling purpose, please make sure you have VulkanSDK download in you PC.
-
 This engine is only for learning purpose, build base on 
 The-Forge frame work.
 https://github.com/ConfettiFX/The-Forge
