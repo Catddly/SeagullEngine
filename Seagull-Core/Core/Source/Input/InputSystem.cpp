@@ -26,6 +26,11 @@ namespace SG
 	//uint32_t MAX_INPUT_MULTI_TOUCHES = 4;
 	uint32_t MAX_INPUT_ACTIONS = 128;
 
+	enum ButtonBindings
+	{
+		SG_BUTTON_ANY = SG_MOUSE_AXIS_Y + SG_BUTTON_KEY_COUNT
+	};
+
 	struct InputAction
 	{
 		InputActionDesc desc;
@@ -394,11 +399,11 @@ namespace SG
 //		};
 
 		/// Maps the gainput button to the InputBindings::KeyBindings enum
-		//eastl::vector<uint32_t>                  mControlMapReverse[SG_MAX_INPUT_DEVICES];
+		//eastl::vector<uint32_t>                mControlMapReverse[SG_MAX_INPUT_DEVICES];
 		/// List of all input controls per device
 		eastl::vector<eastl::vector<IControl*> > mControls[SG_MAX_INPUT_DEVICES];
 		/// List of gestures
-		//eastl::vector<InputAction*>              mGestureControls;
+		//eastl::vector<InputAction*>            mGestureControls;
 		/// List of all text input actions
 		/// These actions will be invoked everytime there is a text character typed on a physical / virtual keyboard
 		eastl::vector<InputAction*>              mTextInputControls;
@@ -409,7 +414,7 @@ namespace SG
 		eastl::vector<InputAction>               mActions;
 		eastl::vector<IControl*>                 mControlPool;
 #if SG_TOUCH_INPUT
-		Vec2                                     mTouchPositions[gainput::TouchCount_ >> 2];
+		Vec2                                     mTouchPositions[TouchCount_ >> 2];
 #else										     
 		Vec2                                     mMousePosition;
 #endif
@@ -424,7 +429,7 @@ namespace SG
 		InputDeviceType* pDeviceTypes;
 		//DeviceId* pGamepadDeviceIDs;
 		DeviceId  mouseDeviceID;
-		DeviceId  rawMouseDeviceID;
+		//DeviceId  rawMouseDeviceID;
 		DeviceId  keyboardDeviceID;
 		//DeviceId  touchDeviceID;
 
@@ -446,7 +451,7 @@ namespace SG
 
 			// default device ids
 			mouseDeviceID = InvalidDeviceId;
-			rawMouseDeviceID = InvalidDeviceId;
+			//rawMouseDeviceID = InvalidDeviceId;
 			keyboardDeviceID = InvalidDeviceId;
 			//for (uint32_t i = 0; i < MAX_INPUT_GAMEPADS; ++i)
 			//	pGamepadDeviceIDs[i] = InvalidDeviceId;
@@ -460,57 +465,57 @@ namespace SG
 			//pInputManager->SetWindowsInstance(window->handle.window);
 #endif
 			// create all necessary devices
-			mouseDeviceID = pInputManager->CreateDevice<InputDeviceMouse>();
-			rawMouseDeviceID = pInputManager->CreateDevice<InputDeviceMouse>(InputDevice::AutoIndex, gainput::InputDeviceMouse::DV_RAW);
-			keyboardDeviceID = pInputManager->CreateDevice<InputDeviceKeyboard>();
+			mouseDeviceID = pInputManager->create_device<InputDeviceMouse>();
+			//rawMouseDeviceID = pInputManager->CreateDevice<InputDeviceMouse>();
+			keyboardDeviceID = pInputManager->create_device<InputDeviceKeyboard>();
 			/*touchDeviceID = pInputManager->CreateDevice<InputDeviceTouch>();
 			for (uint32_t i = 0; i < MAX_INPUT_GAMEPADS; ++i)
 				pGamepadDeviceIDs[i] = pInputManager->CreateDevice<gainput::InputDevicePad>();*/
 
 			// assign device types
 			pDeviceTypes[mouseDeviceID] = InputDeviceType::SG_INPUT_DEVICE_MOUSE;
-			pDeviceTypes[rawMouseDeviceID] = InputDeviceType::SG_INPUT_DEVICE_MOUSE;
+			//pDeviceTypes[rawMouseDeviceID] = InputDeviceType::SG_INPUT_DEVICE_MOUSE;
 			pDeviceTypes[keyboardDeviceID] = InputDeviceType::SG_INPUT_DEVICE_KEYBOARD;
 			//pDeviceTypes[touchDeviceID] = InputDeviceType::SG_INPUT_DEVICE_TOUCH;
 
 			// create control maps
-			mControls[keyboardDeviceID].resize(gainput::KeyCount_);
-			mControls[mouseDeviceID].resize(gainput::MouseButtonCount_);
-			mControls[rawMouseDeviceID].resize(gainput::MouseButtonCount_);
-			mControls[touchDeviceID].resize(gainput::TouchCount_);
+			mControls[keyboardDeviceID].resize(SG_BUTTON_KEY_COUNT);
+			mControls[mouseDeviceID].resize(SG_BUTTON_MOUSE_COUNT);
+			//mControls[rawMouseDeviceID].resize(gainput::MouseButtonCount_);
+			//mControls[touchDeviceID].resize(gainput::TouchCount_);
 
-			mControlMapReverse[mouseDeviceID] = eastl::vector<uint32_t>(gainput::MouseButtonCount, UINT_MAX);
-			mControlMapReverse[keyboardDeviceID] = eastl::vector<uint32_t>(gainput::KeyCount_, UINT_MAX);
-			mControlMapReverse[touchDeviceID] = eastl::vector<uint32_t>(gainput::TouchCount_, UINT_MAX);
+			//mControlMapReverse[mouseDeviceID] = eastl::vector<uint32_t>(gainput::MouseButtonCount, UINT_MAX);
+			//mControlMapReverse[keyboardDeviceID] = eastl::vector<uint32_t>(gainput::KeyCount_, UINT_MAX);
+			//mControlMapReverse[touchDeviceID] = eastl::vector<uint32_t>(gainput::TouchCount_, UINT_MAX);
 
 			// first is gainput's bindings, second is our KeyBindings,
-			for (decltype(mMouseMap)::const_iterator it = mMouseMap.begin(); it != mMouseMap.end(); ++it)
-				mControlMapReverse[mouseDeviceID][it->second] = it->first;
+			//for (decltype(mMouseMap)::const_iterator it = mMouseMap.begin(); it != mMouseMap.end(); ++it)
+			//	mControlMapReverse[mouseDeviceID][it->second] = it->first;
 
-			for (decltype(mKeyMap)::const_iterator it = mKeyMap.begin(); it != mKeyMap.end(); ++it)
-				mControlMapReverse[keyboardDeviceID][it->second] = it->first;
+			//for (decltype(mKeyMap)::const_iterator it = mKeyMap.begin(); it != mKeyMap.end(); ++it)
+			//	mControlMapReverse[keyboardDeviceID][it->second] = it->first;
 
 			// every touch can map to the same button
-			for (uint32_t i = 0; i < gainput::TouchCount_; ++i)
-				mControlMapReverse[touchDeviceID][i] = InputBindings::SG_BUTTON_SOUTH;
+			//for (uint32_t i = 0; i < gainput::TouchCount_; ++i)
+			//	mControlMapReverse[touchDeviceID][i] = InputBindings::SG_BUTTON_SOUTH;
 
-			for (uint32_t i = 0; i < MAX_INPUT_GAMEPADS; ++i)
-			{
-				gainput::DeviceId deviceId = pGamepadDeviceIDs[i];
+			//for (uint32_t i = 0; i < MAX_INPUT_GAMEPADS; ++i)
+			//{
+			//	gainput::DeviceId deviceId = pGamepadDeviceIDs[i];
 
-				pDeviceTypes[deviceId] = InputDeviceType::SG_INPUT_DEVICE_GAMEPAD;
-				mControls[deviceId].resize(gainput::PadButtonMax_);
-				mControlMapReverse[deviceId] = eastl::vector<uint32_t>(gainput::PadButtonMax_, UINT_MAX);
+			//	pDeviceTypes[deviceId] = InputDeviceType::SG_INPUT_DEVICE_GAMEPAD;
+			//	mControls[deviceId].resize(gainput::PadButtonMax_);
+			//	mControlMapReverse[deviceId] = eastl::vector<uint32_t>(gainput::PadButtonMax_, UINT_MAX);
 
-				for (decltype(mGamepadMap)::const_iterator it = mGamepadMap.begin(); it != mGamepadMap.end(); ++it)
-					mControlMapReverse[deviceId][it->second] = it->first;
-			}
+			//	for (decltype(mGamepadMap)::const_iterator it = mGamepadMap.begin(); it != mGamepadMap.end(); ++it)
+			//		mControlMapReverse[deviceId][it->second] = it->first;
+			//}
 
 			mActions.reserve(MAX_INPUT_ACTIONS);
 
-			pInputManager->AddListener(this);
+			pInputManager->add_listener(this);
 
-			return init_subview();
+			return true;
 		}
 
 		void exit()
@@ -520,10 +525,9 @@ namespace SG
 			for (uint32_t i = 0; i < (uint32_t)mControlPool.size(); ++i)
 				sg_free(mControlPool[i]);
 
-			sg_free(pGamepadDeviceIDs);
+			//sg_free(pGamepadDeviceIDs);
 			sg_free(pDeviceTypes);
 
-			shutdown_subview();
 			sg_delete(pInputManager);
 		}
 
@@ -552,45 +556,45 @@ namespace SG
 				}
 			}
 
-#if SG_TOUCH_INPUT
-			for (IControl* pControl : mButtonControlPerformQueue)
-			{
-				InputActionContext ctx = {};
-				ctx.pUserData = pControl->pAction->desc.pUserData;
-				ctx.phase = SG_INPUT_ACTION_PHASE_PERFORMED;
-				ctx.pCaptured = &useDefaultCapture;
-				ctx.phase = SG_INPUT_ACTION_PHASE_PERFORMED;
-				ctx.binding = InputBindings::SG_BUTTON_SOUTH;
-				ctx.pPosition = &mTouchPositions[pControl->pAction->desc.userId];
-				ctx.bool1 = true;
-				pControl->pAction->desc.pFunction(&ctx);
-			}
-#endif
+//#if SG_TOUCH_INPUT
+//			for (IControl* pControl : mButtonControlPerformQueue)
+//			{
+//				InputActionContext ctx = {};
+//				ctx.pUserData = pControl->pAction->desc.pUserData;
+//				ctx.phase = SG_INPUT_ACTION_PHASE_PERFORMED;
+//				ctx.pCaptured = &useDefaultCapture;
+//				ctx.phase = SG_INPUT_ACTION_PHASE_PERFORMED;
+//				ctx.binding = InputBindings::SG_BUTTON_SOUTH;
+//				ctx.pPosition = &mTouchPositions[pControl->pAction->desc.userId];
+//				ctx.bool1 = true;
+//				pControl->pAction->desc.pFunction(&ctx);
+//			}
+//#endif
 
+			// finishing the update, we clear the control queue
 			mButtonControlPerformQueue.clear();
 			mFloatDeltaControlCancelQueue.clear();
 
-			auto* keyboard = (gainput::InputDeviceKeyboard*)pInputManager->GetDevice(keyboardDeviceID);
-			if (keyboard)
-			{
-				char pText = keyboard->GetNextCharacter();
-				if (pText)
-				{
-					InputActionContext ctx = {};
-					ctx.text = pText;
-					ctx.phase = SG_INPUT_ACTION_PHASE_PERFORMED;
-					for (InputAction* pAction : mTextInputControls)
-					{
-						ctx.pUserData = pAction->desc.pUserData;
-						if (!pAction->desc.pFunction(&ctx))
-							break;
-					}
-				}
-			}
+			//auto* keyboard = (InputDeviceKeyboard*)pInputManager->get_device(keyboardDeviceID);
+			//if (keyboard)
+			//{
+			//	char pText = keyboard->GetNextCharacter();
+			//	if (pText)
+			//	{
+			//		InputActionContext ctx = {};
+			//		ctx.text = pText;
+			//		ctx.phase = SG_INPUT_ACTION_PHASE_PERFORMED;
+			//		for (InputAction* pAction : mTextInputControls)
+			//		{
+			//			ctx.pUserData = pAction->desc.pUserData;
+			//			if (!pAction->desc.pFunction(&ctx))
+			//				break;
+			//		}
+			//	}
+			//}
 
-			// update gainput manager
 			pInputManager->SetDisplaySize(width, height);
-			pInputManager->Update();
+			pInputManager->update();
 
 #if defined(__linux__) && !defined(__ANDROID__) && !defined(GAINPUT_PLATFORM_GGP)
 			//this needs to be done before updating the events
@@ -648,17 +652,17 @@ namespace SG
 			}
 #endif
 
-			if (pDesc->binding == InputBindings::SG_TEXT)
-			{
-				ASSERT(pDesc->pFunction);
-				mTextInputControls.emplace_back(pAction);
-				return pAction;
-			}
+			//if (pDesc->binding == SG_TEXT)
+			//{
+			//	ASSERT(pDesc->pFunction);
+			//	mTextInputControls.emplace_back(pAction);
+			//	return pAction;
+			//}
 
 			const uint32_t control = pDesc->binding;
-			const gainput::DeviceId gamepadDeviceId = pGamepadDeviceIDs[pDesc->userId];
+			//const DeviceId gamepadDeviceId = pGamepadDeviceIDs[pDesc->userId];
 
-			if (InputBindings::SG_BUTTON_ANY == control)
+			if (SG_BUTTON_ANY == control)
 			{
 				IControl* pControl = allocate_control<IControl>();
 				ASSERT(pControl);
@@ -666,51 +670,49 @@ namespace SG
 				pControl->type = SG_CONTROL_TYPE_BUTTON;
 				pControl->pAction = pAction;
 
-				for (decltype(mGamepadMap)::const_iterator it = mGamepadMap.begin(); it != mGamepadMap.end(); ++it)
-					mControls[gamepadDeviceId][it->second].emplace_back(pControl);
-				for (decltype(mKeyMap)::const_iterator it = mKeyMap.begin(); it != mKeyMap.end(); ++it)
-					mControls[keyboardDeviceID][it->second].emplace_back(pControl);
+				for (uint32_t i = SG_BUTTON_KEY_BEGIN; i <= SG_BUTTON_KEY_END; i++)
+					mControls[keyboardDeviceID][pDesc->binding].emplace_back(pControl);
 #if SG_TOUCH_INPUT
 				mControls[touchDeviceID][TOUCH_DOWN(pDesc->userId)].emplace_back(pControl);
 #else
-				for (decltype(mMouseMap)::const_iterator it = mMouseMap.begin(); it != mMouseMap.end(); ++it)
-					mControls[mouseDeviceID][it->second].emplace_back(pControl);
+				for (uint32_t i = SG_BUTTON_MOUSE_BEGIN; i <= SG_BUTTON_MOUSE_END; i++)
+					mControls[mouseDeviceID][pDesc->binding].emplace_back(pControl);
 #endif
 				return pAction;
 			}
-			else if (InputBindings::SG_BUTTON_FULLSCREEN == control)
+			else if (SG_BUTTON_KEY_FULLSCREEN == control)
 			{
 				ComboControl* pControl = allocate_control<ComboControl>();
 				ASSERT(pControl);
 
 				pControl->type = SG_CONTROL_TYPE_COMBO;
 				pControl->pAction = pAction;
-				pControl->pressButton = gainput::KeyAltL;
-				pControl->triggerButton = gainput::KeyReturn;
-				mControls[keyboardDeviceID][gainput::KeyReturn].emplace_back(pControl);
-				mControls[keyboardDeviceID][gainput::KeyAltL].emplace_back(pControl);
+				pControl->pressButton = SG_BUTTON_KEY_ALTL;
+				pControl->triggerButton = SG_BUTTON_KEY_RETURN;
+				mControls[keyboardDeviceID][SG_BUTTON_KEY_RETURN].emplace_back(pControl);
+				mControls[keyboardDeviceID][SG_BUTTON_KEY_ALTL].emplace_back(pControl);
 			}
-			else if (InputBindings::SG_BUTTON_DUMP == control)
-			{
-				ComboControl* pGamePadControl = allocate_control<ComboControl>();
-				ASSERT(pGamePadControl);
+			//else if (SG_BUTTON_KEY_DUMP == control)
+			//{
+			//	ComboControl* pGamePadControl = allocate_control<ComboControl>();
+			//	ASSERT(pGamePadControl);
 
-				pGamePadControl->type = SG_CONTROL_TYPE_COMBO;
-				pGamePadControl->pAction = pAction;
-				pGamePadControl->pressButton = gainput::PadButtonStart;
-				pGamePadControl->triggerButton = gainput::PadButtonB;
-				mControls[gamepadDeviceId][pGamePadControl->triggerButton].emplace_back(pGamePadControl);
-				mControls[gamepadDeviceId][pGamePadControl->pressButton].emplace_back(pGamePadControl);
+			//	pGamePadControl->type = SG_CONTROL_TYPE_COMBO;
+			//	pGamePadControl->pAction = pAction;
+			//	pGamePadControl->pressButton = gainput::PadButtonStart;
+			//	pGamePadControl->triggerButton = gainput::PadButtonB;
+			//	mControls[gamepadDeviceId][pGamePadControl->triggerButton].emplace_back(pGamePadControl);
+			//	mControls[gamepadDeviceId][pGamePadControl->pressButton].emplace_back(pGamePadControl);
 
-				ComboControl* pControl = allocate_control<ComboControl>();
-				ASSERT(pControl);
-				pControl->type = SG_CONTROL_TYPE_BUTTON;
-				pControl->pAction = pAction;
-				decltype(mKeyMap)::const_iterator keyIt = mKeyMap.find(control);
-				if (keyIt != mKeyMap.end())
-					mControls[keyboardDeviceID][keyIt->second].emplace_back(pControl);
-			}
-			else if (InputBindings::SG_BUTTON_BINDINGS_BEGIN <= control && InputBindings::SG_BUTTON_BINDINGS_END >= control)
+			//	ComboControl* pControl = allocate_control<ComboControl>();
+			//	ASSERT(pControl);
+			//	pControl->type = SG_CONTROL_TYPE_BUTTON;
+			//	pControl->pAction = pAction;
+			//	decltype(mKeyMap)::const_iterator keyIt = mKeyMap.find(control);
+			//	if (keyIt != mKeyMap.end())
+			//		mControls[keyboardDeviceID][keyIt->second].emplace_back(pControl);
+			//}
+			else if (SG_BUTTON_KEY_BEGIN <= control && SG_BUTTON_MOUSE_END >= control)
 			{
 				IControl* pControl = allocate_control<IControl>();
 				ASSERT(pControl);
@@ -718,109 +720,104 @@ namespace SG
 				pControl->type = SG_CONTROL_TYPE_BUTTON;
 				pControl->pAction = pAction;
 
-				decltype(mGamepadMap)::const_iterator gamepadIt = mGamepadMap.find(control);
-				if (gamepadIt != mGamepadMap.end())
-					mControls[gamepadDeviceId][gamepadIt->second].emplace_back(pControl);
+				//decltype(mGamepadMap)::const_iterator gamepadIt = mGamepadMap.find(control);
+				//if (gamepadIt != mGamepadMap.end())
+				//	mControls[gamepadDeviceId][gamepadIt->second].emplace_back(pControl);
 #if SG_TOUCH_INPUT
 				if (InputBindings::SG_BUTTON_SOUTH == control)
 					mControls[touchDeviceID][TOUCH_DOWN(pDesc->userId)].emplace_back(pControl);
 #else
-				decltype(mKeyMap)::const_iterator keyIt = mKeyMap.find(control);
-				if (keyIt != mKeyMap.end())
-					mControls[keyboardDeviceID][keyIt->second].emplace_back(pControl);
-
-				decltype(mMouseMap)::const_iterator mouseIt = mMouseMap.find(control);
-				if (mouseIt != mMouseMap.end())
-					mControls[mouseDeviceID][mouseIt->second].emplace_back(pControl);
+				mControls[keyboardDeviceID][pDesc->binding].emplace_back(pControl);
+				mControls[mouseDeviceID][pDesc->binding].emplace_back(pControl);
 #endif
 			}
-			else if (InputBindings::SG_FLOAT_BINDINGS_BEGIN <= control && InputBindings::SG_FLOAT_BINDINGS_END >= control)
-			{
-				if (InputBindings::SG_FLOAT_DPAD == control)
-				{
-					CompositeControl* pControl = allocate_control<CompositeControl>();
-					ASSERT(pControl);
-
-					pControl->type = SG_CONTROL_TYPE_COMPOSITE;
-					pControl->pAction = pAction;
-					pControl->composite = 4;
-					pControl->controls[0] = gainput::PadButtonRight;
-					pControl->controls[1] = gainput::PadButtonLeft;
-					pControl->controls[2] = gainput::PadButtonUp;
-					pControl->controls[3] = gainput::PadButtonDown;
-					for (uint32_t i = 0; i < pControl->composite; ++i)
-						mControls[gamepadDeviceId][pControl->controls[i]].emplace_back(pControl);
-				}
-				else
-				{
-					uint32_t axisCount = 0;
-					decltype(mGamepadAxisMap)::const_iterator gamepadIt = mGamepadAxisMap.find(control);
-					ASSERT(gamepadIt != mGamepadAxisMap.end());
-					if (gamepadIt != mGamepadAxisMap.end())
-					{
-						AxisControl* pControl = allocate_control<AxisControl>();
-						ASSERT(pControl);
-
-						*pControl = gamepadIt->second;
-						pControl->pAction = pAction;
-						for (uint32_t i = 0; i < pControl->axisCount; ++i)
-							mControls[gamepadDeviceId][pControl->startButton + i].emplace_back(pControl);
-
-						axisCount = pControl->axisCount;
-					}
-#if SG_TOUCH_INPUT
-					if ((InputBindings::FLOAT_LEFTSTICK == control || InputBindings::FLOAT_RIGHTSTICK == control) && (pDesc->mOutsideRadius && pDesc->mScale))
-					{
-						VirtualJoystickControl* pControl = AllocateControl<VirtualJoystickControl>();
-						ASSERT(pControl);
-
-						pControl->mType = CONTROL_VIRTUAL_JOYSTICK;
-						pControl->pAction = pAction;
-						pControl->mOutsideRadius = pDesc->mOutsideRadius;
-						pControl->mDeadzone = pDesc->mDeadzone;
-						pControl->mScale = pDesc->mScale;
-						pControl->mTouchIndex = 0xFF;
-						pControl->mArea = InputBindings::FLOAT_LEFTSTICK == control ? AREA_LEFT : AREA_RIGHT;
-						mControls[mTouchDeviceID][gainput::Touch0Down].emplace_back(pControl);
-						mControls[mTouchDeviceID][gainput::Touch0X].emplace_back(pControl);
-						mControls[mTouchDeviceID][gainput::Touch0Y].emplace_back(pControl);
-						mControls[mTouchDeviceID][gainput::Touch1Down].emplace_back(pControl);
-						mControls[mTouchDeviceID][gainput::Touch1X].emplace_back(pControl);
-						mControls[mTouchDeviceID][gainput::Touch1Y].emplace_back(pControl);
-					}
-#else
-
-#ifndef SG_NO_DEFAULT_KEY_BINDINGS
-					decltype(mGamepadCompositeMap)::const_iterator keyIt = mGamepadCompositeMap.find(control);
-					if (keyIt != mGamepadCompositeMap.end())
-					{
-						CompositeControl* pControl = allocate_control<CompositeControl>();
-						ASSERT(pControl);
-
-						*pControl = keyIt->second;
-						pControl->pAction = pAction;
-						for (uint32_t i = 0; i < pControl->composite; ++i)
-							mControls[keyboardDeviceID][pControl->controls[i]].emplace_back(pControl);
-					}
-#endif
-
-					decltype(mGamepadFloatMap)::const_iterator floatIt = mGamepadFloatMap.find(control);
-					if (floatIt != mGamepadFloatMap.end())
-					{
-						FloatControl* pControl = allocate_control<FloatControl>();
-						ASSERT(pControl);
-
-						*pControl = floatIt->second;
-						pControl->pAction = pAction;
-
-						gainput::DeviceId deviceId = ((pControl->delta >> 1) & 0x1) ? rawMouseDeviceID : mouseDeviceID;
-
-						for (uint32_t i = 0; i < axisCount; ++i)
-							mControls[deviceId][pControl->startButton + i].emplace_back(pControl);
-					}
-#endif
-				}
-			}
+//			else if (InputBindings::SG_FLOAT_BINDINGS_BEGIN <= control && InputBindings::SG_FLOAT_BINDINGS_END >= control)
+//			{
+//				if (InputBindings::SG_FLOAT_DPAD == control)
+//				{
+//					CompositeControl* pControl = allocate_control<CompositeControl>();
+//					ASSERT(pControl);
+//
+//					pControl->type = SG_CONTROL_TYPE_COMPOSITE;
+//					pControl->pAction = pAction;
+//					pControl->composite = 4;
+//					pControl->controls[0] = gainput::PadButtonRight;
+//					pControl->controls[1] = gainput::PadButtonLeft;
+//					pControl->controls[2] = gainput::PadButtonUp;
+//					pControl->controls[3] = gainput::PadButtonDown;
+//					for (uint32_t i = 0; i < pControl->composite; ++i)
+//						mControls[gamepadDeviceId][pControl->controls[i]].emplace_back(pControl);
+//				}
+//				else
+//				{
+//					uint32_t axisCount = 0;
+//					decltype(mGamepadAxisMap)::const_iterator gamepadIt = mGamepadAxisMap.find(control);
+//					ASSERT(gamepadIt != mGamepadAxisMap.end());
+//					if (gamepadIt != mGamepadAxisMap.end())
+//					{
+//						AxisControl* pControl = allocate_control<AxisControl>();
+//						ASSERT(pControl);
+//
+//						*pControl = gamepadIt->second;
+//						pControl->pAction = pAction;
+//						for (uint32_t i = 0; i < pControl->axisCount; ++i)
+//							mControls[gamepadDeviceId][pControl->startButton + i].emplace_back(pControl);
+//
+//						axisCount = pControl->axisCount;
+//					}
+//#if SG_TOUCH_INPUT
+//					if ((InputBindings::FLOAT_LEFTSTICK == control || InputBindings::FLOAT_RIGHTSTICK == control) && (pDesc->mOutsideRadius && pDesc->mScale))
+//					{
+//						VirtualJoystickControl* pControl = AllocateControl<VirtualJoystickControl>();
+//						ASSERT(pControl);
+//
+//						pControl->mType = CONTROL_VIRTUAL_JOYSTICK;
+//						pControl->pAction = pAction;
+//						pControl->mOutsideRadius = pDesc->mOutsideRadius;
+//						pControl->mDeadzone = pDesc->mDeadzone;
+//						pControl->mScale = pDesc->mScale;
+//						pControl->mTouchIndex = 0xFF;
+//						pControl->mArea = InputBindings::FLOAT_LEFTSTICK == control ? AREA_LEFT : AREA_RIGHT;
+//						mControls[mTouchDeviceID][gainput::Touch0Down].emplace_back(pControl);
+//						mControls[mTouchDeviceID][gainput::Touch0X].emplace_back(pControl);
+//						mControls[mTouchDeviceID][gainput::Touch0Y].emplace_back(pControl);
+//						mControls[mTouchDeviceID][gainput::Touch1Down].emplace_back(pControl);
+//						mControls[mTouchDeviceID][gainput::Touch1X].emplace_back(pControl);
+//						mControls[mTouchDeviceID][gainput::Touch1Y].emplace_back(pControl);
+//					}
+//#else
+//
+//#ifndef SG_NO_DEFAULT_KEY_BINDINGS
+//					decltype(mGamepadCompositeMap)::const_iterator keyIt = mGamepadCompositeMap.find(control);
+//					if (keyIt != mGamepadCompositeMap.end())
+//					{
+//						CompositeControl* pControl = allocate_control<CompositeControl>();
+//						ASSERT(pControl);
+//
+//						*pControl = keyIt->second;
+//						pControl->pAction = pAction;
+//						for (uint32_t i = 0; i < pControl->composite; ++i)
+//							mControls[keyboardDeviceID][pControl->controls[i]].emplace_back(pControl);
+//					}
+//#endif
+//
+//					decltype(mGamepadFloatMap)::const_iterator floatIt = mGamepadFloatMap.find(control);
+//					if (floatIt != mGamepadFloatMap.end())
+//					{
+//						FloatControl* pControl = allocate_control<FloatControl>();
+//						ASSERT(pControl);
+//
+//						*pControl = floatIt->second;
+//						pControl->pAction = pAction;
+//
+//						gainput::DeviceId deviceId = ((pControl->delta >> 1) & 0x1) ? rawMouseDeviceID : mouseDeviceID;
+//
+//						for (uint32_t i = 0; i < axisCount; ++i)
+//							mControls[deviceId][pControl->startButton + i].emplace_back(pControl);
+//					}
+//#endif
+//				}
+//			}
 
 			return pAction;
 		}
@@ -829,75 +826,11 @@ namespace SG
 		{
 			ASSERT(pAction);
 
-			decltype(mGestureControls)::const_iterator it = eastl::find(mGestureControls.begin(), mGestureControls.end(), pAction);
-			if (it != mGestureControls.end())
-				mGestureControls.erase(it);
+			//decltype(mGestureControls)::const_iterator it = eastl::find(mGestureControls.begin(), mGestureControls.end(), pAction);
+			//if (it != mGestureControls.end())
+			//	mGestureControls.erase(it);
 
 			sg_free(pAction);
-		}
-
-		bool init_subview()
-		{
-#ifdef __APPLE__
-			if (pWindow)
-			{
-				void* view = pWindow->handle.window;
-				if (!view)
-					return false;
-
-#ifdef TARGET_IOS
-				UIView* mainView = (UIView*)CFBridgingRelease(view);
-				GainputView* newView = [[GainputView alloc]initWithFrame:mainView.bounds inputManager : *pInputManager];
-				//we want everything to resize with main view.
-				[newView setAutoresizingMask : (UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleTopMargin |
-					UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
-					UIViewAutoresizingFlexibleBottomMargin)] ;
-#else
-				NSView* mainView = (__bridge NSView*)view;
-				float retinScale = ((CAMetalLayer*)(mainView.layer)).drawableSize.width / mainView.frame.size.width;
-				GainputMacInputView* newView = [[GainputMacInputView alloc]initWithFrame:mainView.bounds
-					window : mainView.window
-					retinaScale : retinScale
-					inputManager : *pInputManager];
-				newView.nextKeyView = mainView;
-				[newView setAutoresizingMask : NSViewWidthSizable | NSViewHeightSizable] ;
-#endif
-
-				[mainView addSubview : newView];
-
-#ifdef TARGET_IOS
-#else
-				NSWindow* window = [newView window];
-				BOOL madeFirstResponder = [window makeFirstResponder : newView];
-				if (!madeFirstResponder)
-					return false;
-#endif
-
-				pGainputView = (__bridge void*)newView;
-			}
-#endif
-			return true;
-		}
-
-		void shutdown_subview()
-		{
-#ifdef __APPLE__
-			if (!pGainputView)
-				return;
-
-			//automatic reference counting
-			//it will get deallocated.
-			if (pGainputView)
-			{
-#ifndef TARGET_IOS
-				GainputMacInputView* view = (GainputMacInputView*)CFBridgingRelease(pGainputView);
-#else
-				GainputView* view = (GainputView*)CFBridgingRelease(pGainputView);
-#endif
-				[view removeFromSuperview];
-				pGainputView = NULL;
-			}
-#endif
 		}
 
 		bool set_enable_capture_input(bool enable)
@@ -1059,18 +992,18 @@ namespace SG
 #endif
 		}
 
-		inline constexpr bool is_pointer_type(gainput::DeviceId device) const
+		inline constexpr bool is_pointer_type(DeviceId device) const
 		{
 #if SG_TOUCH_INPUT
 			return false;
 #else
-			return (device == mouseDeviceID || device == rawMouseDeviceID);
+			return (device == mouseDeviceID /*|| device == rawMouseDeviceID*/);
 #endif
 		}
 
-		bool on_device_button_bool(gainput::DeviceId device, gainput::DeviceButtonId deviceButton, bool oldValue, bool newValue)
+		bool on_device_button_bool(DeviceId device, DeviceButtonId deviceButton, bool oldValue, bool newValue) override
 		{
-			if (oldValue == newValue)
+			if (oldValue == newValue) // nothing change
 				return false;
 
 			if (mControls[device].size())
@@ -1091,17 +1024,17 @@ namespace SG
 #else
 				if (is_pointer_type(device))
 				{
-					gainput::InputDeviceMouse* pMouse = (gainput::InputDeviceMouse*)pInputManager->GetDevice(mouseDeviceID);
-					mMousePosition[0] = pMouse->GetFloat(gainput::MouseAxisX);
-					mMousePosition[1] = pMouse->GetFloat(gainput::MouseAxisY);
+					InputDeviceMouse* pMouse = (InputDeviceMouse*)pInputManager->get_device(mouseDeviceID);
+					mMousePosition[0] = pMouse->get_float(SG_MOUSE_AXIS_X);
+					mMousePosition[1] = pMouse->get_float(SG_MOUSE_AXIS_Y);
 					ctx.pPosition = &mMousePosition;
-					ctx.scrollValue = pMouse->GetFloat(gainput::MouseButtonMiddle);
+					ctx.scrollValue = pMouse->get_float(SG_BUTTON_MOUSE_MIDDLE);
 				}
 #endif
 				bool executeNext = true;
 
 				const eastl::vector<IControl*>& controls = mControls[device][deviceButton];
-				for (IControl* control : controls)
+				for (IControl* control : controls) // for all this button's control
 				{
 					if (!executeNext)
 						return true;
@@ -1109,7 +1042,7 @@ namespace SG
 					const InputControlType type = control->type;
 					const InputActionDesc* pDesc = &control->pAction->desc;
 					ctx.pUserData = pDesc->pUserData;
-					ctx.binding = mControlMapReverse[device][deviceButton];
+					ctx.binding = pDesc->binding;
 
 					switch (type)
 					{
@@ -1118,10 +1051,10 @@ namespace SG
 						if (pDesc->pFunction)
 						{
 							ctx.bool1 = newValue;
-							if (newValue && !oldValue)
+							if (newValue && !oldValue) // it is being activate
 							{
 								ctx.phase = SG_INPUT_ACTION_PHASE_STARTED;
-								executeNext = pDesc->pFunction(&ctx) && executeNext;
+								executeNext = pDesc->pFunction(&ctx) && executeNext; // if the function return false, it will shield the flower execution
 #if SG_TOUCH_INPUT
 								mButtonControlPerformQueue.insert(control);
 #else
@@ -1129,7 +1062,7 @@ namespace SG
 								executeNext = pDesc->pFunction(&ctx) && executeNext;
 #endif
 							}
-							else if (oldValue && !newValue)
+							else if (oldValue && !newValue) // it is being deactivate
 							{
 								ctx.phase = SG_INPUT_ACTION_PHASE_CANCELED;
 								executeNext = pDesc->pFunction(&ctx) && executeNext;
@@ -1219,10 +1152,10 @@ namespace SG
 					{
 						if (!oldValue && newValue)
 						{
-							ASSERT(deviceButton == gainput::MouseButtonWheelUp || deviceButton == gainput::MouseButtonWheelDown);
+							ASSERT(deviceButton == SG_BUTTON_MOUSE_SCROLL_UP || deviceButton == SG_BUTTON_MOUSE_SCROLL_DOWN);
 
 							FloatControl* pControl = (FloatControl*)control;
-							ctx.float2[1] = deviceButton == gainput::MouseButtonWheelUp ? 1.0f : -1.0f;
+							ctx.float2[1] = deviceButton == SG_BUTTON_MOUSE_SCROLL_UP ? 1.0f : -1.0f;
 							if (pDesc->pFunction)
 							{
 								ctx.phase = SG_INPUT_ACTION_PHASE_PERFORMED;
@@ -1304,7 +1237,7 @@ namespace SG
 			return true;
 		}
 
-		bool on_device_button_float(gainput::DeviceId device, gainput::DeviceButtonId deviceButton, float oldValue, float newValue)
+		bool on_device_button_float(DeviceId device, DeviceButtonId deviceButton, float oldValue, float newValue) override
 		{
 #if SG_TOUCH_INPUT
 			if (mTouchDeviceID == device)
@@ -1317,9 +1250,9 @@ namespace SG
 #else
 			if (mouseDeviceID == device)
 			{
-				gainput::InputDeviceMouse* pMouse = (gainput::InputDeviceMouse*)pInputManager->GetDevice(mouseDeviceID);
-				mMousePosition[0] = pMouse->GetFloat(gainput::MouseAxisX);
-				mMousePosition[1] = pMouse->GetFloat(gainput::MouseAxisY);
+				InputDeviceMouse* pMouse = (InputDeviceMouse*)pInputManager->get_device(mouseDeviceID);
+				mMousePosition[0] = pMouse->get_float(SG_MOUSE_AXIS_X);
+				mMousePosition[1] = pMouse->get_float(SG_MOUSE_AXIS_Y);
 			}
 #endif
 
@@ -1494,39 +1427,39 @@ namespace SG
 			return 0;
 		}
 
-		void set_dead_zone(unsigned int controllerIndex, float deadZoneSize)
-		{
-			if (controllerIndex >= MAX_INPUT_GAMEPADS)
-				return;
-			gainput::InputDevicePad* pDevicePad = (gainput::InputDevicePad*)pInputManager->GetDevice(pGamepadDeviceIDs[controllerIndex]);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonL3, deadZoneSize);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonR3, deadZoneSize);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonL2, deadZoneSize);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonR2, deadZoneSize);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonLeftStickX, deadZoneSize);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonLeftStickY, deadZoneSize);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonRightStickX, deadZoneSize);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonRightStickY, deadZoneSize);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonAxis4, deadZoneSize);
-			pDevicePad->SetDeadZone(gainput::PadButton::PadButtonAxis5, deadZoneSize);
-		}
+		//void set_dead_zone(unsigned int controllerIndex, float deadZoneSize)
+		//{
+		//	if (controllerIndex >= MAX_INPUT_GAMEPADS)
+		//		return;
+		//	InputDevicePad* pDevicePad = (InputDevicePad*)pInputManager->get_device(pGamepadDeviceIDs[controllerIndex]);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonL3, deadZoneSize);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonR3, deadZoneSize);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonL2, deadZoneSize);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonR2, deadZoneSize);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonLeftStickX, deadZoneSize);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonLeftStickY, deadZoneSize);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonRightStickX, deadZoneSize);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonRightStickY, deadZoneSize);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonAxis4, deadZoneSize);
+		//	pDevicePad->SetDeadZone(PadButton::PadButtonAxis5, deadZoneSize);
+		//}
 
-		const char* get_gamepad_name(unsigned gamePadIndex)
-		{
-			if (gamePadIndex >= MAX_INPUT_GAMEPADS)
-				return "Incorrect gamePadIndex";
-			gainput::InputDevicePad* pDevicePad = (gainput::InputDevicePad*)pInputManager->GetDevice(pGamepadDeviceIDs[gamePadIndex]);
-			//return pDevicePad->GetDeviceName();
-			return "Gamepad Name not support!";
-		}
+		//const char* get_gamepad_name(unsigned gamePadIndex)
+		//{
+		//	if (gamePadIndex >= MAX_INPUT_GAMEPADS)
+		//		return "Incorrect gamePadIndex";
+		//	gainput::InputDevicePad* pDevicePad = (gainput::InputDevicePad*)pInputManager->GetDevice(pGamepadDeviceIDs[gamePadIndex]);
+		//	//return pDevicePad->GetDeviceName();
+		//	return "Gamepad Name not support!";
+		//}
 
-		bool is_gamepad_connected(unsigned int gamePadIndex)
-		{
-			if (gamePadIndex >= MAX_INPUT_GAMEPADS)
-				return false;
-			gainput::InputDevicePad* pDevicePad = (gainput::InputDevicePad*)pInputManager->GetDevice(pGamepadDeviceIDs[gamePadIndex]);
-			return pDevicePad->IsAvailable();
-		}
+		//bool is_gamepad_connected(unsigned int gamePadIndex)
+		//{
+		//	if (gamePadIndex >= MAX_INPUT_GAMEPADS)
+		//		return false;
+		//	gainput::InputDevicePad* pDevicePad = (gainput::InputDevicePad*)pInputManager->GetDevice(pGamepadDeviceIDs[gamePadIndex]);
+		//	return pDevicePad->IsAvailable();
+		//}
 
 		//void set_on_device_change_callback(void(*onDeviceChnageCallBack)(const char* name, bool added), unsigned int gamePadIndex)
 		//{
@@ -1542,12 +1475,12 @@ namespace SG
 #if defined(SG_PLATFORM_WINDOWS) && !defined(XBOX)
 	static void reset_input_states()
 	{
-		pInputSystem->pInputManager->ClearAllStates(pInputSystem->mouseDeviceID);
-		pInputSystem->pInputManager->ClearAllStates(pInputSystem->keyboardDeviceID);
-		for (uint32_t i = 0; i < MAX_INPUT_GAMEPADS; ++i)
-		{
-			pInputSystem->pInputManager->ClearAllStates(pInputSystem->pGamepadDeviceIDs[i]);
-		}
+		pInputSystem->pInputManager->clear_all_states(pInputSystem->mouseDeviceID);
+		pInputSystem->pInputManager->clear_all_states(pInputSystem->keyboardDeviceID);
+		//for (uint32_t i = 0; i < MAX_INPUT_GAMEPADS; ++i)
+		//{
+		//	pInputSystem->pInputManager->ClearAllStates(pInputSystem->pGamepadDeviceIDs[i]);
+		//}
 	}
 #endif
 
@@ -1622,12 +1555,12 @@ namespace SG
 		pInputSystem->set_virtual_keyboard(type);
 	}
 
-	void set_dead_zone(unsigned int controllerIndex, float deadZoneSize)
-	{
-		ASSERT(pInputSystem);
+	//void set_dead_zone(unsigned int controllerIndex, float deadZoneSize)
+	//{
+	//	ASSERT(pInputSystem);
 
-		pInputSystem->set_dead_zone(controllerIndex, deadZoneSize);
-	}
+	//	pInputSystem->set_dead_zone(controllerIndex, deadZoneSize);
+	//}
 
 	//bool set_rumble_effect(int gamePadIndex, float leftMotor, float rightMotor)
 	//{
