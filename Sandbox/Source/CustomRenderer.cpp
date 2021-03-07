@@ -240,23 +240,10 @@ public:
 
 	virtual bool OnUpdate(float deltaTime) override
 	{
-		static float time = 1.0f;
-		time += deltaTime;
+		static float degreed = 45.0f;
 
-		if (InputListener::IsKeyPressed(SG_KEY_W))
-			mCameraPos.x -= deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_S))
-			mCameraPos.x += deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_A))
-			mCameraPos.y -= deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_D))
-			mCameraPos.y += deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_Q))
-			mCameraPos.z -= deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_E))
-			mCameraPos.z += deltaTime * mCameraMoveSpeed;
-
-		if (InputListener::GetMousePosClient().first >= 0 &&
+		if (InputListener::IsMousePressed(SG_MOUSE_LEFT) &&
+			InputListener::GetMousePosClient().first >= 0 &&
 			InputListener::GetMousePosClient().first <= mSettings.width &&
 			InputListener::GetMousePosClient().second >= 0 &&
 			InputListener::GetMousePosClient().second <= mSettings.height)
@@ -266,40 +253,52 @@ public:
 			mCurrentMousePos.x = InputListener::GetMousePosClient().first;
 			mCurrentMousePos.y = InputListener::GetMousePosClient().second;
 
-			xOffset *= 0.04f;
-			yOffset *= 0.04f;
+			xOffset *= deltaTime * mXSensitity;
+			yOffset *= deltaTime * mYSensitity;
 
 			yaw -= xOffset;
 			pitch -= yOffset;
 
-			if (pitch > 89.0f)
-				pitch = 89.0f;
-			if (pitch < -89.0f)
+			if (pitch <= -89.0f)
 				pitch = -89.0f;
+			if (pitch >= 89.0f)
+				pitch = 89.0f;
 
-			mCenterPos.x = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
-			mCenterPos.y = glm::sin(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
-			mCenterPos.z = glm::cos(glm::radians(pitch));
-
-			SG_LOG_DEBUG("Current cursor position: (%f, %f)", mCurrentMousePos.x, mCurrentMousePos.y);
+			mViewVec.x = glm::cos(glm::radians(yaw));
+			mViewVec.y = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
+			mViewVec.z = glm::sin(glm::radians(pitch));
+		}
+		else
+		{
+			mCurrentMousePos.x = InputListener::GetMousePosClient().first;
+			mCurrentMousePos.y = InputListener::GetMousePosClient().second;
 		}
 
-		//Vec3 pos = mCameraPos;
-		//pos.x -= 2.0f;
+		if (InputListener::IsKeyPressed(SG_KEY_W))
+			mCameraPos += mViewVec * deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_S))
+			mCameraPos -= mViewVec * deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_A))
+			mCameraPos -= glm::cross(mViewVec, mUpVec) * deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_D))
+			mCameraPos += glm::cross(mViewVec, mUpVec) * deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_SPACE))
+			mCameraPos += mUpVec * deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_CTRLL))
+			mCameraPos -= mUpVec * deltaTime * mCameraMoveSpeed;
+		if (InputListener::IsKeyPressed(SG_KEY_O))
+			degreed += deltaTime * 20.0f;
+		if (InputListener::IsKeyPressed(SG_KEY_P))
+			degreed -= deltaTime * 20.0f;
 
-		mUbo.model = glm::translate(Matrix4(1.0f), Vec3(0.0f)) *
-			glm::rotate(Matrix4(1.0f), glm::radians(45.0f), Vec3(0.0f, 0.0f, 1.0f));
-		mUbo.model *= glm::rotate(Matrix4(1.0f), glm::radians(180.0f), Vec3(1.0f, 0.0f, 0.0f));
-
-		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + mCenterPos, Vec3(0.0f, 0.0f, 1.0f));
-		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)mSettings.width / (float)mSettings.height,
-			0.01f, 100000.0f);
-		mUbo.projection[1][1] *= -1;
+		mUbo.model = glm::rotate(Matrix4(1.0f), 60.0f, mUpVec);
+		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + glm::normalize(mViewVec), mUpVec);
+		mUbo.projection = glm::perspective(glm::radians(degreed), (float)mSettings.width / (float)mSettings.height,
+			0.001f, 100000.0f);
 
 		if (InputListener::IsKeyPressed(SG_KEY_ESCAPE))
 			mSettings.quit = true;
 
-		//SG_LOG_INFO("Frame: %.1f", 1.0f / deltaTime);
 		return true;
 	}
 
@@ -446,8 +445,8 @@ private:
 		vertexLayout.attribs[1].offset = 3 * sizeof(float);
 
 		RasterizerStateDesc rasterizeState = {};
-		rasterizeState.cullMode = SG_CULL_MODE_NONE;
-		rasterizeState.frontFace = SG_FRONT_FACE_CW;
+		rasterizeState.cullMode = SG_CULL_MODE_BACK;
+		rasterizeState.frontFace = SG_FRONT_FACE_CCW;
 
 		DepthStateDesc depthStateDesc = {};
 		depthStateDesc.depthTest = true;
@@ -553,8 +552,10 @@ private:
 
 	uint32_t mCurrentIndex = 0;
 
-	Vec3 mCameraPos = { 0.0f, 0.0f, 0.0f };
-	Vec3 mCenterPos = { 0.0f, 0.0f, 0.0f };
+	Vec3 mCameraPos = { -3.0f, 0.0f, 0.0f };
+	Vec3 mViewVec = { 1.0f, 0.0f, 0.0f };
+	Vec3 mUpVec = { 0.0f, 0.0f, 1.0f };
+	float mXSensitity = 260.f, mYSensitity = 340.0f;
 	float mCameraMoveSpeed = 1.5f;
 	Vec2 mCurrentMousePos = { 0.0f, 0.0f };
 	float yaw = 0.0f;

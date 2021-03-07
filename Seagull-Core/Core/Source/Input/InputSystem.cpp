@@ -79,6 +79,8 @@ namespace SG
 		gSGCodeToWinKeycodeMap[SG_KEY_F12] = 123;
 
 		gSGCodeToWinKeycodeMap[SG_KEY_ESCAPE] = 27;
+		gSGCodeToWinKeycodeMap[SG_KEY_SPACE] = VK_SPACE;
+		gSGCodeToWinKeycodeMap[SG_KEY_CTRLL] = VK_CONTROL;
 
 		gSGCodeToWinMouseMap[SG_MOUSE_LEFT] = VK_LBUTTON;
 		gSGCodeToWinMouseMap[SG_MOUSE_RIGHT] = VK_RBUTTON;
