@@ -5,7 +5,8 @@
 #include "Interface/IThread.h"
 #include "Interface/ITime.h"
 #include "Interface/IInput.h"
-#include "Interface/IMemory.h"
+
+#include "ThreadSystem/ThreadSystem.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -22,3 +23,5 @@
 
 #include "../../Seagull-Core/Renderer/IRenderer/Include/IRenderer.h"
 #include "../../Seagull-Core/Renderer/IRenderer/Include/IResourceLoader.h"
+
+#include "Interface/IMemory.h"

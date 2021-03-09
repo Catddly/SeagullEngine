@@ -4704,7 +4704,7 @@ PresentStatus queue_present(Queue* pQueue, const QueuePresentDesc* pDesc)
 			}
 			else if (vkRes == VK_ERROR_DEVICE_LOST)
 			{
-				presentIndex = SG_PRESENT_STATUS_DEVICE_RESET;
+				presentStatus = SG_PRESENT_STATUS_DEVICE_RESET;
 			}
 			else if (vkRes == VK_ERROR_OUT_OF_DATE_KHR)
 			{

@@ -562,4 +562,4 @@ private:
 	float pitch = 0.0f;
 };
 
-SG_DEFINE_APPLICATION_MAIN(CustomRenderer)
+//SG_DEFINE_APPLICATION_MAIN(CustomRenderer)
