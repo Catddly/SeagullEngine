@@ -1,6 +1,6 @@
 # Seagull-Engine-v0.2
 
-A Real-time render engine.
+A real-time render engine.
 
 This engine is now in beta version and it is under development. If you are interesting in it, you can contact me with these email: 2565492401@qq.com or illmewds@gmail.com.
 
@@ -9,6 +9,11 @@ The graphic language: dx12 and vulkan. pc platform: windows.
 Third-party libraries:
 	eastl
 	mimalloc
+	cgltf
+	glm
+	spirv-cross
+	tinyImageFormat
+	
 
 This engine is only for learning purpose, build base on 
 The-Forge frame work.
