@@ -123,8 +123,8 @@ namespace SG
 		{
 			sLogger = sg_new(Logger, appName, level);
 			sLogger->mMutex.Init();
-			sLogger->AddInitialLogFile(appName);
 			sLogMutex.Init();
+			sLogger->AddInitialLogFile(appName);
 		}
 	}
 
