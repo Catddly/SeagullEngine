@@ -104,8 +104,8 @@ namespace SG
 		pApp->mSettings.width = newSizeX;
 		pApp->mSettings.height = newSizeY;
 
-		pApp->Unload();
-		pApp->Load();
+		pApp->OnUnload();
+		pApp->OnLoad();
 	}
 
 	static void adjust_window(WindowDesc* pWindow)
@@ -993,7 +993,7 @@ namespace SG
 
 			pSettings->initialized = true;
 
-			if (!pApp->Load())
+			if (!pApp->OnLoad())
 				return EXIT_FAILURE;
 			//SG_LOG_INFO("App loading: (%fms)", t.GetTotalTime());
 		}
@@ -1023,15 +1023,15 @@ namespace SG
 			if (pApp->mSettings.resetGraphic)
 			{
 				GlobalTimer.Stop();
-				pApp->Unload();
-				pApp->Load();
+				pApp->OnUnload();
+				pApp->OnLoad();
 				pApp->mSettings.resetGraphic = false;
 				GlobalTimer.Start();
 			}
 		}
 
 		pApp->mSettings.quit = true;
-		pApp->Unload();
+		pApp->OnUnload();
 		pApp->OnExit();
 
 		GlobalTimer.Stop();

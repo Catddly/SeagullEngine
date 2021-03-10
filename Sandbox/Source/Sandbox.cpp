@@ -68,13 +68,13 @@ public:
 		SG_LOG_INFO("OnExit()");
 	}
 
-	virtual bool Load() override
+	virtual bool OnLoad() override
 	{
 		SG_LOG_INFO("OnLoad()");
 		return true;
 	}
 
-	virtual bool Unload() override
+	virtual bool OnUnload() override
 	{
 		SG_LOG_INFO("OnUnload()");
 		return true;
@@ -198,12 +198,12 @@ class DummyApp : public IApp
 	{
 	}
 
-	virtual bool Load() override
+	virtual bool OnLoad() override
 	{
 		return true;
 	}
 
-	virtual bool Unload() override
+	virtual bool OnUnload() override
 	{
 		return true;
 	}

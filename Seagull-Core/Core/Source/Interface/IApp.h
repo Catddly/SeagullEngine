@@ -15,8 +15,8 @@ namespace SG
 		virtual bool OnInit() = 0;
 		virtual void OnExit() = 0;
 
-		virtual bool Load() = 0;
-		virtual bool Unload() = 0;
+		virtual bool OnLoad() = 0;
+		virtual bool OnUnload() = 0;
 
 		virtual bool OnUpdate(float deltaTime) = 0;
 		virtual bool OnDraw() = 0;

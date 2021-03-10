@@ -7,7 +7,7 @@ namespace SG
 	{
 	protected:
 		ISingleton() = default;
-		~ISingleton() = default;
+		virtual ~ISingleton() = default;
 	private:
 		ISingleton(const ISingleton&) = delete;
 		ISingleton(ISingleton&&) = delete;

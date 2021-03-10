@@ -1,5 +1,6 @@
 #include <stdint.h>
 
+#include "BasicType/ISingleton.h"
 #include "Interface/IOperatingSystem.h"
 
 #include <include/EASTL/utility.h>
@@ -203,7 +204,7 @@ namespace SG
 
 	typedef uint32_t DeviceId;
 
-	class InputListener
+	class InputListener : public ISingleton
 	{
 	public:
 		static bool Init(WindowDesc* pWindow);

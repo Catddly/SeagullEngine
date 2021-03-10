@@ -52,12 +52,12 @@ class ThreadSystemTestApp : public IApp
 	{
 	}
 
-	virtual bool Load() override
+	virtual bool OnLoad() override
 	{
 		return true;
 	}
 
-	virtual bool Unload() override
+	virtual bool OnUnload() override
 	{
 		return true;
 	}

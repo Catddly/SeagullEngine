@@ -189,7 +189,7 @@ public:
 		remove_renderer(mRenderer);
 	}
 
-	virtual bool Load() override
+	virtual bool OnLoad() override
 	{
 		DescriptorSetCreateDesc descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
@@ -223,7 +223,7 @@ public:
 		return true;
 	}
 
-	virtual bool Unload() override
+	virtual bool OnUnload() override
 	{
 		wait_queue_idle(mGraphicQueue);
 
