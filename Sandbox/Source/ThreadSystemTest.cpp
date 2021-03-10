@@ -4,17 +4,23 @@
 using namespace SG;
 
 uint32_t counter = 0;
+Mutex gLogMutex;
 
 static void TaskFunction(uintptr_t arg, void* pUserdata)
 {
 	++*(uint32_t*)pUserdata;
-	SG_LOG_DEBUG("Task is running (ThreadId: %ul)", Thread::get_curr_thread_id());
+	{
+		MutexLock lck(gLogMutex);
+		SG_LOG_DEBUG("Task is running (ThreadId: %ul)", Thread::get_curr_thread_id());
+	}
 }
 
 class ThreadSystemTestApp : public IApp
 {
 	virtual bool OnInit() override
 	{
+		gLogMutex.Init();
+
 		Timer t;
 		t.Reset();
 
@@ -30,7 +36,6 @@ class ThreadSystemTestApp : public IApp
 		wait_thread_system_idle(mThreadSystem);
 
 		SG_LOG_DEBUG("Counter: %d", counter);
-		SG_LOG_DEBUG("begin: %d, end: %d", mThreadSystem->begin, mThreadSystem->end);
 
 		if (is_thread_system_idle(mThreadSystem))
 			SG_LOG_DEBUG("Thread system is idle");
@@ -49,6 +54,7 @@ class ThreadSystemTestApp : public IApp
 
 	virtual void OnExit() override
 	{
+		gLogMutex.Destroy();
 	}
 
 	virtual bool Load() override
