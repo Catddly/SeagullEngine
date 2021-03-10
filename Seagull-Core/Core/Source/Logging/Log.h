@@ -111,6 +111,8 @@ namespace SG
 
 		static thread_local char sThreadLocalBuffer[SG_MAX_BUFFER + 2];
 		static bool sConsoleLogging;
+
+		static Mutex sLogMutex;
 	};
 
 }

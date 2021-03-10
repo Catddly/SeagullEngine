@@ -19,6 +19,7 @@ namespace SG
 	thread_local char Logger::sThreadLocalBuffer[SG_MAX_BUFFER + 2];
 	bool Logger::sConsoleLogging = true;
 	static Logger* sLogger = nullptr;
+	Mutex Logger::sLogMutex;
 
 	const char* get_filename_from_path(const char* path)
 	{
@@ -123,12 +124,14 @@ namespace SG
 			sLogger = sg_new(Logger, appName, level);
 			sLogger->mMutex.Init();
 			sLogger->AddInitialLogFile(appName);
+			sLogMutex.Init();
 		}
 	}
 
 	void Logger::OnExit()
 	{
 		sLogger->mMutex.Destroy();
+		sLogMutex.Destroy();
 		sg_delete(sLogger);
 		sLogger = nullptr;
 	}
@@ -254,11 +257,13 @@ namespace SG
 			{
 				if (sLogger->mQuietMode)
 				{
+					MutexLock lck(sLogMutex);
 					if (level & SG_LOG_LEVEL_ERROR)
 						print_unicode(sThreadLocalBuffer, level);
 				}
 				else
 				{
+					MutexLock lck(sLogMutex);
 					print_unicode(sThreadLocalBuffer, level);
 				}
 			}
@@ -283,11 +288,15 @@ namespace SG
 		{
 			if (sLogger->mQuietMode)
 			{
+				MutexLock lck(sLogMutex);
 				if (error)
 					print_unicode(sThreadLocalBuffer, level);
 			}
 			else
+			{
+				MutexLock lck(sLogMutex);
 				print_unicode(sThreadLocalBuffer, level);
+			}
 		}
 
 		MutexLock lock{ sLogger->mMutex };
