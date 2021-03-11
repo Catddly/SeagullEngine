@@ -4,11 +4,8 @@
 //#define SG_USE_RENDER_DOC
 
 #include "Core/CompilerConfig.h"
-
 #include "Core/Atomic.h"
 
-//#include <include/tinyimageformat_base.h>
-//#include <include/tinyimageformat_apis.h>
 #include <include/tinyimageformat_query.h>
 
 //#define VK_NO_PROTOTYPES
@@ -94,8 +91,9 @@ static inline uint32_t round_up(uint32_t value, uint32_t multiple) { return ((va
 static inline uint32_t round_down(uint32_t value, uint32_t multiple) { return value - value % multiple; }
 
 template <typename T>
-static inline size_t sg_mem_hash(const T* mem, size_t size, size_t prev = 2166136261U)
+static inline size_t sg_mem_hash(const T* mem, size_t size, size_t prev = 2166136261U, uint8_t dummy = 0)
 {
+	UNREF_PARAM(dummy);
 	uint32_t result = (uint32_t)prev; // Intentionally uint32_t instead of size_t, so the behavior is the same
 									  // regardless of size.
 	while (size--)
@@ -4061,8 +4059,8 @@ void cmd_bind_render_targets(Cmd* pCmd, uint32_t renderTargetCount, RenderTarget
 			pLoadActions ? (uint32_t)pLoadActions->loadActionsColor[i] : 0,
 		};
 		// get the hash code
-		renderPassHash = sg_mem_hash<uint32_t>(hashValues, 3, renderPassHash);
-		frameBufferHash = sg_mem_hash<uint32_t>(&ppRenderTargets[i]->id, 1, frameBufferHash);
+		renderPassHash = sg_mem_hash<uint32_t>(hashValues, 3, renderPassHash, 0);
+		frameBufferHash = sg_mem_hash<uint32_t>(&ppRenderTargets[i]->id, 1, frameBufferHash, 0);
 
 		if (0 == ppRenderTargets[i]->used++)
 		{
@@ -4078,8 +4076,8 @@ void cmd_bind_render_targets(Cmd* pCmd, uint32_t renderTargetCount, RenderTarget
 			pLoadActions ? (uint32_t)pLoadActions->loadActionDepth : 0,
 			pLoadActions ? (uint32_t)pLoadActions->loadActionStencil : 0,
 		};
-		renderPassHash = sg_mem_hash<uint32_t>(hashValues, 4, renderPassHash);
-		frameBufferHash = sg_mem_hash<uint32_t>(&pDepthStencil->id, 1, frameBufferHash);
+		renderPassHash = sg_mem_hash<uint32_t>(hashValues, 4, renderPassHash, 0);
+		frameBufferHash = sg_mem_hash<uint32_t>(&pDepthStencil->id, 1, frameBufferHash, 0);
 
 		if (0 == pDepthStencil->used++)
 		{
@@ -4088,13 +4086,13 @@ void cmd_bind_render_targets(Cmd* pCmd, uint32_t renderTargetCount, RenderTarget
 	}
 
 	if (pColorArraySlices)
-		frameBufferHash = sg_mem_hash<uint32_t>(pColorArraySlices, renderTargetCount, frameBufferHash);
+		frameBufferHash = sg_mem_hash<uint32_t>(pColorArraySlices, renderTargetCount, frameBufferHash, 0);
 	if (pColorMipSlices)
-		frameBufferHash = sg_mem_hash<uint32_t>(pColorMipSlices, renderTargetCount, frameBufferHash);
+		frameBufferHash = sg_mem_hash<uint32_t>(pColorMipSlices, renderTargetCount, frameBufferHash, 0);
 	if (depthArraySlice != -1)
-		frameBufferHash = sg_mem_hash<uint32_t>(&depthArraySlice, 1, frameBufferHash);
+		frameBufferHash = sg_mem_hash<uint32_t>(&depthArraySlice, 1, frameBufferHash, 0);
 	if (depthMipSlice != -1)
-		frameBufferHash = sg_mem_hash<uint32_t>(&depthMipSlice, 1, frameBufferHash);
+		frameBufferHash = sg_mem_hash<uint32_t>(&depthMipSlice, 1, frameBufferHash, 0);
 
 	SampleCount sampleCount = SG_SAMPLE_COUNT_1;
 

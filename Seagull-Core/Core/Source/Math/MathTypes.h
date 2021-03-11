@@ -1,8 +1,9 @@
 #pragma once
 
 #include <include/glm.hpp>
-
 #include <include/detail/qualifier.hpp>
+
+#include <include/EASTL/functional.h>
 
 namespace SG
 {

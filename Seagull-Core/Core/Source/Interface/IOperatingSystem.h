@@ -13,6 +13,8 @@
 
 #include "Core/CompilerConfig.h"
 
+#include "Math/MathTypes.h"
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -127,7 +129,7 @@ namespace SG
 
 	MonitorDescription* get_monitor(uint32_t index);
 	uint32_t            get_monitor_count();
-	// float2       getDpiScale();
+	Vec2		        get_dpi_scale();
 
 	bool get_resolution_support(const MonitorDescription* pMonitor, const Resolution* pResolution);
 

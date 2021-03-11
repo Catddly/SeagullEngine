@@ -72,7 +72,8 @@ project "Seagull-Core"
         "%{IncludeDir.eastl}",
         "%{IncludeDir.glm}",
         "%{IncludeDir.tinyImageFormat}",
-        "%{IncludeDir.ImGui}"
+        "%{IncludeDir.ImGui}",
+        "Seagull-Core/Renderer/"
     }
     
     -- link libraries

@@ -1,11 +1,10 @@
 #pragma once
 
 #include "BasicType/ISingleton.h"
+#include "Math/MathTypes.h"
 
 #include <include/EASTL/string.h>
 #include <include/EASTL/vector.h>
-
-#include "Math/MathTypes.h"
 
 #include "Interface/IMemory.h"
 
@@ -103,10 +102,10 @@ namespace SG
 	class RadioButtonWidget : public IWidget
 	{
 	public:
-		RadioButtonWidget(const eastl::string& label, int32_t* data, const int32_t _radioId) :
+		RadioButtonWidget(const eastl::string& label, int32_t* data, const int32_t radioId) :
 			IWidget(label),
 			pData(data),
-			mRadioId(_radioId) {}
+			mRadioId(radioId) {}
 
 		virtual IWidget* OnCopy() const override;
 		virtual void OnDraw() override;
@@ -118,7 +117,6 @@ namespace SG
 #pragma endregion (Buttons)
 
 #pragma region (Slider)
-
 
 	class SliderFloatWidget : public IWidget
 	{
@@ -345,7 +343,6 @@ namespace SG
 	protected:
 		uint32_t* pData;
 	};
-
 
 	class ColorSliderWidget : public IWidget
 	{

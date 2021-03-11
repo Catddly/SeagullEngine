@@ -912,6 +912,30 @@ namespace SG
 		return false;
 	}
 
+	Vec2 get_dpi_scale()
+	{
+		HDC hdc = ::GetDC(NULL); // get the device context to get the dpi info
+		Vec2 ret = {};
+		const float dpi = 96.0f;
+		if (hdc)
+		{
+			ret.x = (UINT)(::GetDeviceCaps(hdc, LOGPIXELSX)) / dpi;
+			ret.y = static_cast<UINT>(::GetDeviceCaps(hdc, LOGPIXELSY)) / dpi;
+			::ReleaseDC(NULL, hdc);
+		}
+		else
+		{
+#if(WINVER >= 0x0605)
+			float systemDpi = ::GetDpiForSystem() / 96.0f;
+			ret = { systemDpi, systemDpi };
+#else
+			ret = { 1.0f, 1.0f };
+#endif
+		}
+
+		return ret;
+	}
+
 }
 
 	/////////////////////////////////////////////////////////////////////////
