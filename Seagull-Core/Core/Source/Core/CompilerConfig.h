@@ -50,7 +50,7 @@
 #else
 	#define SG_CALLCONV
 #endif
-
-#define ASSERT(x) if(!(x)) __debugbreak();
+	
+#define ASSERT(x) if(!(x)) do { if (!(x)) __debugbreak(); } while (0)
 
 #define SG_COMPILE_ASSERT(exp) static_assert((exp), #exp)

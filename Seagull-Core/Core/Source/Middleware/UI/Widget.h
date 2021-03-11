@@ -1,10 +1,11 @@
 #pragma once
 
-#include "Math/MathTypes.h"
 #include "BasicType/ISingleton.h"
 
 #include <include/EASTL/string.h>
 #include <include/EASTL/vector.h>
+
+#include "Math/MathTypes.h"
 
 #include "Interface/IMemory.h"
 

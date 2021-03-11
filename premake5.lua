@@ -16,6 +16,7 @@ IncludeDir["mimalloc"] = "Seagull-Core/Core/Third-party/Include/mimalloc"
 IncludeDir["glm"] = "Seagull-Core/Core/Third-party/Include/glm"
 IncludeDir["tinyImageFormat"] = "Seagull-Core/Core/Third-party/Include/tinyImageFormat"
 IncludeDir["spirv-cross"] = "Seagull-Core/Core/Third-party/Include/spirv-cross"
+IncludeDir["ImGui"] = "Seagull-Core/Core/Third-party/Include/ImGui"
 
 -- Renderers
 IncludeDir["RendererVulkan"] = "Seagull-Core/Renderer/Vulkan"
@@ -28,6 +29,7 @@ group "Dependencies"
 
     include "Seagull-Core/Core/Third-party/Include/mimalloc"
     include "Seagull-Core/Core/Third-party/Include/eastl"
+    include "Seagull-Core/Core/Third-party/Include/ImGui"
 
 group ""
 
@@ -69,14 +71,16 @@ project "Seagull-Core"
         "%{IncludeDir.mimalloc}",
         "%{IncludeDir.eastl}",
         "%{IncludeDir.glm}",
-        "%{IncludeDir.tinyImageFormat}"
+        "%{IncludeDir.tinyImageFormat}",
+        "%{IncludeDir.ImGui}"
     }
     
     -- link libraries
     links
     {
         "mimalloc",
-        "eastl"
+        "eastl",
+        "ImGui"
     }
 
 filter "system:windows"
