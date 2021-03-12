@@ -148,7 +148,7 @@ namespace SG
 		uint32_t     mMaxDynamicUIUpdatesPerBatch;
 		uint32_t     mDynamicUIUpdates;
 		float        mNavInputs[ImGuiNavInput_COUNT];
-		const Vec2* pMovePosition;
+		const Vec2*  pMovePosition;
 		uint32_t     mLastUpdateCount;
 		Vec2         mLastUpdateMin[64] = {};
 		Vec2         mLastUpdateMax[64] = {};
@@ -201,20 +201,22 @@ namespace SG
 		mIsActive = true;
 		memset(mPostUpdateKeyDownStates, false, sizeof(mPostUpdateKeyDownStates));
 
-		SamplerCreateDesc samplerDesc;
+		SamplerCreateDesc samplerDesc = {};
 		samplerDesc.addressU = SG_ADDRESS_MODE_CLAMP_TO_EDGE;
 		samplerDesc.addressV = SG_ADDRESS_MODE_CLAMP_TO_EDGE;
 		samplerDesc.addressW = SG_ADDRESS_MODE_CLAMP_TO_EDGE;
 		samplerDesc.minFilter = SG_FILTER_LINEAR;
 		samplerDesc.magFilter = SG_FILTER_LINEAR;
 		samplerDesc.mipMapMode = SG_MIPMAP_MODE_NEAREST;
+		samplerDesc.compareFunc = SG_COMPARE_MODE_NEVER;
 		add_sampler(this->pRenderer, &samplerDesc, &pDefaultSampler);
 
 		if (!mUseCustomShader)
 		{
-			ShaderLoadDesc shaderDesc;
-			shaderDesc.stages[0] = { "imgui.vert", nullptr, 0, nullptr };
-			shaderDesc.stages[1] = { "imgui.frag", nullptr, 0, nullptr };
+			ShaderLoadDesc shaderDesc = {};
+			shaderDesc.stages[0] = { "ImGuiShader/imgui.vert", nullptr, 0, nullptr };
+			shaderDesc.stages[1] = { "ImGuiShader/imgui.frag", nullptr, 0, nullptr };
+			shaderDesc.target = SG_SHADER_TARGET_6_3;
 			add_shader(pRenderer, &shaderDesc, &pShaderTextured);
 		}
 

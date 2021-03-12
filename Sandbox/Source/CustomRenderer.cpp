@@ -55,6 +55,7 @@ public:
 		SG_LOG_DEBUG("Main thread ID: %ul", Thread::get_curr_thread_id());
 
 		RendererCreateDesc rendererCreate = {};
+		rendererCreate.shaderTarget = SG_SHADER_TARGET_6_3;
 		init_renderer("Seagull Renderer", &rendererCreate, &mRenderer);
 
 		if (!mRenderer)
@@ -152,11 +153,23 @@ public:
 		mCurrentMousePos.x = InputListener::GetMousePosClient().first;
 		mCurrentMousePos.y = InputListener::GetMousePosClient().second;
 
+		if (!mUiMiddleware.OnInit(mRenderer))
+			return false;
+		mUiMiddleware.mShowDemoUiWindow = true;
+
+		float dpiScale = get_dpi_scale().x;
+		Vec2  UIPosition = { mSettings.width * 0.01f, mSettings.height * 0.30f };
+		Vec2  UIPanelSize = Vec2(1000.f, 1000.f) / dpiScale;
+		GuiCreateDesc guiDesc(UIPosition, UIPanelSize);
+		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow", &guiDesc);
+
 		return true;
 	}
 
 	virtual void OnExit() override
 	{
+		mUiMiddleware.OnExit();
+
 		InputListener::Exit();
 
 		wait_queue_idle(mGraphicQueue);
@@ -202,6 +215,8 @@ public:
 		if (!CreateSwapChain())
 			return false;
 
+		mUiMiddleware.OnLoad(mSwapChain->ppRenderTargets);
+
 		wait_for_all_resource_loads();
 
 		if (!CreateGraphicPipeline())
@@ -225,6 +240,8 @@ public:
 
 	virtual bool OnUnload() override
 	{
+		mUiMiddleware.OnUnload();
+
 		wait_queue_idle(mGraphicQueue);
 
 		remove_render_target(mRenderer, mDepthBuffer);
@@ -299,6 +316,8 @@ public:
 		if (InputListener::IsKeyPressed(SG_KEY_ESCAPE))
 			mSettings.quit = true;
 
+		mUiMiddleware.OnUpdate(deltaTime);
+
 		return true;
 	}
 
@@ -368,6 +387,9 @@ public:
 			IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
 			cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
 		}
+
+		mUiMiddleware.AddUpdateGui(mMainGui);
+		mUiMiddleware.OnDraw(cmd);
 
 		// end the render pass
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
@@ -552,14 +574,18 @@ private:
 
 	uint32_t mCurrentIndex = 0;
 
-	Vec3 mCameraPos = { -3.0f, 0.0f, 0.0f };
-	Vec3 mViewVec = { 1.0f, 0.0f, 0.0f };
-	Vec3 mUpVec = { 0.0f, 0.0f, 1.0f };
+	Vec3  mCameraPos = { -3.0f, 0.0f, 0.0f };
+	Vec3  mViewVec = { 1.0f, 0.0f, 0.0f };
+	Vec3  mUpVec = { 0.0f, 0.0f, 1.0f };
 	float mXSensitity = 260.f, mYSensitity = 340.0f;
 	float mCameraMoveSpeed = 1.5f;
-	Vec2 mCurrentMousePos = { 0.0f, 0.0f };
+	Vec2  mCurrentMousePos = { 0.0f, 0.0f };
 	float yaw = 0.0f;
 	float pitch = 0.0f;
+
+	// Gui
+	UIMiddleware mUiMiddleware;
+	GuiComponent* mMainGui = nullptr;
 };
 
-//SG_DEFINE_APPLICATION_MAIN(CustomRenderer)
+SG_DEFINE_APPLICATION_MAIN(CustomRenderer)

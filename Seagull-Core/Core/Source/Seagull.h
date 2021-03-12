@@ -6,6 +6,8 @@
 #include "Interface/ITime.h"
 #include "Interface/IInput.h"
 
+#include "Middleware/UI/UIMiddleware.h"
+
 #include "ThreadSystem/ThreadSystem.h"
 
 #define GLM_FORCE_RADIANS

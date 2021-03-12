@@ -81,4 +81,4 @@ private:
 	ThreadSystem* mThreadSystem = nullptr;
 };
 
-SG_DEFINE_APPLICATION_MAIN(ThreadSystemTestApp);
+//SG_DEFINE_APPLICATION_MAIN(ThreadSystemTestApp);

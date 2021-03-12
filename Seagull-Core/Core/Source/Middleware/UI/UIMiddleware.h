@@ -56,7 +56,7 @@ namespace SG
 		void     RemoveAllWidgets();
 
 		eastl::vector<IWidget*>        widgets;
-		eastl::vector<bool>            widgetsClone;
+		eastl::vector<bool>            widgetsCloned;
 		// Contextual menus when right clicking the title bar
 		eastl::vector<eastl::string>   contextualMenuLabels;
 		eastl::vector<WidgetCallbackFunc> contextualMenuCallbacks;
@@ -179,12 +179,12 @@ namespace SG
 		virtual void OnExit() override;
 
 		virtual bool OnLoad(RenderTarget** ppRenderTargets, uint32_t count = 1) override;
-		virtual bool OnUnload() override;
+		virtual void OnUnload() override;
 
 		virtual bool OnUpdate(float deltaTime) override;
 		virtual bool OnDraw(Cmd* pCmd) override;
 
-		unsigned int LoadFont(const char* filepath);
+		//unsigned int LoadFont(const char* filepath);
 
 		GuiComponent* AddGuiComponent(const char* pTitle, const GuiCreateDesc* pDesc);
 		void          RemoveGuiComponent(GuiComponent* pComponent);
