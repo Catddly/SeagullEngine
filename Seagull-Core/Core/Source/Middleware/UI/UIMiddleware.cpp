@@ -1,5 +1,3 @@
-#include "IRenderer/Include/IRenderer.h"
-
 #include "Interface/ILog.h"
 
 #include "UIMiddleware.h"
@@ -45,15 +43,15 @@ namespace SG
 		pImpl = nullptr;
 	}
 
-	bool UIMiddleware::OnLoad(SwapChain* pSwapChain, uint32_t count)
+	bool UIMiddleware::OnLoad(RenderTarget** ppRenderTargets, uint32_t count)
 	{
-		ASSERT(pSwapChain);
+		ASSERT(ppRenderTargets && ppRenderTargets[0]);
 
 		mWidth = count;
-		mHeight = pSwapChain->ppRenderTargets[0]->height;
+		mHeight = ppRenderTargets[0]->height;
 		SG_LOG_DEBUG("width: %f, heihgt: %f", mWidth, mHeight);
 
-		return pDriver->OnLoad(pSwapChain->ppRenderTargets, count);
+		return pDriver->OnLoad(ppRenderTargets, count);
 	}
 
 	void UIMiddleware::OnUnload()
@@ -150,13 +148,15 @@ namespace SG
 		pImpl->componentsToUpdate.emplace_back(pGui);
 	}
 
-	void UIMiddleware::DummyFunc(RenderTarget* pRenderTarget)
+	void UIMiddleware::DummyFunc(void* pRenderTarget)
 	{
-		uint32_t w = pRenderTarget->width;
-		uint32_t h = pRenderTarget->height;
+		auto* rt = (RenderTarget*)pRenderTarget;
 
-		SG_LOG_DEBUG("Width: %d", pRenderTarget->width);
-		SG_LOG_DEBUG("Height: %d", pRenderTarget->height);
+		uint32_t w = rt->width;
+		uint32_t h = rt->height;
+
+		SG_LOG_DEBUG("Width: %d", rt->width);
+		SG_LOG_DEBUG("Height: %d", rt->height);
 	}
 
 	IWidget* GuiComponent::AddWidget(const IWidget& widget, bool clone /* = true*/)

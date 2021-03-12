@@ -3,8 +3,8 @@
 #include <include/imgui.h>
 #include <include/imgui_internal.h>
 
-#include "IRenderer/Include/IRenderer.h"
-#include "IRenderer/Include/IResourceLoader.h"
+#include "Include/IRenderer.h"
+#include "Include/IResourceLoader.h"
 
 #include "Middleware/UI/UIMiddleware.h"
 #include "Interface/IInput.h"
