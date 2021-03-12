@@ -126,7 +126,7 @@ namespace SG
 		static void* alloc_func(size_t size, void* pUserData) { return sg_malloc(size); }
 		static void  free_func(void* ptr, void* pUserData) { sg_free(ptr); }
 	protected:
-		static const uint32_t MAX_FRAMES = 3;
+		static const uint32_t MAX_FRAMES = 2;
 
 		ImGuiContext* pImGuiContext;
 		eastl::vector<Texture*> mFontTextures;

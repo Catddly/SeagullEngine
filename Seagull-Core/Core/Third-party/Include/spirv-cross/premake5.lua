@@ -15,7 +15,9 @@ project "spirv-cross"
 	includedirs
 	{
 		"include",
-		"../../../Source/"
+		"../../../Source/",
+		"../glm/",
+		"../eastl/"
 	}
 
 	filter "system:windows"

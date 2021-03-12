@@ -45,15 +45,15 @@ namespace SG
 		pImpl = nullptr;
 	}
 
-	bool UIMiddleware::OnLoad(RenderTarget** ppRenderTargets, uint32_t count /*= 1*/)
+	bool UIMiddleware::OnLoad(SwapChain* pSwapChain, uint32_t count)
 	{
-		ASSERT(ppRenderTargets && ppRenderTargets[0]);
-		RenderTarget* renderTarget = ppRenderTargets[0];
-		mWidth = renderTarget->width;
-		mHeight = renderTarget->height;
+		ASSERT(pSwapChain);
+
+		mWidth = count;
+		mHeight = pSwapChain->ppRenderTargets[0]->height;
 		SG_LOG_DEBUG("width: %f, heihgt: %f", mWidth, mHeight);
 
-		return pDriver->OnLoad(ppRenderTargets, count);
+		return pDriver->OnLoad(pSwapChain->ppRenderTargets, count);
 	}
 
 	void UIMiddleware::OnUnload()
@@ -148,6 +148,15 @@ namespace SG
 	void UIMiddleware::AddUpdateGui(GuiComponent* pGui)
 	{
 		pImpl->componentsToUpdate.emplace_back(pGui);
+	}
+
+	void UIMiddleware::DummyFunc(RenderTarget* pRenderTarget)
+	{
+		uint32_t w = pRenderTarget->width;
+		uint32_t h = pRenderTarget->height;
+
+		SG_LOG_DEBUG("Width: %d", pRenderTarget->width);
+		SG_LOG_DEBUG("Height: %d", pRenderTarget->height);
 	}
 
 	IWidget* GuiComponent::AddWidget(const IWidget& widget, bool clone /* = true*/)

@@ -4985,6 +4985,9 @@ void add_render_target(Renderer* pRenderer, const RenderTargetCreateDesc* pDesc,
 	pRenderTarget->height = pDesc->height;
 	pRenderTarget->depth = pDesc->depth;
 
+	//SG_LOG_DEBUG("Width: %d", pRenderTarget->width);
+	//SG_LOG_DEBUG("Height: %d", pRenderTarget->height);
+
 	pRenderTarget->arraySize = pDesc->arraySize;
 	pRenderTarget->mipLevels = pDesc->mipLevels;
 	pRenderTarget->sampleCount = pDesc->sampleCount;
