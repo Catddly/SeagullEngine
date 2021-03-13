@@ -831,7 +831,6 @@ namespace SG
 			}
 
 		}
-
 		// Note that for keyboard keys, we only set them to true here if they are pressed because we may have a press/release
 		// happening in one frame and it would never get registered.  Instead, unpressed are deferred at the end of update().
 		// This scenario occurs with mobile soft (on-screen) keyboards.
@@ -864,6 +863,9 @@ namespace SG
 			if (press)
 				io.KeysDown[SG_KEY_DELETE] = true;
 			mPostUpdateKeyDownStates[SG_KEY_DELETE] = press;
+			break;
+		case SG_MOUSE_LEFT:
+			io.MouseDown[0] = press;
 			break;
 		default:
 			break;

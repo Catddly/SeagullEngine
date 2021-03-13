@@ -147,20 +147,44 @@ public:
 		UITextDesc.fontSize = 18.0f;
 
 		float dpiScale = get_dpi_scale().x;
-		Vec2  UIPosition = { 0.0f, 0.0f };
-		Vec2  UIPanelSize = { 640.0f, 340.0f };
-		GuiCreateDesc guiDesc;
-		guiDesc.startPosition = UIPosition;
-		guiDesc.startSize = UIPanelSize;
+		GuiCreateDesc guiDesc{};
 		guiDesc.defaultTextDrawDesc = UITextDesc;
 		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow", &guiDesc);
 		mMainGui->AddWidget(LabelWidget("Hello World!"));
 
 		mUiMiddleware.mShowDemoUiWindow = true;
 
-		InputListener::Init(mWindow);
-		mCurrentMousePos.x = InputListener::GetMousePosClient().first;
-		mCurrentMousePos.y = InputListener::GetMousePosClient().second;
+		init_input_system(mWindow);
+
+		InputActionDesc inputAction = { SG_KEY_ESCAPE,
+			[](InputActionContext* ctx)
+				{
+					request_shutdown();
+					return true;
+				},
+			nullptr
+		};
+		add_input_action(&inputAction);
+
+		inputAction =
+		{
+			SG_BUTTON_ANY, [](InputActionContext* ctx)
+			{
+				auto* uiMiddleware = (UIMiddleware*)ctx->pUserData;
+				bool capture = uiMiddleware->OnButton(ctx->bindings, ctx->isPressed, ctx->pPosition);
+				set_enable_capture_input(capture && INPUT_ACTION_PHASE_CANCELED != ctx->phase);
+				//SG_LOG_DEBUG("button %d (%d)", ctx->bindings, (int)ctx->isPressed);
+				//if (ctx->pPosition)
+				//	SG_LOG_DEBUG("mouse pos: (%f, %f)", ctx->pPosition->x, ctx->pPosition->y);
+				//SG_LOG_DEBUG("scroll value (%f)", ctx->scrollValue);
+				//if (ctx->pCaptured)
+				//	SG_LOG_DEBUG("is captured (%d)", (int)ctx->pCaptured);
+				//SG_LOG_DEBUG("UI window is captured (%d)", (int)uiMiddleware->IsFocused());
+				return true;
+			},
+			&mUiMiddleware
+		};
+		add_input_action(&inputAction);
 
 		return true;
 	}
@@ -169,7 +193,7 @@ public:
 	{
 		wait_queue_idle(mGraphicQueue);
 
-		InputListener::Exit();
+		exit_input_system();
 
 		mUiMiddleware.OnExit();
 
@@ -257,9 +281,11 @@ public:
 
 	virtual bool OnUpdate(float deltaTime) override
 	{
-		static float degreed = 45.0f;
+		update_input_system(mSettings.width, mSettings.height);
 
-		if (InputListener::IsMousePressed(SG_MOUSE_LEFT) &&
+		//static float degreed = 45.0f;
+
+		/*if (InputListener::IsMousePressed(SG_MOUSE_LEFT) &&
 			InputListener::GetMousePosClient().first >= 0 &&
 			InputListener::GetMousePosClient().first <= mSettings.width &&
 			InputListener::GetMousePosClient().second >= 0 &&
@@ -306,15 +332,12 @@ public:
 		if (InputListener::IsKeyPressed(SG_KEY_O))
 			degreed += deltaTime * 20.0f;
 		if (InputListener::IsKeyPressed(SG_KEY_P))
-			degreed -= deltaTime * 20.0f;
+			degreed -= deltaTime * 20.0f;*/
 
 		mUbo.model = glm::rotate(Matrix4(1.0f), 60.0f, mUpVec);
 		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + glm::normalize(mViewVec), mUpVec);
-		mUbo.projection = glm::perspective(glm::radians(degreed), (float)mSettings.width / (float)mSettings.height,
+		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)mSettings.width / (float)mSettings.height,
 			0.001f, 100000.0f);
-
-		if (InputListener::IsKeyPressed(SG_KEY_ESCAPE))
-			mSettings.quit = true;
 
 		mUiMiddleware.OnUpdate(deltaTime);
 

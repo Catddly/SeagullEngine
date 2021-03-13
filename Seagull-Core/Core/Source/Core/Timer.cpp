@@ -1,6 +1,8 @@
 #include "Interface/ITime.h"
 #include "Interface/IOperatingSystem.h"
 
+#include <timeapi.h>
+
 namespace SG
 {
 

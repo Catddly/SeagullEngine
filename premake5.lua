@@ -18,6 +18,7 @@ IncludeDir["tinyImageFormat"] = "Seagull-Core/Core/Third-party/Include/tinyImage
 IncludeDir["spirv-cross"] = "Seagull-Core/Core/Third-party/Include/spirv-cross"
 IncludeDir["ImGui"] = "Seagull-Core/Core/Third-party/Include/ImGui"
 IncludeDir["fontStash"] = "Seagull-Core/Core/Third-party/Include/fontStash"
+IncludeDir["gainput"] = "Seagull-Core/Core/Third-party/Include/gainput"
 
 -- Renderers
 IncludeDir["RendererVulkan"] = "Seagull-Core/Renderer/Vulkan"
@@ -37,6 +38,7 @@ group ""
 group "Tools"
 
     include "Seagull-Core/Core/Third-party/Include/spirv-cross"
+    include "Seagull-Core/Core/Third-party/Include/gainput"
 
 group ""
 
@@ -75,6 +77,7 @@ project "Seagull-Core"
         "%{IncludeDir.tinyImageFormat}",
         "%{IncludeDir.ImGui}",
         "%{IncludeDir.fontStash}",
+        "%{IncludeDir.gainput}",
         "Seagull-Core/Renderer/IRenderer/"
     }
     
@@ -83,7 +86,8 @@ project "Seagull-Core"
     {
         "mimalloc",
         "eastl",
-        "ImGui"
+        "ImGui",
+        "gainput"
     }
 
 filter "system:windows"

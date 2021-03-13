@@ -8,9 +8,11 @@
 namespace SG
 {
 	
-	enum KeyBindings
+	enum ButtonBindings
 	{
 		SG_KEY_ESCAPE,
+		SG_KEY_FULLSCREEN,
+		SG_KEY_DUMP,
 		SG_KEY_F1,
 		SG_KEY_F2,
 		SG_KEY_F3,
@@ -184,12 +186,9 @@ namespace SG
 		SG_KEY_BRACELEFT,
 		SG_KEY_BRACERIGHT,
 		SG_KEY_SYSRQ,
-		SG_KEY_COUNT
-	};
+		SG_KEY_COUNT,
 
-	enum MouseBindings
-	{
-		SG_MOUSE_LEFT,
+		SG_MOUSE_LEFT = SG_KEY_COUNT,
 		SG_MOUSE_RIGHT,
 		SG_MOUSE_MIDDLE,
 		SG_MOUSE_SCROLL_UP,
@@ -199,32 +198,86 @@ namespace SG
 		SG_MOUSE_5,
 		SG_MOUSE_6,
 		SG_MOUSE_7,
-		SG_MOUSE_COUNT
+		SG_MOUSE_COUNT = SG_MOUSE_7 - SG_KEY_COUNT + 1,
+
+		SG_BUTTON_ANY = SG_MOUSE_7 + 1,
+
+		SG_TEXT
 	};
 
-	typedef uint32_t DeviceId;
-
-	class InputListener : public ISingleton
+	typedef enum InputDeviceType
 	{
-	public:
-		static bool Init(WindowDesc* pWindow);
-		static void Exit();
+		SG_INPUT_DEVICE_INVALID = 0,
+		SG_INPUT_DEVICE_GAMEPAD,
+		SG_INPUT_DEVICE_KEYBOARD,
+		SG_INPUT_DEVICE_MOUSE,
+	} InputDeviceType;
 
-		static bool IsKeyPressed(KeyBindings binding);
-		static bool IsKeyRelease(KeyBindings binding);
+	typedef enum InputActionPhase
+	{
+		/// Action is initiated
+		INPUT_ACTION_PHASE_STARTED = 0,
+		/// Example: mouse delta changed, key pressed, ...
+		INPUT_ACTION_PHASE_PERFORMED,
+		/// Example: left mouse button was pressed and now released, gesture was started but got canceled
+		INPUT_ACTION_PHASE_CANCELED
+	} InputActionPhase;
 
-		static bool IsMousePressed(MouseBindings binding);
-		static bool IsMouseRelease(MouseBindings binding);
+	typedef struct InputActionContext
+	{	
+		/// you can set this to use the data in the callback function
+		void* pUserData;
+		uint32_t bindings;
+		union 
+		{
+			float    value;
+			/// positions or joystick
+			Vec2     value2;
+			Vec3     value3;
+			/// gesture inputs
+			Vec4     value4;
+			/// the state of the buttons
+			bool     isPressed;
+			/// text input
+			wchar_t* text;
+		};
+		Vec2*       pPosition;
+		const bool* pCaptured;
+		float		scrollValue;
 
-		static eastl::pair<float, float> GetMousePosClient();
+		/// What phase is the action currently in
+		/// phase is the usage of the states
+		uint8_t     phase;
+		uint8_t     deviceType;
+	} InputActionContext;
 
-		//static InputListener* GetInstance() { return sInstance; }
-	private:
-		static DeviceId mMouseDeviceId;
-		static DeviceId mKeyboardDeviceId;
+	typedef bool (*InputActionCallback)(InputActionContext* pContext);
 
-		static InputListener* sInstance;
-		WindowDesc* mWindow = nullptr;
+	typedef struct InputActionDesc
+	{
+		/// value for the binding code
+		uint32_t bindings;
+		/// callback when the button state is changed
+		InputActionCallback callback;
+		void*    pUserData;
+		/// which device to apply
+		uint8_t  userId;
+	} InputActionDesc;
+
+	struct InputAction
+	{
+		InputActionDesc desc;
 	};
+
+	bool init_input_system(WindowDesc* pWindow);
+	void exit_input_system();
+	void update_input_system(uint32_t width, uint32_t height);
+	InputAction* add_input_action(const InputActionDesc* pDesc);
+	void remove_input_action(InputAction* pAction);
+
+	/// to capture which window and block other windows event
+	bool set_enable_capture_input(bool enable);
+
+	//void set_on_device_change_callback(void(*onDeviceChnageCallBack)(const char* name, bool added), unsigned int gamePadIndex);
 
 }
