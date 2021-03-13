@@ -4,8 +4,8 @@ workspace "Seagull"
 
     configurations
     {
-        "Debug", 
-		"Release",
+        "Debug-Vulkan", 
+		"Release-Vulkan"
     }
 
 -- Debug-windows-x64
@@ -90,22 +90,23 @@ filter "system:windows"
     {
         "SG_PLATFORM_WINDOWS",
         -- "SG_GRAPHIC_API_D3D12_SUPPORTED",
-        "SG_GRAPHIC_API_VULKAN_SUPPORTED"
     }
 
-filter "configurations:Debug"
+filter "configurations:Debug-Vulkan"
     defines 
     {
         "SG_DEBUG",
         "SG_ENABLE_ASSERT",
+        "SG_GRAPHIC_API_VULKAN"
     }
     runtime "Debug"
     symbols "on"
 
-filter "configurations:Release"
+filter "configurations:Release-Vulkan"
     defines 
     {
         "SG_RELEASE",
+        "SG_GRAPHIC_API_VULKAN"
     }
     runtime "Release"
     optimize "on"
@@ -123,6 +124,25 @@ group "Renderer"
         {
             "Seagull-Core/Renderer/IRenderer/Include/**.h"
         }
+
+        filter "configurations:Debug-Vulkan"
+        defines 
+        {
+            "SG_DEBUG",
+            "SG_ENABLE_ASSERT",
+            "SG_GRAPHIC_API_VULKAN"
+        }
+        runtime "Debug"
+        symbols "on"
+
+        filter "configurations:Release-Vulkan"
+        defines 
+        {
+            "SG_RELEASE",
+            "SG_GRAPHIC_API_VULKAN"
+        }
+        runtime "Release"
+        optimize "on"
 
     include "Seagull-Core/Renderer/Vulkan"
 
@@ -168,13 +188,21 @@ filter "system:windows"
     systemversion "latest"
     defines "SG_PLATFORM_WINDOWS"
 
-filter "configurations:Debug"
-    defines "SG_DEBUG"
+filter "configurations:Debug-Vulkan"
+    defines
+    {
+         "SG_DEBUG",
+         "SG_GRAPHIC_API_VULKAN"
+    }
     runtime "Debug"
     symbols "on"
     -- postbuildcommands { "editbin/subsystem:console $(OutDir)$(ProjectName).exe" } -- enable console
 
-filter "configurations:Release"
-    defines "SG_RELEASE"
+filter "configurations:Release-Vulkan"
+    defines 
+    {
+        "SG_RELEASE",
+        "SG_GRAPHIC_API_VULKAN"
+    }
     runtime "Release"
     optimize "on"

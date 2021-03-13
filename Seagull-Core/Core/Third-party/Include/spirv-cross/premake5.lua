@@ -27,10 +27,10 @@ project "spirv-cross"
 			"_CRT_SECURE_NO_WARNINGS"
 		}
 
-	filter "configurations:Debug"
+	filter "configurations:Debug-Vulkan"
 		runtime "Debug"
 		symbols "on"
 
-	filter "configurations:Release"
+	filter "configurations:Release-Vulkan"
 		runtime "Release"
 		optimize "on"

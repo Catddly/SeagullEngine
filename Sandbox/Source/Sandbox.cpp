@@ -1,4 +1,4 @@
-#define SG_GRAPHIC_API_VULKAN
+
 #include "Seagull.h"
 
 using namespace SG;

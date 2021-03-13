@@ -27,7 +27,7 @@
 
 #include "Math/MathTypes.h"
 
-#include <vulkan/vulkan_core.h>
+//#include <vulkan/vulkan_core.h>
 
 #include "IRenderer.h"
 #include "IResourceLoader.h"

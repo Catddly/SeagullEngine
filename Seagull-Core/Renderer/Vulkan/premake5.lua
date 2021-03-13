@@ -42,7 +42,7 @@ project "RendererVulkan"
 			"SG_PLATFORM_WINDOWS"
 		}
 
-	filter "configurations:Debug"
+	filter "configurations:Debug-Vulkan"
 		defines
 		{
 			"SG_DEBUG",
@@ -51,7 +51,7 @@ project "RendererVulkan"
 		runtime "Debug"
 		symbols "on"
 		
-	filter "configurations:Release"
+	filter "configurations:Release-Vulkan"
 		defines
 		{
 			"SG_RELEASE"

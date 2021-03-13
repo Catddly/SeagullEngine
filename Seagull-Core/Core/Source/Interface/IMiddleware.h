@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../../../Renderer/Vulkan/include/Vulkan/vulkan_core.h"
-#define SG_GRAPHIC_API_VULKAN
 #include "../../../Renderer/IRenderer/Include/IRenderer.h"
 
 #include <stdint.h>

@@ -17,10 +17,6 @@
 
 #include "Math/MathTypes.h"
 
-#ifdef SG_GRAPHIC_API_VULKAN
-	#include "../../Seagull-Core/Renderer/Vulkan/include/vulkan/vulkan_core.h"
-#endif
-
 #include "../../Seagull-Core/Renderer/IRenderer/Include/IRenderer.h"
 #include "../../Seagull-Core/Renderer/IRenderer/Include/IResourceLoader.h"
 

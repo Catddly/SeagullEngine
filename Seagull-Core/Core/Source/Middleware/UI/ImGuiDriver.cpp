@@ -3,8 +3,6 @@
 #include <include/imgui.h>
 #include <include/imgui_internal.h>
 
-#include "../../../../Renderer/Vulkan/include/Vulkan/vulkan_core.h"
-#define SG_GRAPHIC_API_VULKAN
 #include "Include/IRenderer.h"
 #include "Include/IResourceLoader.h"
 

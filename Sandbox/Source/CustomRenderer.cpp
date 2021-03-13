@@ -1,4 +1,3 @@
-#define SG_GRAPHIC_API_VULKAN
 #include "Seagull.h"
 
 using namespace SG;
@@ -141,22 +140,22 @@ public:
 		mCurrentMousePos.x = InputListener::GetMousePosClient().first;
 		mCurrentMousePos.y = InputListener::GetMousePosClient().second;
 
-		if (!mUiMiddleware.OnInit(mRenderer))
-			return false;
-		mUiMiddleware.mShowDemoUiWindow = true;
+		//if (!mUiMiddleware.OnInit(mRenderer))
+		//	return false;
+		//mUiMiddleware.mShowDemoUiWindow = true;
 
-		float dpiScale = get_dpi_scale().x;
-		Vec2  UIPosition = { mSettings.width * 0.01f, mSettings.height * 0.30f };
-		Vec2  UIPanelSize = Vec2(1000.f, 1000.f) / dpiScale;
-		GuiCreateDesc guiDesc(UIPosition, UIPanelSize);
-		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow", &guiDesc);
+		//float dpiScale = get_dpi_scale().x;
+		//Vec2  UIPosition = { mSettings.width * 0.01f, mSettings.height * 0.30f };
+		//Vec2  UIPanelSize = Vec2(1000.f, 1000.f) / dpiScale;
+		//GuiCreateDesc guiDesc(UIPosition, UIPanelSize);
+		//mMainGui = mUiMiddleware.AddGuiComponent("TestWindow", &guiDesc);
 
 		return true;
 	}
 
 	virtual void OnExit() override
 	{
-		mUiMiddleware.OnExit();
+		//mUiMiddleware.OnExit();
 
 		InputListener::Exit();
 
@@ -203,10 +202,9 @@ public:
 		if (!CreateSwapChain())
 			return false;
 
-		mUiMiddleware.OnLoad(mSwapChain->ppRenderTargets);
+		//mUiMiddleware.OnLoad(mSwapChain->ppRenderTargets);
 
 		wait_for_all_resource_loads();
-
 
 		if (!CreateGraphicPipeline())
 			return false;
@@ -229,7 +227,7 @@ public:
 
 	virtual bool OnUnload() override
 	{
-		mUiMiddleware.OnUnload();
+		//mUiMiddleware.OnUnload();
 
 		wait_queue_idle(mGraphicQueue);
 
@@ -305,7 +303,7 @@ public:
 		if (InputListener::IsKeyPressed(SG_KEY_ESCAPE))
 			mSettings.quit = true;
 
-		mUiMiddleware.OnUpdate(deltaTime);
+		//mUiMiddleware.OnUpdate(deltaTime);
 
 		return true;
 	}
@@ -377,8 +375,8 @@ public:
 			cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
 		}
 
-		mUiMiddleware.AddUpdateGui(mMainGui);
-		mUiMiddleware.OnDraw(cmd);
+		//mUiMiddleware.AddUpdateGui(mMainGui);
+		//mUiMiddleware.OnDraw(cmd);
 
 		// end the render pass
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);

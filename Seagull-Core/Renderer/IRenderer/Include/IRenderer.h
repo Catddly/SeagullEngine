@@ -47,6 +47,14 @@ enum
 	#endif
 #endif
 
+#ifdef SG_GRAPHIC_API_VULKAN
+//#define VK_NO_PROTOTYPES
+	#include "../../Vulkan/include/Vulkan/vulkan_core.h"
+	#ifdef SG_PLATFORM_WINDOWS
+		#include "../../Vulkan/include/Vulkan/vulkan_win32.h"
+	#endif
+#endif
+
 namespace SG
 {
 

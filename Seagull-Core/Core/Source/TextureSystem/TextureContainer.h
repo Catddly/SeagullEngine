@@ -916,7 +916,7 @@ if (!(exp))                   \
 		uint32_t componentCount;
 	};
 
-#define SG_GRAPHIC_API_VULKAN
+
 
 #if defined(SG_GRAPHIC_API_D3D12) || defined(SG_GRAPHIC_API_VULKAN)
 	static bool load_svt_texture(FileStream* pStream, TextureCreateDesc* pOutDesc)

@@ -28,7 +28,7 @@ project "eastl"
 			"_CRT_SECURE_NO_WARNINGS"
 		}
 
-	filter "configurations:Debug"
+	filter "configurations:Debug-Vulkan"
 		runtime "Debug"
 		symbols "on"
 		-- enable if you want to build a dll
@@ -38,7 +38,7 @@ project "eastl"
 		-- 	("copy /Y " .. copylibdir .. "$(ProjectName)-redirect.dll\" " .. copydstdir .."")
 		-- }
 
-	filter "configurations:Release"
+	filter "configurations:Release-Vulkan"
 		runtime "Release"
 		optimize "on"
 		-- postbuildcommands

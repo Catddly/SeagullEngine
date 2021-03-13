@@ -8,10 +8,6 @@
 
 #include <include/tinyimageformat_query.h>
 
-//#define VK_NO_PROTOTYPES
-#include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_win32.h>
-
 #include "IRenderer.h"
 
 #include "Interface/ILog.h"

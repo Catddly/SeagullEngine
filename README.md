@@ -39,6 +39,10 @@ Open the solution file, build the whole solution and you are ready to go!
 - Easy to use Editor  
 - 2D Renderer branch for 2D games
 
+## Dependencies
+
+VulkanSDK(at least version 1.2 or higher)
+
 ## 简介
 
 目前引擎任然属于最基础的beta阶段，正在努力开发中。  

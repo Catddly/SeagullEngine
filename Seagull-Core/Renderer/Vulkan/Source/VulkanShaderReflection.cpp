@@ -1,7 +1,3 @@
-#ifdef SG_GRAPHIC_API_VULKAN
-#include <vulkan/vulkan_core.h>
-#endif
-
 #include "IRenderer.h"
 
 #include <include/SpirvTools.h>
