@@ -29,9 +29,9 @@ struct PS_INPUT
 PS_INPUT HLSLmain(VS_INPUT input0)
 {
     PS_INPUT output0;
-    ((output0).pos = ((ProjectionMatrix)*(vec4(((input0).pos).xy, 0.0, 1.0))));
-    ((output0).col = (input0).col);
-    ((output0).uv = (input0).uv);
+    output0.pos = ProjectionMatrix * vec4((input0.pos).xy, 0.0, 1.0);
+    output0.col = input0.col;
+    output0.uv =  input0.uv;
     return output0;
 }
 

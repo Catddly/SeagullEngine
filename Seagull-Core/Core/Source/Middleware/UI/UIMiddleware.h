@@ -3,17 +3,23 @@
 #include "Interface/IMiddleware.h"
 #include "Widget.h"
 
+#include "Text/FontStash.h"
+
 namespace SG
 {
+
+	struct Shader;
 
 	typedef struct GuiCreateDesc
 	{
 		GuiCreateDesc(
-			const Vec2& startPos = { 0.0f, 150.0f }, const Vec2& startSize = { 600.0f, 550.0f })
+			const Vec2& startPos = { 0.0f, 150.0f }, const Vec2& startSize = { 600.0f, 550.0f },
+			const TextDrawDesc& textDrawDesc = { 0, 0xffffffff, 16 })
 			: startPosition(startPos), startSize(startSize) {}
 
 		Vec2 startPosition;
 		Vec2 startSize;
+		TextDrawDesc defaultTextDrawDesc;
 	} GuiCreateDesc;
 
 	enum GuiFlags
@@ -158,7 +164,8 @@ namespace SG
 
 	struct UIAppImpl
 	{
-		Renderer* pRenderer;
+		Renderer*  pRenderer;
+		FontStash* pFontStash;
 
 		eastl::vector<GuiComponent*> components;
 		eastl::vector<GuiComponent*> componentsToUpdate;
@@ -179,7 +186,7 @@ namespace SG
 		virtual bool OnUpdate(float deltaTime) override;
 		virtual bool OnDraw(Cmd* pCmd) override;
 
-		//unsigned int LoadFont(const char* filepath);
+		unsigned int LoadFont(const char* filepath);
 
 		GuiComponent* AddGuiComponent(const char* pTitle, const GuiCreateDesc* pDesc);
 		void          RemoveGuiComponent(GuiComponent* pComponent);
@@ -187,7 +194,18 @@ namespace SG
 
 		void          AddUpdateGui(GuiComponent* pGui);
 
-		void    DummyFunc(RenderTarget* rt);
+		// given a text and TextDrawDesc, this function returns the width and height of the printed text in pixels.
+		Vec2 MeasureText(const char* pText, const TextDrawDesc& drawDesc) const;
+
+		// draws the @pText on screen using the @drawDesc descriptor and @screenCoordsInPx.
+		//
+		// Note:
+		// @screenCoordsInPx: (0,0)                       is top left corner of the screen,
+		//                    (screenWidth, screenHeight) is bottom right corner of the screen
+		void OnDrawText(Cmd* cmd, const Vec2& screenCoordsInPx, const char* pText, const TextDrawDesc* pDrawDesc = nullptr) const;
+
+		// draws the @pText in world space by using the linear transformation pipeline.
+		void OnDrawTextInWorldSpace(Cmd* pCmd, const char* pText, const Matrix4& matWorld, const Matrix4& matProjView, const TextDrawDesc* pDrawDesc = nullptr);
 
 		bool    OnText(const wchar_t* pText) { return pDriver->OnText(pText); }
 		bool    OnButton(uint32_t button, bool press, const Vec2* vec) { return pDriver->OnButton(button, press, vec); }
@@ -205,8 +223,8 @@ namespace SG
 		float mWidth;
 		float mHeight;
 		int32_t  mFontAtlasSize = 0;
-		uint32_t mMaxDynamicUIUpdatesPerBatch = 20;
 		uint32_t mFontStashRingSizeBytes = 0;
+		uint32_t mMaxDynamicUIUpdatesPerBatch = 20;
 	};
 
 }

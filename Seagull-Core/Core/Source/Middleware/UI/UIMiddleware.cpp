@@ -1,12 +1,15 @@
 #include "Interface/ILog.h"
 
 #include "UIMiddleware.h"
+#include "include/IRenderer.h"
 
 namespace SG
 {
 
 	extern void init_gui_driver(GUIDriver** ppDriver);
 	extern void delete_gui_driver(GUIDriver* pDriver);
+
+	static TextDrawDesc gDefaultTextDrawDesc = TextDrawDesc(0, 0xffffffff, 16); // use the first font with white color and size of 16
 
 	UIMiddleware::UIMiddleware(int32_t const fontAtlasSize, uint32_t const maxDynamicUIUpdatesPerBatch, uint32_t const fontStashRingSizeBytes)
 		:mFontAtlasSize(fontAtlasSize), mMaxDynamicUIUpdatesPerBatch(maxDynamicUIUpdatesPerBatch), mFontStashRingSizeBytes(fontStashRingSizeBytes)
@@ -21,8 +24,15 @@ namespace SG
 		pImpl->pRenderer = pRenderer;// renderer receive from outer space
 		pDriver = nullptr;
 
+		// Initialize the fontstash
+		//
+		// To support more characters and different font configurations
+		// the app will need more memory for the fontstash atlas.
 		if (mFontAtlasSize <= 0) // then we assume we'll only draw debug text in the UI, in which case the atlas size can be kept small
 			mFontAtlasSize = 256;
+
+		pImpl->pFontStash = sg_new(FontStash);
+		bool success = pImpl->pFontStash->OnInit(pRenderer, mFontAtlasSize, mFontAtlasSize, mFontStashRingSizeBytes);
 
 		init_gui_driver(&pDriver);
 		if (pCustomShader)
@@ -34,6 +44,10 @@ namespace SG
 	void UIMiddleware::OnExit()
 	{
 		RemoveAllGuiComponents();
+
+		pImpl->pFontStash->OnExit();
+		sg_delete(pImpl->pFontStash);
+		pImpl->pFontStash = NULL;
 
 		pDriver->OnExit();
 		delete_gui_driver(pDriver);
@@ -49,14 +63,17 @@ namespace SG
 
 		mWidth = (float)ppRenderTargets[0]->width;
 		mHeight = (float)ppRenderTargets[0]->height;
-		SG_LOG_DEBUG("width: %f, heihgt: %f", mWidth, mHeight);
 
-		return pDriver->OnLoad(ppRenderTargets, renderTargetCount);
+		bool isSuccess = pDriver->OnLoad(ppRenderTargets, renderTargetCount);
+		isSuccess &= pImpl->pFontStash->OnLoad(ppRenderTargets, renderTargetCount, nullptr);
+
+		return isSuccess;
 	}
 
 	void UIMiddleware::OnUnload()
 	{
 		pDriver->OnUnload();
+		pImpl->pFontStash->OnUnload();
 	}
 
 	bool UIMiddleware::OnUpdate(float deltaTime)
@@ -90,18 +107,26 @@ namespace SG
 		return true;
 	}
 
-	//unsigned int UIMiddleware::LoadFont(const char* filepath)
-	//{
-	//	return 0;
-	//}
+	unsigned int UIMiddleware::LoadFont(const char* filepath)
+	{
+		uint32_t fontID = (uint32_t)pImpl->pFontStash->DefineFont("default", filepath);
+		ASSERT(fontID != -1);
+
+		return fontID;
+	}
 
 	SG::GuiComponent* UIMiddleware::AddGuiComponent(const char* pTitle, const GuiCreateDesc* pDesc)
 	{
 		GuiComponent* pComponent = sg_placement_new<GuiComponent>(sg_calloc(1, sizeof(GuiComponent)));
 		pComponent->hasCloseButton = false;
 		pComponent->flags = SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
-		pComponent->initialWindowRect = { pDesc->startPosition.x, pDesc->startPosition.y, pDesc->startSize.x, pDesc->startSize.y };
 
+		void* pFontBuffer = pImpl->pFontStash->GetFontBuffer(pDesc->defaultTextDrawDesc.fontID);
+		uint32_t fontBufferSize = pImpl->pFontStash->GetFontBufferSize(pDesc->defaultTextDrawDesc.fontID);
+		if (pFontBuffer)
+			pDriver->AddFont(pFontBuffer, fontBufferSize, nullptr, pDesc->defaultTextDrawDesc.fontSize, &pComponent->font);
+
+		pComponent->initialWindowRect = { pDesc->startPosition.x, pDesc->startPosition.y, pDesc->startSize.x, pDesc->startSize.y };
 		pComponent->isActive = true;
 		pComponent->title = pTitle;
 		pComponent->alpha = 1.0f;
@@ -148,13 +173,27 @@ namespace SG
 		pImpl->componentsToUpdate.emplace_back(pGui);
 	}
 
-	void UIMiddleware::DummyFunc(RenderTarget* rt)
+	SG::Vec2 UIMiddleware::MeasureText(const char* pText, const TextDrawDesc& drawDesc) const
 	{
-		uint32_t w = rt->width;
-		uint32_t h = rt->height;
+		float textBounds[4] = {};
+		pImpl->pFontStash->MeasureText(
+			textBounds, pText, 0, 0, drawDesc.fontID, drawDesc.fontColor, drawDesc.fontSize, drawDesc.fontSpacing, drawDesc.fontBlur);
+		return Vec2(textBounds[2] - textBounds[0], textBounds[3] - textBounds[1]); // width and height
+	}
 
-		SG_LOG_DEBUG("Width: %d", rt->width);
-		SG_LOG_DEBUG("Height: %d", rt->height);
+	void UIMiddleware::OnDrawText(Cmd* cmd, const Vec2& screenCoordsInPx, const char* pText, const TextDrawDesc* pDrawDesc) const
+	{
+		const TextDrawDesc* pDesc = pDrawDesc ? pDrawDesc : &gDefaultTextDrawDesc;
+		pImpl->pFontStash->OnDrawText(
+			cmd, pText, screenCoordsInPx.x, screenCoordsInPx.y, pDesc->fontID, pDesc->fontColor, pDesc->fontSize,
+			pDesc->fontSpacing, pDesc->fontBlur);
+	}
+					   
+	void UIMiddleware::OnDrawTextInWorldSpace(Cmd* pCmd, const char* pText, const Matrix4& matWorld, const Matrix4& matProjView, const TextDrawDesc* pDrawDesc /*= nullptr*/)
+	{
+		const TextDrawDesc* pDesc = pDrawDesc ? pDrawDesc : &gDefaultTextDrawDesc;
+		pImpl->pFontStash->OnDrawText(
+			pCmd, pText, matProjView, matWorld, pDesc->fontID, pDesc->fontColor, pDesc->fontSize, pDesc->fontSpacing, pDesc->fontBlur);
 	}
 
 	IWidget* GuiComponent::AddWidget(const IWidget& widget, bool clone /* = true*/)

@@ -22,24 +22,15 @@
  * under the License.
 */
 
-
-
 #version 450 core
 
-layout(location = 0) in vec2 Position;
-layout(location = 1) in vec2 Texcoord;
-layout(location = 0) out vec2 vertOutput_TEXCOORD0;
+layout(location = 0) in vec2 fragInput_TEXCOORD0;
+layout(location = 0) out vec4 rast_FragData0; 
 
-struct VsIn
-{
-    vec2 position;
-    vec2 texcoord;
-};
-
-struct VsOut
+struct PsIn
 {
     vec4 position;
-    vec2 texcoord;
+    vec2 texCoord;
 };
 
 layout(push_constant) uniform uRootConstants_Block
@@ -48,20 +39,19 @@ layout(push_constant) uniform uRootConstants_Block
     vec2 scaleBias;
 } uRootConstants;
 
-VsOut HLSLmain(VsIn input0)
+layout(set = 0, binding = 2) uniform texture2D uTex0;
+layout(set = 0, binding = 3) uniform sampler uSampler0;
+
+vec4 HLSLmain(PsIn In)
 {
-    VsOut output0;
-    ((output0).position = vec4(((((input0).position).xy * (uRootConstants.scaleBias).xy) + vec2((-1.0), 1.0)), 0.0, 1.0));
-    ((output0).texcoord = (input0).texcoord);
-    return output0;
+    return (vec4(1.0, 1.0, 1.0, (texture(sampler2D( uTex0, uSampler0), vec2((In).texCoord))).r) * uRootConstants.color);
 }
 
 void main()
 {
-    VsIn input0;
-    input0.position = Position;
-    input0.texcoord = Texcoord;
-    VsOut result = HLSLmain(input0);
-    gl_Position = result.position;
-    vertOutput_TEXCOORD0 = result.texcoord;
+    PsIn In;
+    In.position = vec4(gl_FragCoord.xyz, 1.0 / gl_FragCoord.w);
+    In.texCoord = fragInput_TEXCOORD0;
+    vec4 result = HLSLmain(In);
+    rast_FragData0 = result;
 }

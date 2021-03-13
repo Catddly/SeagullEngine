@@ -17,6 +17,7 @@ IncludeDir["glm"] = "Seagull-Core/Core/Third-party/Include/glm"
 IncludeDir["tinyImageFormat"] = "Seagull-Core/Core/Third-party/Include/tinyImageFormat"
 IncludeDir["spirv-cross"] = "Seagull-Core/Core/Third-party/Include/spirv-cross"
 IncludeDir["ImGui"] = "Seagull-Core/Core/Third-party/Include/ImGui"
+IncludeDir["fontStash"] = "Seagull-Core/Core/Third-party/Include/fontStash"
 
 -- Renderers
 IncludeDir["RendererVulkan"] = "Seagull-Core/Renderer/Vulkan"
@@ -73,6 +74,7 @@ project "Seagull-Core"
         "%{IncludeDir.glm}",
         "%{IncludeDir.tinyImageFormat}",
         "%{IncludeDir.ImGui}",
+        "%{IncludeDir.fontStash}",
         "Seagull-Core/Renderer/IRenderer/"
     }
     

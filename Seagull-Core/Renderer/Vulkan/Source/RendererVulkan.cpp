@@ -6395,7 +6395,7 @@ void cmd_resource_barrier(Cmd* pCmd,
 
 		pPipeline->type = SG_PIPELINE_TYPE_GRAPHICS;
 
-		// Create tempporary renderpass for pipeline creation
+		// Create temporary renderpass for pipeline creation
 		SG_DECLARE_ZERO(RenderPassCreateDesc, renderPassDesc);
 		RenderPass* pRenderPass = nullptr;
 		renderPassDesc.renderTargetCount = pDesc->renderTargetCount;

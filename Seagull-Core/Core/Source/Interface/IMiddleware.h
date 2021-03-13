@@ -1,16 +1,13 @@
 #pragma once
 
-#include "../../../Renderer/IRenderer/Include/IRenderer.h"
-
 #include <stdint.h>
 
 namespace SG
 {
 
-	//__declspec(align(64)) struct Renderer;
-	//__declspec(align(64)) struct RenderTarget;
-	//__declspec(align(64)) struct Cmd;
-	//struct SwapChain;
+	struct Renderer;
+	struct RenderTarget;
+	struct Cmd;
 
 	class IMiddleware
 	{

@@ -24,8 +24,7 @@
 
 #include "Interface/IMemory.h"
 
-
-#ifndef SG_MEMORY_MANAGEMENT
+#ifndef SG_CUSTOM_MEMORY_MANAGEMENT
 #ifndef malloc
 #define malloc(size) static_assert(false, "Please use sg_malloc");
 #endif
@@ -49,6 +48,6 @@
 #endif
 #endif
 
-#ifdef SG_MEMORY_MANAGEMENT
-#undef SG_MEMORY_MANAGEMENT
-#endif
+//#ifdef SG_CUSTOM_MEMORY_MANAGEMENT
+//#undef SG_CUSTOM_MEMORY_MANAGEMENT
+//#endif

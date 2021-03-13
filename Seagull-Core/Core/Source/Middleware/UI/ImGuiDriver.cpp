@@ -126,6 +126,8 @@ namespace SG
 		static void* alloc_func(size_t size, void* pUserData) { return sg_malloc(size); }
 		static void  free_func(void* ptr, void* pUserData) { sg_free(ptr); }
 	protected:
+		void SetSeagullStyleColor();
+	protected:
 		static const uint32_t MAX_FRAMES = 2;
 
 		ImGuiContext* pImGuiContext;
@@ -216,7 +218,6 @@ namespace SG
 			ShaderLoadDesc shaderDesc = {};
 			shaderDesc.stages[0] = { "ImGuiShader/imgui.vert", nullptr, 0, nullptr };
 			shaderDesc.stages[1] = { "ImGuiShader/imgui.frag", nullptr, 0, nullptr };
-			shaderDesc.target = SG_SHADER_TARGET_6_3;
 			add_shader(pRenderer, &shaderDesc, &pShaderTextured);
 		}
 
@@ -234,7 +235,7 @@ namespace SG
 
 		BufferLoadDesc vbDesc = {};
 		vbDesc.desc.descriptors = SG_DESCRIPTOR_TYPE_VERTEX_BUFFER;
-		vbDesc.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU; // not use staging buffer here
+		vbDesc.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
 		vbDesc.desc.size = VERTEX_BUFFER_SIZE * MAX_FRAMES;
 		vbDesc.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT;
 		vbDesc.ppBuffer = &pVertexBuffer;
@@ -268,51 +269,43 @@ namespace SG
 		mVertexLayoutTextured.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
 		mVertexLayoutTextured.attribs[1].binding = 0;
 		mVertexLayoutTextured.attribs[1].location = 1;
-		mVertexLayoutTextured.attribs[1].offset = TinyImageFormat_BitSizeOfBlock(mVertexLayoutTextured.attribs[0].format) / 8;
+		mVertexLayoutTextured.attribs[1].offset = 2 * sizeof(float);
 
 		mVertexLayoutTextured.attribs[2].semantic = SG_SEMANTIC_COLOR;
 		mVertexLayoutTextured.attribs[2].format = TinyImageFormat_R8G8B8A8_UNORM;
 		mVertexLayoutTextured.attribs[2].binding = 0;
 		mVertexLayoutTextured.attribs[2].location = 2;
-		mVertexLayoutTextured.attribs[2].offset = mVertexLayoutTextured.attribs[1].offset + TinyImageFormat_BitSizeOfBlock(mVertexLayoutTextured.attribs[1].format) / 8;
+		mVertexLayoutTextured.attribs[2].offset = 4 * sizeof(float);
 
 		mDpiScale = get_dpi_scale();
 
-		// ImGui init
-		//ImGui::SetAllocatorFunctions(alloc_func, free_func);
-		//pImGuiContext = ImGui::CreateContext();
-		//ImGui::SetCurrentContext(pImGuiContext);
+		/// init UI
+		ImGui::SetAllocatorFunctions(alloc_func, free_func);
+		pImGuiContext = ImGui::CreateContext();
+		ImGui::SetCurrentContext(pImGuiContext);
 
-		//ImGui::StyleColorsLight();
+		ImGui::StyleColorsLight();
+		SetSeagullStyleColor();
 
-		//ImGuiIO& io = ImGui::GetIO();
-		//io.NavActive = true;
-		//io.WantCaptureMouse = false;
-		//io.KeyMap[ImGuiKey_Backspace] = SG_KEY_BACK;
-		//io.KeyMap[ImGuiKey_LeftArrow] = SG_KEY_LEFT;
-		//io.KeyMap[ImGuiKey_RightArrow] = SG_KEY_RIGHT;
-		//io.KeyMap[ImGuiKey_Home] = SG_KEY_HOME;
-		//io.KeyMap[ImGuiKey_End] = SG_KEY_END;
-		//io.KeyMap[ImGuiKey_Delete] = SG_KEY_DELETE;
+		ImGuiIO& io = ImGui::GetIO();
+		io.NavActive = true;
+		io.WantCaptureMouse = false;
+		io.KeyMap[ImGuiKey_Backspace] = SG_KEY_BACK;
+		io.KeyMap[ImGuiKey_LeftArrow] = SG_KEY_LEFT;
+		io.KeyMap[ImGuiKey_RightArrow] = SG_KEY_RIGHT;
+		io.KeyMap[ImGuiKey_Home] = SG_KEY_HOME;
+		io.KeyMap[ImGuiKey_End] = SG_KEY_END;
+		io.KeyMap[ImGuiKey_Delete] = SG_KEY_DELETE;
 
-		//for (uint32_t i = 0; i < MAX_FRAMES; ++i)
-		//{
-		//	DescriptorData params[1] = {};
-		//	params[0].name = "uniformBlockVS";
-		//	params[0].ppBuffers = &pUniformBuffer[i];
-		//	update_descriptor_set(pRenderer, i, pDescriptorSetUniforms, 1, params); // update ubo
-		//}
+		io.KeyMap[ImGuiMouseButton_Left] = SG_MOUSE_LEFT;
 
-		//// add default fonts to ImGui
-		////io.Fonts->AddFontFromFileTTF("../Resources/Fonts/Source_Sans_Pro/SourceSansPro-Bold.ttf", 20.f);
-		//ImFont* myRegularFont = io.Fonts->AddFontFromFileTTF("../Resources/Fonts/Source_Sans_Pro/SourceSansPro-Regular.ttf", 20.0f);
-		//io.FontDefault = myRegularFont;
-
-		//int            width, height;
-		//int            bytesPerPixel;
-		//unsigned char* pixels = nullptr;
-		//io.Fonts->Build();
-		//io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height, &bytesPerPixel);
+		for (uint32_t i = 0; i < MAX_FRAMES; ++i)
+		{
+			DescriptorData params[1] = {};
+			params[0].name = "uniformBlockVS";
+			params[0].ppBuffers = &pUniformBuffer[i];
+			update_descriptor_set(pRenderer, i, pDescriptorSetUniforms, 1, params);
+		}
 
 		return true;
 	}
@@ -694,8 +687,9 @@ namespace SG
 		cmd_set_viewport(pCmd, 0.0f, 0.0f, drawData->DisplaySize.x, drawData->DisplaySize.y, 0.0f, 1.0f);
 		cmd_set_scissor(pCmd, (uint32_t)drawData->DisplayPos.x, (uint32_t)drawData->DisplayPos.y, (uint32_t)drawData->DisplaySize.x,
 			(uint32_t)drawData->DisplaySize.y);
+
 		cmd_bind_pipeline(pCmd, pPipeline);
-		cmd_bind_index_buffer(pCmd, pIndexBuffer, SG_INDEX_TYPE_UINT16, iOffset);
+		cmd_bind_index_buffer(pCmd, pIndexBuffer, SG_INDEX_TYPE_UINT32, iOffset);
 		cmd_bind_vertex_buffer(pCmd, 1, &pVertexBuffer, &vertexStride, &vOffset);
 
 		cmd_bind_descriptor_set(pCmd, mFrameIndex, pDescriptorSetUniforms);
@@ -897,6 +891,40 @@ namespace SG
 		}
 
 		return inputState;
+	}
+
+	void ImGuiGuiDriver::SetSeagullStyleColor()
+	{
+		auto& colors = ImGui::GetStyle().Colors;
+		colors[ImGuiCol_WindowBg] = ImVec4{ 0.973f, 0.976f, 0.980f, 1.0f };
+
+		// Headers
+		// ImVec4{ 0.2f, 0.205f, 0.21f, 1.0f };
+		colors[ImGuiCol_Header] = ImVec4{ 0.992f, 0.886f, 0.894f, 1.0f };
+		colors[ImGuiCol_HeaderHovered] = ImVec4{ 0.980f, 0.824f, 0.882f, 1.0f };
+		colors[ImGuiCol_HeaderActive] = ImVec4{ 1.0f, 0.686f, 0.8f, 1.0f };
+
+		// Buttons
+		colors[ImGuiCol_Button] = ImVec4{ 0.796f, 0.952f, 0.941f, 1.0f };
+		colors[ImGuiCol_ButtonHovered] = ImVec4{ 0.745f, 0.953f, 0.941f, 1.0f };
+		colors[ImGuiCol_ButtonActive] = ImVec4{ 0.745f, 0.953f, 0.941f, 1.0f };
+
+		// Frame BG
+		colors[ImGuiCol_FrameBg] = ImVec4{ 0.973f, 0.986f, 0.992f, 1.0f };
+		colors[ImGuiCol_FrameBgHovered] = ImVec4{ 0.804f, 0.855f, 0.992f, 1.0f };
+		colors[ImGuiCol_FrameBgActive] = ImVec4{ 0.804f, 0.855f, 0.992f, 1.0f };
+
+		// Tabs
+		colors[ImGuiCol_Tab] = ImVec4{ 0.85f, 0.98f, 1.0f, 1.0f };
+		colors[ImGuiCol_TabHovered] = ImVec4{ 0.118f, 0.588f, 0.988f, 1.0f };
+		colors[ImGuiCol_TabActive] = ImVec4{ 0.15f, 0.9f, 0.91f, 1.0f };
+		colors[ImGuiCol_TabUnfocused] = ImVec4{ 0.15f, 0.905f, 0.951f, 1.0f };
+		colors[ImGuiCol_TabUnfocusedActive] = ImVec4{ 0.804f, 0.855f, 0.992f, 1.0f };
+
+		// Title
+		colors[ImGuiCol_TitleBg] = ImVec4{ 0.9f, 1.0f, 1.0f, 1.0f };
+		colors[ImGuiCol_TitleBgActive] = ImVec4{ 0.79f, 1.0f, 1.0f, 1.0f };
+		colors[ImGuiCol_TitleBgCollapsed] = ImVec4{ 0.9f, 0.1505f, 0.9f, 1.0f };
 	}
 
 	void init_gui_driver(GUIDriver** ppDriver)

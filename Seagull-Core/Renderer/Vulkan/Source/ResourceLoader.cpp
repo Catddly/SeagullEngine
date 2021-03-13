@@ -5,7 +5,6 @@
 
 //#define TINYKTX_IMPLEMENTATION
 //#include "../ThirdParty/OpenSource/tinyktx/tinyktx.h"
-//
 //#include "../ThirdParty/OpenSource/basis_universal/transcoder/basisu_transcoder.h"
 
 #define CGLTF_IMPLEMENTATION
@@ -26,8 +25,6 @@
 //#endif
 
 #include "Math/MathTypes.h"
-
-//#include <vulkan/vulkan_core.h>
 
 #include "IRenderer.h"
 #include "IResourceLoader.h"

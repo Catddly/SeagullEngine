@@ -77,7 +77,7 @@ namespace SG
 		}
 		else
 		{
-			SG_LOG_ERROR("Error opening file: %s -- %s (error: %s)", filePath, modeStr, strerror(errno));
+			SG_LOG_WARNING("Error opening file: %s -- %s (error: %s)", filePath, modeStr, strerror(errno));
 		}
 		return false;
 	}

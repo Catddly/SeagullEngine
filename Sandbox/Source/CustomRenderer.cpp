@@ -35,7 +35,7 @@ public:
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_GPU_CONFIG, "GPUfg");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_TEXTURES, "../../../Resources/Textures");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_MESHES, "../../../Resources/Meshes");
-		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_FONTS, "Fonts");
+		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_FONTS, "../../../Resources/Fonts");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_ANIMATIONS, "Animation");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SCRIPTS, "Scripts");
 
@@ -136,30 +136,42 @@ public:
 			add_resource(&uboCreate, nullptr);
 		}
 
+		if (!mUiMiddleware.OnInit(mRenderer))
+			return false;
+
+		mUiMiddleware.LoadFont("Source_Sans_Pro/SourceSansPro-Regular.ttf");
+		mUiMiddleware.LoadFont("Source_Sans_Pro/SourceSansPro-Bold.ttf");
+		TextDrawDesc UITextDesc;
+		UITextDesc.fontID = 0;
+		UITextDesc.fontColor = 0xffff00ff;
+		UITextDesc.fontSize = 18.0f;
+
+		float dpiScale = get_dpi_scale().x;
+		Vec2  UIPosition = { 0.0f, 0.0f };
+		Vec2  UIPanelSize = { 640.0f, 340.0f };
+		GuiCreateDesc guiDesc;
+		guiDesc.startPosition = UIPosition;
+		guiDesc.startSize = UIPanelSize;
+		guiDesc.defaultTextDrawDesc = UITextDesc;
+		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow", &guiDesc);
+		mMainGui->AddWidget(LabelWidget("Hello World!"));
+
+		mUiMiddleware.mShowDemoUiWindow = true;
+
 		InputListener::Init(mWindow);
 		mCurrentMousePos.x = InputListener::GetMousePosClient().first;
 		mCurrentMousePos.y = InputListener::GetMousePosClient().second;
-
-		//if (!mUiMiddleware.OnInit(mRenderer))
-		//	return false;
-		//mUiMiddleware.mShowDemoUiWindow = true;
-
-		//float dpiScale = get_dpi_scale().x;
-		//Vec2  UIPosition = { mSettings.width * 0.01f, mSettings.height * 0.30f };
-		//Vec2  UIPanelSize = Vec2(1000.f, 1000.f) / dpiScale;
-		//GuiCreateDesc guiDesc(UIPosition, UIPanelSize);
-		//mMainGui = mUiMiddleware.AddGuiComponent("TestWindow", &guiDesc);
 
 		return true;
 	}
 
 	virtual void OnExit() override
 	{
-		//mUiMiddleware.OnExit();
+		wait_queue_idle(mGraphicQueue);
 
 		InputListener::Exit();
 
-		wait_queue_idle(mGraphicQueue);
+		mUiMiddleware.OnExit();
 
 		remove_resource(mTexture);
 		remove_resource(mRoomGeo);
@@ -202,9 +214,10 @@ public:
 		if (!CreateSwapChain())
 			return false;
 
-		//mUiMiddleware.OnLoad(mSwapChain->ppRenderTargets);
-
 		wait_for_all_resource_loads();
+
+		if (!mUiMiddleware.OnLoad(mSwapChain->ppRenderTargets))
+			return false;
 
 		if (!CreateGraphicPipeline())
 			return false;
@@ -227,9 +240,9 @@ public:
 
 	virtual bool OnUnload() override
 	{
-		//mUiMiddleware.OnUnload();
-
 		wait_queue_idle(mGraphicQueue);
+
+		mUiMiddleware.OnUnload();
 
 		remove_render_target(mRenderer, mDepthBuffer);
 
@@ -303,7 +316,7 @@ public:
 		if (InputListener::IsKeyPressed(SG_KEY_ESCAPE))
 			mSettings.quit = true;
 
-		//mUiMiddleware.OnUpdate(deltaTime);
+		mUiMiddleware.OnUpdate(deltaTime);
 
 		return true;
 	}
@@ -355,30 +368,30 @@ public:
 
 		// begin render pass
 		cmd_bind_render_targets(cmd, 1, &renderTarget, mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
-		cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
-		cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
+			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
+			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 		
-		cmd_bind_pipeline(cmd, mPipeline);
-		cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
-		cmd_bind_descriptor_set(cmd, mCurrentIndex, mUboDescriptorSet);
+			cmd_bind_pipeline(cmd, mPipeline);
+			cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
+			cmd_bind_descriptor_set(cmd, mCurrentIndex, mUboDescriptorSet);
 
-		//cmd_bind_index_buffer(cmd, mIndexBuffer, SG_INDEX_TYPE_UINT32, 0);
-		//cmd_bind_vertex_buffer(cmd, 1, &mVertexBuffer, &stride, nullptr);
+			cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
+			Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
+			cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mRoomGeo->vertexStrides, nullptr);
 
-		cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
-		Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
-		cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mRoomGeo->vertexStrides, nullptr);
+			for (uint32_t i = 0; i < mRoomGeo->drawArgCount; i++)
+			{	
+				IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
+				cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
+			}
+		cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
 
-		for (uint32_t i = 0; i < mRoomGeo->drawArgCount; i++)
-		{	
-			IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
-			cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
-		}
+		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
+			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
+			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
-		//mUiMiddleware.AddUpdateGui(mMainGui);
-		//mUiMiddleware.OnDraw(cmd);
-
-		// end the render pass
+			mUiMiddleware.AddUpdateGui(mMainGui);
+			mUiMiddleware.OnDraw(cmd);
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
 
 		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_PRESENT };

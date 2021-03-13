@@ -16,7 +16,7 @@ layout(set = 0, binding = 2) uniform sampler   uSampler;
 
 vec4 HLSLmain(PS_INPUT input0)
 {
-    return (input0).col * texture(sampler2D( uTex, uSampler), vec2((input0).uv));    
+    return input0.col * texture(sampler2D(uTex, uSampler), input0.uv);    
 }
 
 void main()
