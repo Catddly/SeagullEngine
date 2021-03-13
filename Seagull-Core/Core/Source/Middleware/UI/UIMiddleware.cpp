@@ -43,15 +43,15 @@ namespace SG
 		pImpl = nullptr;
 	}
 
-	bool UIMiddleware::OnLoad(RenderTarget** ppRenderTargets, uint32_t count)
+	bool UIMiddleware::OnLoad(RenderTarget** ppRenderTargets, uint32_t renderTargetCount)
 	{
 		ASSERT(ppRenderTargets && ppRenderTargets[0]);
 
-		mWidth = count;
-		mHeight = ppRenderTargets[0]->height;
+		mWidth = (float)ppRenderTargets[0]->width;
+		mHeight = (float)ppRenderTargets[0]->height;
 		SG_LOG_DEBUG("width: %f, heihgt: %f", mWidth, mHeight);
 
-		return pDriver->OnLoad(ppRenderTargets, count);
+		return pDriver->OnLoad(ppRenderTargets, renderTargetCount);
 	}
 
 	void UIMiddleware::OnUnload()
@@ -148,10 +148,8 @@ namespace SG
 		pImpl->componentsToUpdate.emplace_back(pGui);
 	}
 
-	void UIMiddleware::DummyFunc(void* pRenderTarget)
+	void UIMiddleware::DummyFunc(RenderTarget* rt)
 	{
-		auto* rt = (RenderTarget*)pRenderTarget;
-
 		uint32_t w = rt->width;
 		uint32_t h = rt->height;
 

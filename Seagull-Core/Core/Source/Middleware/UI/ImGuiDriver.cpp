@@ -3,6 +3,8 @@
 #include <include/imgui.h>
 #include <include/imgui_internal.h>
 
+#include "../../../../Renderer/Vulkan/include/Vulkan/vulkan_core.h"
+#define SG_GRAPHIC_API_VULKAN
 #include "Include/IRenderer.h"
 #include "Include/IResourceLoader.h"
 
@@ -104,7 +106,7 @@ namespace SG
 		virtual bool OnInit(Renderer* pRenderer, uint32_t const maxDynamicUIUpdatesPerBatch) override;
 		virtual void OnExit() override;
 
-		virtual bool OnLoad(RenderTarget** pRts, uint32_t count) override;
+		virtual bool OnLoad(RenderTarget** ppRenderTargets, uint32_t renderTargetCount = 1) override;
 		virtual void OnUnload() override;
 
 		// for GUI with custom shaders not necessary in a normal application
@@ -279,29 +281,40 @@ namespace SG
 		mDpiScale = get_dpi_scale();
 
 		// ImGui init
-		ImGui::SetAllocatorFunctions(alloc_func, free_func);
-		pImGuiContext = ImGui::CreateContext();
-		ImGui::SetCurrentContext(pImGuiContext);
+		//ImGui::SetAllocatorFunctions(alloc_func, free_func);
+		//pImGuiContext = ImGui::CreateContext();
+		//ImGui::SetCurrentContext(pImGuiContext);
 
-		ImGui::StyleColorsLight();
+		//ImGui::StyleColorsLight();
 
-		ImGuiIO& io = ImGui::GetIO();
-		io.NavActive = true;
-		io.WantCaptureMouse = false;
-		io.KeyMap[ImGuiKey_Backspace] = SG_KEY_BACK;
-		io.KeyMap[ImGuiKey_LeftArrow] = SG_KEY_LEFT;
-		io.KeyMap[ImGuiKey_RightArrow] = SG_KEY_RIGHT;
-		io.KeyMap[ImGuiKey_Home] = SG_KEY_HOME;
-		io.KeyMap[ImGuiKey_End] = SG_KEY_END;
-		io.KeyMap[ImGuiKey_Delete] = SG_KEY_DELETE;
+		//ImGuiIO& io = ImGui::GetIO();
+		//io.NavActive = true;
+		//io.WantCaptureMouse = false;
+		//io.KeyMap[ImGuiKey_Backspace] = SG_KEY_BACK;
+		//io.KeyMap[ImGuiKey_LeftArrow] = SG_KEY_LEFT;
+		//io.KeyMap[ImGuiKey_RightArrow] = SG_KEY_RIGHT;
+		//io.KeyMap[ImGuiKey_Home] = SG_KEY_HOME;
+		//io.KeyMap[ImGuiKey_End] = SG_KEY_END;
+		//io.KeyMap[ImGuiKey_Delete] = SG_KEY_DELETE;
 
-		for (uint32_t i = 0; i < MAX_FRAMES; ++i)
-		{
-			DescriptorData params[1] = {};
-			params[0].name = "uniformBlockVS";
-			params[0].ppBuffers = &pUniformBuffer[i];
-			update_descriptor_set(pRenderer, i, pDescriptorSetUniforms, 1, params); // update ubo
-		}
+		//for (uint32_t i = 0; i < MAX_FRAMES; ++i)
+		//{
+		//	DescriptorData params[1] = {};
+		//	params[0].name = "uniformBlockVS";
+		//	params[0].ppBuffers = &pUniformBuffer[i];
+		//	update_descriptor_set(pRenderer, i, pDescriptorSetUniforms, 1, params); // update ubo
+		//}
+
+		//// add default fonts to ImGui
+		////io.Fonts->AddFontFromFileTTF("../Resources/Fonts/Source_Sans_Pro/SourceSansPro-Bold.ttf", 20.f);
+		//ImFont* myRegularFont = io.Fonts->AddFontFromFileTTF("../Resources/Fonts/Source_Sans_Pro/SourceSansPro-Regular.ttf", 20.0f);
+		//io.FontDefault = myRegularFont;
+
+		//int            width, height;
+		//int            bytesPerPixel;
+		//unsigned char* pixels = nullptr;
+		//io.Fonts->Build();
+		//io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height, &bytesPerPixel);
 
 		return true;
 	}
@@ -326,9 +339,9 @@ namespace SG
 		ImGui::DestroyContext(pImGuiContext);
 	}
 
-	bool ImGuiGuiDriver::OnLoad(RenderTarget** pRts, uint32_t count)
+	bool ImGuiGuiDriver::OnLoad(RenderTarget** ppRenderTargets, uint32_t renderTargetCount)
 	{
-		UNREF_PARAM(count);
+		UNREF_PARAM(renderTargetCount);
 
 		BlendStateDesc blendStateDesc = {};
 		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_SRC_ALPHA;
@@ -353,10 +366,10 @@ namespace SG
 		GraphicsPipelineDesc& pipelineDesc = desc.graphicsDesc;
 		pipelineDesc.depthStencilFormat = TinyImageFormat_UNDEFINED;
 		pipelineDesc.renderTargetCount = 1;
-		pipelineDesc.sampleCount = pRts[0]->sampleCount;
+		pipelineDesc.sampleCount = ppRenderTargets[0]->sampleCount;
 		pipelineDesc.pBlendState = &blendStateDesc;
-		pipelineDesc.sampleQuality = pRts[0]->sampleQuality;
-		pipelineDesc.pColorFormats = &pRts[0]->format;
+		pipelineDesc.sampleQuality = ppRenderTargets[0]->sampleQuality;
+		pipelineDesc.pColorFormats = &ppRenderTargets[0]->format;
 		pipelineDesc.pDepthState = &depthStateDesc;
 		pipelineDesc.pRasterizerState = &rasterizerStateDesc;
 		pipelineDesc.pRootSignature = pRootSignatureTextured;

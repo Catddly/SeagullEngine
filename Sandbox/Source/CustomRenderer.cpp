@@ -18,27 +18,6 @@ struct Vertex
 	}
 };
 
-//struct Vertex
-//{
-//	Vec3 Position;
-//	Vec3 Normal;
-//	Vec2 TexCoord;
-//
-//	static float GetStructSize()
-//	{
-//		return sizeof(Vertex);
-//	}
-//};
-
-static void DummyFunc(RenderTarget* pRenderTarget)
-{
-	uint32_t w = pRenderTarget->width;
-	uint32_t h = pRenderTarget->height;
-
-	SG_LOG_DEBUG("Width: %d",  pRenderTarget->width);
-	SG_LOG_DEBUG("Height: %d", pRenderTarget->height);
-}
-
 struct UniformBuffer
 {
 	alignas(16) Matrix4 model;
@@ -224,12 +203,10 @@ public:
 		if (!CreateSwapChain())
 			return false;
 
+		mUiMiddleware.OnLoad(mSwapChain->ppRenderTargets);
+
 		wait_for_all_resource_loads();
 
-		mUiMiddleware.DummyFunc(mSwapChain->ppRenderTargets[0]);
-		mUiMiddleware.DummyFunc(mSwapChain->ppRenderTargets[1]);
-
-		//mUiMiddleware.OnLoad(mSwapChain);
 
 		if (!CreateGraphicPipeline())
 			return false;
@@ -252,7 +229,7 @@ public:
 
 	virtual bool OnUnload() override
 	{
-		//mUiMiddleware.OnUnload();
+		mUiMiddleware.OnUnload();
 
 		wait_queue_idle(mGraphicQueue);
 
@@ -328,7 +305,7 @@ public:
 		if (InputListener::IsKeyPressed(SG_KEY_ESCAPE))
 			mSettings.quit = true;
 
-		//mUiMiddleware.OnUpdate(deltaTime);
+		mUiMiddleware.OnUpdate(deltaTime);
 
 		return true;
 	}
@@ -400,8 +377,8 @@ public:
 			cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
 		}
 
-		//mUiMiddleware.AddUpdateGui(mMainGui);
-		//mUiMiddleware.OnDraw(cmd);
+		mUiMiddleware.AddUpdateGui(mMainGui);
+		mUiMiddleware.OnDraw(cmd);
 
 		// end the render pass
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
@@ -458,6 +435,11 @@ private:
 		swapChainCreate.colorFormat = get_recommended_swapchain_format(true);
 		swapChainCreate.enableVsync = mSettings.defaultVSyncEnable;
 		add_swapchain(mRenderer, &swapChainCreate, &mSwapChain);
+
+		//SG_LOG_DEBUG("Width: %d", mSwapChain->ppRenderTargets[0]->width);
+		//SG_LOG_DEBUG("Height: %d", mSwapChain->ppRenderTargets[0]->height);
+		//SG_LOG_DEBUG("Width: %d", mSwapChain->ppRenderTargets[1]->width);
+		//SG_LOG_DEBUG("Height: %d", mSwapChain->ppRenderTargets[1]->height);
 
 		return mSwapChain != nullptr;
 	}

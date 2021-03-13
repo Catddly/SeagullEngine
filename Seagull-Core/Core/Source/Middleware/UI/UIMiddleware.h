@@ -6,11 +6,6 @@
 namespace SG
 {
 
-	//__declspec(align(64)) struct Renderer;
-	//__declspec(align(64)) struct RenderTarget;
-	//__declspec(align(64)) struct Cmd;
-	//struct Shader;
-
 	typedef struct GuiCreateDesc
 	{
 		GuiCreateDesc(
@@ -139,7 +134,7 @@ namespace SG
 		virtual bool OnInit(Renderer* pRenderer, uint32_t const maxDynamicUIUpdatesPerBatch) = 0;
 		virtual void OnExit() = 0;
 
-		virtual bool OnLoad(RenderTarget** pRts, uint32_t count) = 0;
+		virtual bool OnLoad(RenderTarget** ppRenderTargets, uint32_t renderTargetCount = 1) = 0;
 		virtual void OnUnload() = 0;
 
 		// for GUI with custom shaders not necessary in a normal application
@@ -178,7 +173,7 @@ namespace SG
 		virtual bool OnInit(Renderer* pRenderer) override;
 		virtual void OnExit() override;
 
-		virtual bool OnLoad(RenderTarget** ppRenderTargets, uint32_t count = 1) override;
+		virtual bool OnLoad(RenderTarget** ppRenderTarget, uint32_t renderTargetCount = 1) override;
 		virtual void OnUnload() override;
 
 		virtual bool OnUpdate(float deltaTime) override;
@@ -192,7 +187,7 @@ namespace SG
 
 		void          AddUpdateGui(GuiComponent* pGui);
 
-		void    DummyFunc(void* pRenderTarget);
+		void    DummyFunc(RenderTarget* rt);
 
 		bool    OnText(const wchar_t* pText) { return pDriver->OnText(pText); }
 		bool    OnButton(uint32_t button, bool press, const Vec2* vec) { return pDriver->OnButton(button, press, vec); }

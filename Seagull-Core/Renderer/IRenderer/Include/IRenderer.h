@@ -844,10 +844,10 @@ namespace SG
 		GLuint						  mType;
 #endif
 		ClearValue                    clearValue;
-		uint32_t                      arraySize : 16;
-		uint32_t                      depth : 16;
-		uint32_t                      width : 16;
-		uint32_t                      height : 16;
+		uint16_t                      arraySize;
+		uint16_t                      depth;
+		uint16_t                      width;
+		uint16_t                      height;
 		uint32_t                      descriptors : 20;
 		uint32_t                      mipLevels : 10;
 		uint32_t                      sampleQuality : 5;
