@@ -41,7 +41,7 @@ Open the solution file, build the whole solution and you are ready to go!
 
 ## Dependencies
 
-VulkanSDK(at least version 1.2 or higher)
+If you have got some errors on compiling the shaders, please install VulkanSDK(at least version 1.2 or higher)
 
 ## 简介
 
