@@ -61,6 +61,20 @@ namespace SG
 		}
 	};
 
+#pragma region (DockSpace)
+
+	class DockSpaceWidget : public IWidget
+	{
+	public:
+		DockSpaceWidget(const eastl::string& label)
+			:IWidget(label) {}
+
+		virtual IWidget* OnCopy() const override;
+		virtual void OnDraw() override;
+	};
+
+#pragma endregion (DockSpace)
+
 #pragma region (Labels)
 
 	class LabelWidget : public IWidget

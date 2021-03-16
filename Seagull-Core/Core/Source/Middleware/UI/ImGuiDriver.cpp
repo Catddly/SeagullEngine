@@ -154,6 +154,7 @@ namespace SG
 		uint32_t     mLastUpdateCount;
 		Vec2         mLastUpdateMin[64] = {};
 		Vec2         mLastUpdateMax[64] = {};
+		bool         mIsDockSpaceInitialized = false;
 		bool         mIsActive;
 		bool         mUseCustomShader;
 		bool         mPostUpdateKeyDownStates[512]; // for delay updating key pressed purpose
@@ -280,6 +281,7 @@ namespace SG
 		mDpiScale = get_dpi_scale();
 
 		/// init UI
+		IMGUI_CHECKVERSION();
 		ImGui::SetAllocatorFunctions(alloc_func, free_func);
 		pImGuiContext = ImGui::CreateContext();
 		ImGui::SetCurrentContext(pImGuiContext);
@@ -290,7 +292,7 @@ namespace SG
 		ImGuiIO& io = ImGui::GetIO();
 		io.NavActive = true;
 		io.WantCaptureMouse = false;
-		io.KeyMap[ImGuiKey_Backspace] = SG_KEY_BACK;
+		io.KeyMap[ImGuiKey_Backspace] = SG_KEY_BACKSPACE;
 		io.KeyMap[ImGuiKey_LeftArrow] = SG_KEY_LEFT;
 		io.KeyMap[ImGuiKey_RightArrow] = SG_KEY_RIGHT;
 		io.KeyMap[ImGuiKey_Home] = SG_KEY_HOME;
@@ -298,6 +300,16 @@ namespace SG
 		io.KeyMap[ImGuiKey_Delete] = SG_KEY_DELETE;
 
 		io.KeyMap[ImGuiMouseButton_Left] = SG_MOUSE_LEFT;
+
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+		ImGuiStyle& style = ImGui::GetStyle();
+		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		{
+			style.WindowRounding = 0.0f;
+			style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+		}
 
 		for (uint32_t i = 0; i < MAX_FRAMES; ++i)
 		{
@@ -475,6 +487,67 @@ namespace SG
 			if (update->isShowDemoWindow)
 				ImGui::ShowDemoWindow();
 
+			static ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
+			ImGuiWindowFlags guiWinFlags = SG_GUI_FLAGS_NONE;
+			// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
+			// and handle the pass-thru hole, so we ask Begin() to not render a background.
+			if (dockspaceFlags & ImGuiDockNodeFlags_PassthruCentralNode)
+				guiWinFlags |= ImGuiWindowFlags_NoBackground;
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+			static bool open = true;
+			ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+			// Always be the top of the view
+			window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+			window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+			// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
+			// and handle the pass-thru hole, so we ask Begin() to not render a background.
+			if (dockspaceFlags & ImGuiDockNodeFlags_PassthruCentralNode)
+				window_flags |= ImGuiWindowFlags_NoBackground;
+
+			ImGuiViewport* viewport = ImGui::GetMainViewport();
+			ImGui::SetNextWindowPos(viewport->WorkPos);
+			ImGui::SetNextWindowSize(viewport->WorkSize);
+			ImGui::SetNextWindowViewport(viewport->ID);
+
+			ImGui::Begin("DockSpace Demo", &open, window_flags);
+			ImGui::PopStyleVar();
+			if (true)
+				ImGui::PopStyleVar(2);
+
+			// DockSpace
+			ImGuiIO& io = ImGui::GetIO();
+			ImGuiStyle& style = ImGui::GetStyle();
+			//float windowMinSizeX = style.WindowMinSize.x;
+			//style.WindowMinSize.x = 400.0f;
+
+			// hold shift to dock
+			//io.ConfigDockingWithShift = true;
+			if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
+			{
+				ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+				ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspaceFlags);
+			}
+
+			//style.WindowMinSize.x = windowMinSizeX;
+			if (ImGui::BeginMenuBar())
+			{
+				static bool saveScenePopup = false;
+				if (ImGui::BeginMenu("File and settings"))
+				{
+					ImGui::Separator();
+
+					if (ImGui::MenuItem("exit"))
+						request_shutdown();
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenuBar();
+			}
+			ImGui::End();
+
 			mLastUpdateCount = update->componentCount;
 
 			for (uint32_t compIndex = 0; compIndex < update->componentCount; ++compIndex)
@@ -495,7 +568,6 @@ namespace SG
 					title.sprintf("##%llu", (uint64_t)pComponent);
 
 				// Setup the ImGuiWindowFlags
-				ImGuiWindowFlags guiWinFlags = SG_GUI_FLAGS_NONE;
 				if (guiComponentFlags & SG_GUI_FLAGS_NO_TITLE_BAR)
 					guiWinFlags |= ImGuiWindowFlags_NoTitleBar;
 				if (guiComponentFlags & SG_GUI_FLAGS_NO_RESIZE)
@@ -741,6 +813,15 @@ namespace SG
 			vtxOffset += (int)cmdList->VtxBuffer.size();
 		}
 
+		// Update and Render additional Platform Windows
+		// (Platform functions may change the current context, so we save/restore it to make it easier to paste this code elsewhere.
+		ImGuiIO& io = ImGui::GetIO();
+		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		{
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+		}
+
 		mFrameIndex = (mFrameIndex + 1) % MAX_FRAMES;
 	}
 
@@ -786,7 +867,7 @@ namespace SG
 		case SG_KEY_SHIFTR:
 			io.KeyShift = press;
 			break;
-			//case SG_KEY_SOUTH:
+		case SG_MOUSE_LEFT:
 		case SG_MOUSE_RIGHT:
 		case SG_MOUSE_MIDDLE:
 		case SG_MOUSE_SCROLL_UP:
@@ -796,8 +877,8 @@ namespace SG
 			mNavInputs[ImGuiNavInput_Activate] = (float)press;
 			if (pMovePosition)
 			{
-				//if (SG_KEY_SOUTH == button)
-				//	io.MouseDown[0] = press;
+				if (SG_MOUSE_LEFT == button)
+					io.MouseDown[0] = press;
 				if (SG_MOUSE_RIGHT == button)
 					io.MouseDown[1] = press;
 				else if (SG_MOUSE_MIDDLE == button)
@@ -834,11 +915,6 @@ namespace SG
 		// Note that for keyboard keys, we only set them to true here if they are pressed because we may have a press/release
 		// happening in one frame and it would never get registered.  Instead, unpressed are deferred at the end of update().
 		// This scenario occurs with mobile soft (on-screen) keyboards.
-		case SG_KEY_BACK:
-			if (press)
-				io.KeysDown[SG_KEY_BACK] = true;
-			mPostUpdateKeyDownStates[SG_KEY_BACK] = press;
-			break;
 		case SG_KEY_LEFT:
 			if (press)
 				io.KeysDown[SG_KEY_LEFT] = true;
@@ -864,8 +940,10 @@ namespace SG
 				io.KeysDown[SG_KEY_DELETE] = true;
 			mPostUpdateKeyDownStates[SG_KEY_DELETE] = press;
 			break;
-		case SG_MOUSE_LEFT:
-			io.MouseDown[0] = press;
+		case SG_KEY_BACKSPACE:
+			if (press)
+				io.KeysDown[SG_KEY_BACKSPACE] = true;
+			mPostUpdateKeyDownStates[SG_KEY_BACKSPACE] = press;
 			break;
 		default:
 			break;
@@ -959,6 +1037,26 @@ namespace SG
 			(((unsigned int)color.z << 8) & 0x0000FF00) |
 			(((unsigned int)color.w) & 0x000000FF);
 		return c;
+	}
+
+	void DockSpaceWidget::OnDraw()
+	{
+		static ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
+		// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
+		// and handle the pass-thru hole, so we ask Begin() to not render a background.
+		// 
+		// hold shift to dock
+
+		ImGuiIO& io = ImGui::GetIO();
+		io.ConfigDockingWithShift = true;
+		if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
+		{
+			ImGuiID dockspaceId = ImGui::GetID("MyDockSpace");
+			ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), dockspaceFlags);
+		}
+		ImGui::PopStyleVar();
+
+		ProcessCallback();
 	}
 
 	void LabelWidget::OnDraw()

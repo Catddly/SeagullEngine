@@ -243,6 +243,13 @@ namespace SG
 		return pWidget;
 	}
 
+	IWidget* DockSpaceWidget::OnCopy() const
+	{
+		DockSpaceWidget* pWidget = sg_placement_new<DockSpaceWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel);
+		CopyBase(pWidget);
+		return pWidget;
+	}
+
 	IWidget* ColorLabelWidget::OnCopy() const
 	{
 		ColorLabelWidget* pWidget = sg_placement_new<ColorLabelWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->mColor);

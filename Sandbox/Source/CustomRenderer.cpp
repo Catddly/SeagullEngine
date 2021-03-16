@@ -24,6 +24,8 @@ struct UniformBuffer
 	alignas(16) Matrix4 projection;
 };
 
+Vec2 mSliderData = {};
+
 class CustomRenderer : public IApp
 {
 public:
@@ -31,7 +33,7 @@ public:
 	{
 		// set the file path
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SHADER_SOURCES, "../../../Resources/Shaders");
-		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_DEBUG,   SG_RD_SHADER_BINARIES, "CompiledShaders");
+		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_DEBUG, SG_RD_SHADER_BINARIES, "CompiledShaders");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_GPU_CONFIG, "GPUfg");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_TEXTURES, "../../../Resources/Textures");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_MESHES, "../../../Resources/Meshes");
@@ -148,9 +150,21 @@ public:
 
 		float dpiScale = get_dpi_scale().x;
 		GuiCreateDesc guiDesc{};
+		guiDesc.startPosition = { 0 , 0 };
+		guiDesc.startSize = { mSettings.width * 0.5 , mSettings.height * 0.5 };
 		guiDesc.defaultTextDrawDesc = UITextDesc;
-		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow", &guiDesc);
-		mMainGui->AddWidget(LabelWidget("Hello World!"));
+		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow1", &guiDesc);
+		mMainGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
+		mMainGui->flags |= SG_GUI_FLAGS_NO_RESIZE;
+		mMainGui->AddWidget(LabelWidget("TestWindow1"));
+
+		mSecondGui = mUiMiddleware.AddGuiComponent("TestWindow2", &guiDesc);
+		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
+		mSecondGui->flags |= SG_GUI_FLAGS_NO_RESIZE;
+		mSecondGui->AddWidget(SliderFloat2Widget("Slider", &mSliderData, { 0 , 0 }, { 5 , 5 }))->pOnEdited = []
+		{
+			SG_LOG_DEBUG("Value: (%f, %f))", mSliderData.x, mSliderData.y);
+		};
 
 		mUiMiddleware.mShowDemoUiWindow = true;
 
@@ -182,6 +196,28 @@ public:
 				//SG_LOG_DEBUG("UI window is captured (%d)", (int)uiMiddleware->IsFocused());
 				return true;
 			},
+			&mUiMiddleware
+		};
+		add_input_action(&inputAction);
+
+		inputAction = { SG_KEY_BACKSPACE,
+			[](InputActionContext* ctx)
+			{
+				if (ctx->phase == INPUT_ACTION_PHASE_CANCELED)
+					SG_LOG_DEBUG("Back Space");
+				return true;
+			},
+			nullptr
+		};
+		add_input_action(&inputAction);
+
+		inputAction = { SG_TEXT, 
+			[](InputActionContext* ctx) 
+			{ 
+				auto* uiMiddleware = (UIMiddleware*)ctx->pUserData;
+				uiMiddleware->OnText(ctx->text);
+				return true;
+			}, 
 			&mUiMiddleware
 		};
 		add_input_action(&inputAction);
@@ -414,6 +450,7 @@ public:
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
 			mUiMiddleware.AddUpdateGui(mMainGui);
+			mUiMiddleware.AddUpdateGui(mSecondGui);
 			mUiMiddleware.OnDraw(cmd);
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
 
@@ -614,6 +651,7 @@ private:
 	// Gui
 	UIMiddleware mUiMiddleware;
 	GuiComponent* mMainGui = nullptr;
+	GuiComponent* mSecondGui = nullptr;
 };
 
 SG_DEFINE_APPLICATION_MAIN(CustomRenderer)
