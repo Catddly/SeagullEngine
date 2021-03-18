@@ -63,14 +63,20 @@ namespace SG
 
 #pragma region (DockSpace)
 
-	class DockSpaceWidget : public IWidget
+	class ViewportWidget : public IWidget
 	{
 	public:
-		DockSpaceWidget(const eastl::string& label)
-			:IWidget(label) {}
+		ViewportWidget(const eastl::string& label, void* texture, const Vec2& viewportSize,
+			const Vec2& uv0 = { 0, 0 }, const Vec2& uv1 = { 1, 1 })
+			:IWidget(label), mTexture(texture), mSize(viewportSize), mUV0(uv0), mUV1(uv1) {}
 
 		virtual IWidget* OnCopy() const override;
 		virtual void OnDraw() override;
+	protected:
+		void* mTexture;
+		Vec2  mSize;
+		Vec2  mUV0;
+		Vec2  mUV1;
 	};
 
 #pragma endregion (DockSpace)

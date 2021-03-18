@@ -243,9 +243,10 @@ namespace SG
 		return pWidget;
 	}
 
-	IWidget* DockSpaceWidget::OnCopy() const
+	IWidget* ViewportWidget::OnCopy() const
 	{
-		DockSpaceWidget* pWidget = sg_placement_new<DockSpaceWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel);
+		ViewportWidget* pWidget = sg_placement_new<ViewportWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->mTexture,
+			this->mSize, this->mUV0, this->mUV1);
 		CopyBase(pWidget);
 		return pWidget;
 	}

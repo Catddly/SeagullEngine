@@ -81,6 +81,10 @@ public:
 		textureCreate.ppTexture = &mTexture;
 		add_resource(&textureCreate, nullptr);
 
+		textureCreate.fileName = "logo";
+		textureCreate.ppTexture = &mLogoTex;
+		add_resource(&textureCreate, nullptr);
+
 		mRoomGeoVertexLayout.attribCount = 2;
 
 		mRoomGeoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
@@ -155,18 +159,22 @@ public:
 		guiDesc.defaultTextDrawDesc = UITextDesc;
 		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow1", &guiDesc);
 		mMainGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
-		mMainGui->flags |= SG_GUI_FLAGS_NO_RESIZE;
 		mMainGui->AddWidget(LabelWidget("TestWindow1"));
+		mMainGui->AddWidget(ViewportWidget("Logo", (void*)mLogoTex, { 256, 256 }));
 
 		mSecondGui = mUiMiddleware.AddGuiComponent("TestWindow2", &guiDesc);
 		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
-		mSecondGui->flags |= SG_GUI_FLAGS_NO_RESIZE;
 		mSecondGui->AddWidget(SliderFloat2Widget("Slider", &mSliderData, { 0 , 0 }, { 5 , 5 }))->pOnEdited = []
 		{
 			SG_LOG_DEBUG("Value: (%f, %f))", mSliderData.x, mSliderData.y);
 		};
 
-		mUiMiddleware.mShowDemoUiWindow = true;
+		guiDesc.startPosition = { 0, 0 };
+		guiDesc.startSize = mViewportSize;
+		mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
+		mViewportGui->AddWidget(ViewportWidget("Viewport", (void*)mTexture, mViewportSize));
+
+		//mUiMiddleware.mShowDemoUiWindow = true;
 
 		init_input_system(mWindow);
 
@@ -234,6 +242,8 @@ public:
 		mUiMiddleware.OnExit();
 
 		remove_resource(mTexture);
+		remove_resource(mLogoTex);
+
 		remove_resource(mRoomGeo);
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
@@ -268,10 +278,20 @@ public:
 		descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mUboDescriptorSet);
 
-		if (!CreateDepthBuffer())
+		if (!CreateSwapChain())
 			return false;
 
-		if (!CreateSwapChain())
+		if (!CreateViewportTex())
+			return false;
+
+		GuiCreateDesc guiDesc{};
+		guiDesc.defaultTextDrawDesc = { 0, 0xffff00ff, 18.0f };
+		guiDesc.startPosition = { 0, 0 };
+		guiDesc.startSize = mViewportSize;
+		mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
+		mViewportGui->AddWidget(ViewportWidget("Viewport", (void*)mViewportTextures->pTexture, mViewportSize));
+
+		if (!CreateDepthBuffer())
 			return false;
 
 		wait_for_all_resource_loads();
@@ -304,6 +324,9 @@ public:
 
 		mUiMiddleware.OnUnload();
 
+		mUiMiddleware.RemoveGuiComponent(mViewportGui);
+
+		remove_render_target(mRenderer, mViewportTextures);
 		remove_render_target(mRenderer, mDepthBuffer);
 
 		remove_pipeline(mRenderer, mPipeline);
@@ -320,6 +343,8 @@ public:
 		update_input_system(mSettings.width, mSettings.height);
 
 		//static float degreed = 45.0f;
+		static float time = 0.0f;
+		time += deltaTime;
 
 		/*if (InputListener::IsMousePressed(SG_MOUSE_LEFT) &&
 			InputListener::GetMousePosClient().first >= 0 &&
@@ -370,7 +395,7 @@ public:
 		if (InputListener::IsKeyPressed(SG_KEY_P))
 			degreed -= deltaTime * 20.0f;*/
 
-		mUbo.model = glm::rotate(Matrix4(1.0f), 60.0f, mUpVec);
+		mUbo.model = glm::rotate(Matrix4(1.0f), time * 0.03f * 60.0f, mUpVec);
 		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + glm::normalize(mViewVec), mUpVec);
 		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)mSettings.width / (float)mSettings.height,
 			0.001f, 100000.0f);
@@ -409,27 +434,27 @@ public:
 		// begin command buffer
 		begin_cmd(cmd);
 
-		RenderTargetBarrier renderTargetBarriers;
-
-		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_PRESENT, SG_RESOURCE_STATE_RENDER_TARGET };
-		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
+		RenderTargetBarrier renderTargetBarriers[2];
 
 		LoadActionsDesc loadAction = {};
 		loadAction.loadActionsColor[0] = SG_LOAD_ACTION_CLEAR;
 		loadAction.clearColorValues[0].r = 0.0f;
 		loadAction.clearColorValues[0].g = 0.0f;
 		loadAction.clearColorValues[0].b = 0.0f;
-		loadAction.clearColorValues[0].a = 0.0f;
+		loadAction.clearColorValues[0].a = 1.0f;
 
 		loadAction.loadActionDepth = SG_LOAD_ACTION_CLEAR;
 		loadAction.clearDepth.depth = 1.0f;
 		loadAction.clearDepth.stencil = 0.0f;
 
+		renderTargetBarriers[0] = { mViewportTextures, SG_RESOURCE_STATE_SHADER_RESOURCE, SG_RESOURCE_STATE_RENDER_TARGET };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[0]);
+
 		// begin render pass
-		cmd_bind_render_targets(cmd, 1, &renderTarget, mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
+		cmd_bind_render_targets(cmd, 1, &mViewportTextures, mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
-		
+
 			cmd_bind_pipeline(cmd, mPipeline);
 			cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
 			cmd_bind_descriptor_set(cmd, mCurrentIndex, mUboDescriptorSet);
@@ -439,11 +464,19 @@ public:
 			cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mRoomGeo->vertexStrides, nullptr);
 
 			for (uint32_t i = 0; i < mRoomGeo->drawArgCount; i++)
-			{	
+			{
 				IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
 				cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
 			}
 		cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
+
+		renderTargetBarriers[0] = { mViewportTextures, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_SHADER_RESOURCE };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[0]);
+
+
+
+		renderTargetBarriers[1] = { renderTarget, SG_RESOURCE_STATE_PRESENT, SG_RESOURCE_STATE_RENDER_TARGET };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[1]);
 
 		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
@@ -451,11 +484,12 @@ public:
 
 			mUiMiddleware.AddUpdateGui(mMainGui);
 			mUiMiddleware.AddUpdateGui(mSecondGui);
+			mUiMiddleware.AddUpdateGui(mViewportGui);
 			mUiMiddleware.OnDraw(cmd);
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
 
-		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_PRESENT };
-		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
+		renderTargetBarriers[1] = { renderTarget, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_PRESENT };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[1]);
 
 		end_cmd(cmd);
 
@@ -593,6 +627,29 @@ private:
 		add_render_target(mRenderer, &depthRT, &mDepthBuffer);
 		return mDepthBuffer != nullptr;
 	}
+
+	bool CreateViewportTex()
+	{
+		RenderTargetCreateDesc rt = {};
+		rt.clearValue.r = 0.0f;
+		rt.clearValue.g = 0.0f;
+		rt.clearValue.b = 0.0f;
+		rt.clearValue.a = 1.0f;
+		rt.arraySize = 1;
+		rt.depth = 1;
+		rt.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
+		rt.format = mSwapChain->ppRenderTargets[0]->format;
+		rt.startState = SG_RESOURCE_STATE_SHADER_RESOURCE;
+		rt.height = mSettings.height;
+		rt.width = mSettings.width;
+		rt.sampleCount = SG_SAMPLE_COUNT_1;
+		rt.sampleQuality = 0;
+		rt.name = "ViewportBuffer";
+
+		add_render_target(mRenderer, &rt, &mViewportTextures);
+
+		return mViewportTextures != nullptr;
+	}
 private:
 	Renderer* mRenderer = nullptr;
 
@@ -614,8 +671,10 @@ private:
 	Pipeline* mPipeline = nullptr;
 
 	Texture* mTexture = nullptr;
+	Texture* mLogoTex = nullptr;
 
 	RenderTarget* mDepthBuffer = nullptr;
+	RenderTarget* mViewportTextures = nullptr;
 
 	VertexLayout mRoomGeoVertexLayout = {};
 	Geometry* mRoomGeo = nullptr;
@@ -639,7 +698,7 @@ private:
 
 	uint32_t mCurrentIndex = 0;
 
-	Vec3  mCameraPos = { -3.0f, 0.0f, 0.0f };
+	Vec3  mCameraPos = { -3.0f, 0.0f, 0.4f };
 	Vec3  mViewVec = { 1.0f, 0.0f, 0.0f };
 	Vec3  mUpVec = { 0.0f, 0.0f, 1.0f };
 	float mXSensitity = 260.f, mYSensitity = 340.0f;
@@ -649,9 +708,12 @@ private:
 	float pitch = 0.0f;
 
 	// Gui
-	UIMiddleware mUiMiddleware;
+	UIMiddleware  mUiMiddleware;
 	GuiComponent* mMainGui = nullptr;
 	GuiComponent* mSecondGui = nullptr;
+	Vec2          mViewportSize = { 512, 512 };
+	GuiComponent* mViewportGui = nullptr;
+	ViewportWidget* mViewportWidget = nullptr;
 };
 
 SG_DEFINE_APPLICATION_MAIN(CustomRenderer)

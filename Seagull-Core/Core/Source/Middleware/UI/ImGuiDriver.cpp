@@ -487,66 +487,68 @@ namespace SG
 			if (update->isShowDemoWindow)
 				ImGui::ShowDemoWindow();
 
-			static ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
 			ImGuiWindowFlags guiWinFlags = SG_GUI_FLAGS_NONE;
-			// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
-			// and handle the pass-thru hole, so we ask Begin() to not render a background.
-			if (dockspaceFlags & ImGuiDockNodeFlags_PassthruCentralNode)
-				guiWinFlags |= ImGuiWindowFlags_NoBackground;
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-
-			static bool open = true;
-			ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-			// Always be the top of the view
-			window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-			window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-
-			// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
-			// and handle the pass-thru hole, so we ask Begin() to not render a background.
-			if (dockspaceFlags & ImGuiDockNodeFlags_PassthruCentralNode)
-				window_flags |= ImGuiWindowFlags_NoBackground;
-
-			ImGuiViewport* viewport = ImGui::GetMainViewport();
-			ImGui::SetNextWindowPos(viewport->WorkPos);
-			ImGui::SetNextWindowSize(viewport->WorkSize);
-			ImGui::SetNextWindowViewport(viewport->ID);
-
-			ImGui::Begin("DockSpace Demo", &open, window_flags);
-			ImGui::PopStyleVar();
-			if (true)
-				ImGui::PopStyleVar(2);
-
-			// DockSpace
-			ImGuiIO& io = ImGui::GetIO();
-			ImGuiStyle& style = ImGui::GetStyle();
-			//float windowMinSizeX = style.WindowMinSize.x;
-			//style.WindowMinSize.x = 400.0f;
-
-			// hold shift to dock
-			//io.ConfigDockingWithShift = true;
-			if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
 			{
-				ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-				ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspaceFlags);
-			}
+				static ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
+				// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
+				// and handle the pass-thru hole, so we ask Begin() to not render a background.
+				if (dockspaceFlags & ImGuiDockNodeFlags_PassthruCentralNode)
+					guiWinFlags |= ImGuiWindowFlags_NoBackground;
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
-			//style.WindowMinSize.x = windowMinSizeX;
-			if (ImGui::BeginMenuBar())
-			{
-				static bool saveScenePopup = false;
-				if (ImGui::BeginMenu("File and settings"))
+				static bool open = true;
+				ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+				// Always be the top of the view
+				window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+				window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+				// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
+				// and handle the pass-thru hole, so we ask Begin() to not render a background.
+				if (dockspaceFlags & ImGuiDockNodeFlags_PassthruCentralNode)
+					window_flags |= ImGuiWindowFlags_NoBackground;
+
+				ImGuiViewport* viewport = ImGui::GetMainViewport();
+				ImGui::SetNextWindowPos(viewport->WorkPos);
+				ImGui::SetNextWindowSize(viewport->WorkSize);
+				ImGui::SetNextWindowViewport(viewport->ID);
+
+				ImGui::Begin("DockSpace Demo", &open, window_flags);
+				ImGui::PopStyleVar();
+				if (true)
+					ImGui::PopStyleVar(2);
+
+				// DockSpace
+				ImGuiIO& io = ImGui::GetIO();
+				ImGuiStyle& style = ImGui::GetStyle();
+				float windowMinSizeX = style.WindowMinSize.x;
+				style.WindowMinSize.x = 400.0f;
+
+				// hold shift to dock
+				//io.ConfigDockingWithShift = true;
+				if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
 				{
-					ImGui::Separator();
-
-					if (ImGui::MenuItem("exit"))
-						request_shutdown();
-					ImGui::EndMenu();
+					ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+					ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspaceFlags);
 				}
-				ImGui::EndMenuBar();
+
+				style.WindowMinSize.x = windowMinSizeX;
+				if (ImGui::BeginMenuBar())
+				{
+					static bool saveScenePopup = false;
+					if (ImGui::BeginMenu("File and settings"))
+					{
+						ImGui::Separator();
+
+						if (ImGui::MenuItem("exit"))
+							request_shutdown();
+						ImGui::EndMenu();
+					}
+					ImGui::EndMenuBar();
+				}
+				ImGui::End();
 			}
-			ImGui::End();
 
 			mLastUpdateCount = update->componentCount;
 
@@ -1039,22 +1041,9 @@ namespace SG
 		return c;
 	}
 
-	void DockSpaceWidget::OnDraw()
+	void ViewportWidget::OnDraw()
 	{
-		static ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
-		// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
-		// and handle the pass-thru hole, so we ask Begin() to not render a background.
-		// 
-		// hold shift to dock
-
-		ImGuiIO& io = ImGui::GetIO();
-		io.ConfigDockingWithShift = true;
-		if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
-		{
-			ImGuiID dockspaceId = ImGui::GetID("MyDockSpace");
-			ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), dockspaceFlags);
-		}
-		ImGui::PopStyleVar();
+		ImGui::Image(mTexture, ImGui::GetContentRegionAvail(), { mUV0.x, mUV0.y }, { mUV1.x, mUV1.y });
 
 		ProcessCallback();
 	}
