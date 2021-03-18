@@ -26,7 +26,7 @@ https://github.com/ConfettiFX/The-Forge
 ## Building
 
 Open the Scripts folder, and run the GenerateProject-Win.bat.  
-After that, you will the the Seagull.sln in the root directory.  
+After that, you will see the Seagull.sln in the root directory.  
 Open the solution file, build the whole solution and you are ready to go!
 
 ## ToDo
