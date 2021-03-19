@@ -245,7 +245,15 @@ namespace SG
 
 	IWidget* ViewportWidget::OnCopy() const
 	{
-		ViewportWidget* pWidget = sg_placement_new<ViewportWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->mTexture,
+		ViewportWidget* pWidget = sg_placement_new<ViewportWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->mRenderTarget,
+			this->mUV0, this->mUV1);
+		CopyBase(pWidget);
+		return pWidget;
+	}
+
+	IWidget* ImageWidget::OnCopy() const
+	{
+		ImageWidget* pWidget = sg_placement_new<ImageWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->mTexture,
 			this->mSize, this->mUV0, this->mUV1);
 		CopyBase(pWidget);
 		return pWidget;

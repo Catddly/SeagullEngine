@@ -8,6 +8,7 @@
 
 #include "Middleware/UI/UIMiddleware.h"
 #include "Interface/IInput.h"
+#include "Interface/ILog.h"
 
 #define LABELID1(prop) eastl::string().sprintf("##%llu", (uint64_t)(prop)).c_str()
 
@@ -488,6 +489,8 @@ namespace SG
 				ImGui::ShowDemoWindow();
 
 			ImGuiWindowFlags guiWinFlags = SG_GUI_FLAGS_NONE;
+
+#ifdef SG_EDITOR_ENABLE_DOCKSPACE
 			{
 				static ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
 				// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
@@ -549,6 +552,7 @@ namespace SG
 				}
 				ImGui::End();
 			}
+#endif
 
 			mLastUpdateCount = update->componentCount;
 
@@ -557,6 +561,8 @@ namespace SG
 				GuiComponent* pComponent = update->pGuiComponents[compIndex];
 				eastl::string title = pComponent->title;
 				int32_t guiComponentFlags = pComponent->flags;
+
+				//SG_LOG_DEBUG("Title: %s", title.c_str());
 
 				bool* pCloseButtonActiveValue = pComponent->hasCloseButton ? &pComponent->hasCloseButton : nullptr;
 				const eastl::vector<eastl::string>& contextualMenuLabels = pComponent->contextualMenuLabels;
@@ -1041,11 +1047,25 @@ namespace SG
 		return c;
 	}
 
+	void ImageWidget::OnDraw()
+	{
+		ImGui::Image(mTexture, { mSize.x, mSize.y }, { mUV0.x, mUV0.y }, { mUV1.x, mUV1.y });
+		ProcessCallback();
+	}
+
 	void ViewportWidget::OnDraw()
 	{
-		ImGui::Image(mTexture, ImGui::GetContentRegionAvail(), { mUV0.x, mUV0.y }, { mUV1.x, mUV1.y });
+		if (mRenderTarget != nullptr) // check for rt's validity
+		{
+			ImGui::Image(mRenderTarget->pTexture, { (float)mRenderTarget->width, (float)mRenderTarget->height },
+				{ mUV0.x, mUV0.y }, { mUV1.x, mUV1.y });
+			ProcessCallback();
+		}
+	}
 
-		ProcessCallback();
+	Vec2 ViewportWidget::GetUpdatedViewportSize() const
+	{
+		return { ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y };
 	}
 
 	void LabelWidget::OnDraw()
@@ -1290,6 +1310,5 @@ namespace SG
 	}
 
 #pragma endregion (Widget OnDraw)
-
 
 }

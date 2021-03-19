@@ -147,10 +147,7 @@ public:
 
 		mUiMiddleware.LoadFont("Source_Sans_Pro/SourceSansPro-Regular.ttf");
 		mUiMiddleware.LoadFont("Source_Sans_Pro/SourceSansPro-Bold.ttf");
-		TextDrawDesc UITextDesc;
-		UITextDesc.fontID = 0;
-		UITextDesc.fontColor = 0xffff00ff;
-		UITextDesc.fontSize = 18.0f;
+		TextDrawDesc UITextDesc = { 0, 0xffff00ff, 18.0f };
 
 		float dpiScale = get_dpi_scale().x;
 		GuiCreateDesc guiDesc{};
@@ -160,7 +157,7 @@ public:
 		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow1", &guiDesc);
 		mMainGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
 		mMainGui->AddWidget(LabelWidget("TestWindow1"));
-		mMainGui->AddWidget(ViewportWidget("Logo", (void*)mLogoTex, { 256, 256 }));
+		mMainGui->AddWidget(ImageWidget("Logo", (void*)mLogoTex, { 256, 256 }));
 
 		mSecondGui = mUiMiddleware.AddGuiComponent("TestWindow2", &guiDesc);
 		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
@@ -169,10 +166,9 @@ public:
 			SG_LOG_DEBUG("Value: (%f, %f))", mSliderData.x, mSliderData.y);
 		};
 
-		guiDesc.startPosition = { 0, 0 };
-		guiDesc.startSize = mViewportSize;
-		mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
-		mViewportGui->AddWidget(ViewportWidget("Viewport", (void*)mTexture, mViewportSize));
+		mViewportGui = mUiMiddleware.AddGuiComponent("ViewportMini", &guiDesc);
+		mViewportGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
+		mViewportWidget = mViewportGui->AddWidget(ViewportWidget("ViewportMini"));
 
 		//mUiMiddleware.mShowDemoUiWindow = true;
 
@@ -205,17 +201,6 @@ public:
 				return true;
 			},
 			&mUiMiddleware
-		};
-		add_input_action(&inputAction);
-
-		inputAction = { SG_KEY_BACKSPACE,
-			[](InputActionContext* ctx)
-			{
-				if (ctx->phase == INPUT_ACTION_PHASE_CANCELED)
-					SG_LOG_DEBUG("Back Space");
-				return true;
-			},
-			nullptr
 		};
 		add_input_action(&inputAction);
 
@@ -281,15 +266,16 @@ public:
 		if (!CreateSwapChain())
 			return false;
 
-		if (!CreateViewportTex())
-			return false;
+		//if (!CreateViewportTex())
+		//	return false;
 
-		GuiCreateDesc guiDesc{};
-		guiDesc.defaultTextDrawDesc = { 0, 0xffff00ff, 18.0f };
-		guiDesc.startPosition = { 0, 0 };
-		guiDesc.startSize = mViewportSize;
-		mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
-		mViewportGui->AddWidget(ViewportWidget("Viewport", (void*)mViewportTextures->pTexture, mViewportSize));
+		//GuiCreateDesc guiDesc{};
+		//guiDesc.defaultTextDrawDesc = { 0, 0xffff00ff, 18.0f };
+		//guiDesc.startPosition = { 0, 0 };
+		//guiDesc.startSize = mViewportSize;
+		//mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
+		//mViewportWidget = sg_new(ViewportWidget, "Viewport",
+		//	(void*)mViewportTextures->pTexture, mViewportSize);
 
 		if (!CreateDepthBuffer())
 			return false;
@@ -324,9 +310,9 @@ public:
 
 		mUiMiddleware.OnUnload();
 
-		mUiMiddleware.RemoveGuiComponent(mViewportGui);
+		//mUiMiddleware.RemoveGuiComponent(mViewportGui);
+		//sg_delete(mViewportWidget);
 
-		remove_render_target(mRenderer, mViewportTextures);
 		remove_render_target(mRenderer, mDepthBuffer);
 
 		remove_pipeline(mRenderer, mPipeline);
@@ -345,7 +331,7 @@ public:
 		//static float degreed = 45.0f;
 		static float time = 0.0f;
 		time += deltaTime;
-
+		
 		/*if (InputListener::IsMousePressed(SG_MOUSE_LEFT) &&
 			InputListener::GetMousePosClient().first >= 0 &&
 			InputListener::GetMousePosClient().first <= mSettings.width &&
@@ -447,11 +433,11 @@ public:
 		loadAction.clearDepth.depth = 1.0f;
 		loadAction.clearDepth.stencil = 0.0f;
 
-		renderTargetBarriers[0] = { mViewportTextures, SG_RESOURCE_STATE_SHADER_RESOURCE, SG_RESOURCE_STATE_RENDER_TARGET };
+		renderTargetBarriers[0] = { mRts[mCurrentIndex], SG_RESOURCE_STATE_SHADER_RESOURCE, SG_RESOURCE_STATE_RENDER_TARGET };
 		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[0]);
 
 		// begin render pass
-		cmd_bind_render_targets(cmd, 1, &mViewportTextures, mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
+		cmd_bind_render_targets(cmd, 1, &mRts[mCurrentIndex], mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
@@ -470,12 +456,11 @@ public:
 			}
 		cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
 
-		renderTargetBarriers[0] = { mViewportTextures, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_SHADER_RESOURCE };
-		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[0]);
+		renderTargetBarriers[0] = { mRts[mCurrentIndex], SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_SHADER_RESOURCE };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[1]);
 
 
-
-		renderTargetBarriers[1] = { renderTarget, SG_RESOURCE_STATE_PRESENT, SG_RESOURCE_STATE_RENDER_TARGET };
+		renderTargetBarriers[1] = { renderTarget, SG_RESOURCE_STATE_PRESENT, SG_RESOURCE_STATE_SHADER_RESOURCE };
 		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[1]);
 
 		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
@@ -488,7 +473,7 @@ public:
 			mUiMiddleware.OnDraw(cmd);
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
 
-		renderTargetBarriers[1] = { renderTarget, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_PRESENT };
+		renderTargetBarriers[1] = { renderTarget, SG_RESOURCE_STATE_SHADER_RESOURCE, SG_RESOURCE_STATE_PRESENT };
 		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[1]);
 
 		end_cmd(cmd);
@@ -518,6 +503,10 @@ public:
 			mSettings.resetGraphic = true;
 		}
 
+		// update the viewport rt
+		//mCurrViewportBuffer = mSwapChain->ppRenderTargets[mCurrentIndex];
+		reinterpret_cast<ViewportWidget*>(mViewportWidget)->BindRenderTarget(mRts[mCurrentIndex]);
+
 		mCurrentIndex = (mCurrentIndex + 1) % IMAGE_COUNT;
 
 		return true;
@@ -540,11 +529,6 @@ private:
 		swapChainCreate.colorFormat = get_recommended_swapchain_format(true);
 		swapChainCreate.enableVsync = mSettings.defaultVSyncEnable;
 		add_swapchain(mRenderer, &swapChainCreate, &mSwapChain);
-
-		//SG_LOG_DEBUG("Width: %d", mSwapChain->ppRenderTargets[0]->width);
-		//SG_LOG_DEBUG("Height: %d", mSwapChain->ppRenderTargets[0]->height);
-		//SG_LOG_DEBUG("Width: %d", mSwapChain->ppRenderTargets[1]->width);
-		//SG_LOG_DEBUG("Height: %d", mSwapChain->ppRenderTargets[1]->height);
 
 		return mSwapChain != nullptr;
 	}
@@ -628,28 +612,32 @@ private:
 		return mDepthBuffer != nullptr;
 	}
 
-	bool CreateViewportTex()
-	{
-		RenderTargetCreateDesc rt = {};
-		rt.clearValue.r = 0.0f;
-		rt.clearValue.g = 0.0f;
-		rt.clearValue.b = 0.0f;
-		rt.clearValue.a = 1.0f;
-		rt.arraySize = 1;
-		rt.depth = 1;
-		rt.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
-		rt.format = mSwapChain->ppRenderTargets[0]->format;
-		rt.startState = SG_RESOURCE_STATE_SHADER_RESOURCE;
-		rt.height = mSettings.height;
-		rt.width = mSettings.width;
-		rt.sampleCount = SG_SAMPLE_COUNT_1;
-		rt.sampleQuality = 0;
-		rt.name = "ViewportBuffer";
+	//bool CreateViewportTex()
+	//{
+	//	RenderTargetCreateDesc rt = {};
+	//	rt.clearValue.r = 0.0f;
+	//	rt.clearValue.g = 0.0f;
+	//	rt.clearValue.b = 0.0f;
+	//	rt.clearValue.a = 1.0f;
+	//	rt.arraySize = 1;
+	//	rt.depth = 1;
+	//	rt.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
+	//	rt.format = mSwapChain->ppRenderTargets[0]->format;
+	//	rt.startState = SG_RESOURCE_STATE_SHADER_RESOURCE;
+	//	rt.height = mViewportWidget ? (uint32_t)mViewportWidget->mSize.x : mSettings.width;
+	//	rt.width = mViewportWidget ? (uint32_t)mViewportWidget->mSize.y : mSettings.height;
+	//	rt.sampleCount = SG_SAMPLE_COUNT_1;
+	//	rt.sampleQuality = 0;
+	//	rt.name = "ViewportBuffer";
 
-		add_render_target(mRenderer, &rt, &mViewportTextures);
+	//	add_render_target(mRenderer, &rt, &mViewportTextures);
+	//	if (mViewportWidget)
+	//		mViewportSize = mViewportWidget->mSize;
+	//	else
+	//		mViewportSize = { mSettings.width, mSettings.height };
 
-		return mViewportTextures != nullptr;
-	}
+	//	return mViewportTextures != nullptr;
+	//}
 private:
 	Renderer* mRenderer = nullptr;
 
@@ -659,6 +647,7 @@ private:
 	Cmd* mCmds[IMAGE_COUNT] = { 0 };
 
 	SwapChain* mSwapChain = nullptr;
+	RenderTarget* mRts[IMAGE_COUNT] = { nullptr, nullptr };
 	Fence* mRenderCompleteFences[IMAGE_COUNT] = { 0 };
 	Semaphore* mRenderCompleteSemaphores[IMAGE_COUNT] = { 0 };
 	Semaphore* mImageAcquiredSemaphore = { 0 };
@@ -666,33 +655,20 @@ private:
 	Shader* mTriangleShader = nullptr;
 	Sampler* mSampler = nullptr;
 
+	Texture* mTexture = nullptr;
+	Texture* mLogoTex = nullptr;
 	RootSignature* mRootSignature = nullptr;
 	DescriptorSet* mDescriptorSet = nullptr;
 	Pipeline* mPipeline = nullptr;
 
-	Texture* mTexture = nullptr;
-	Texture* mLogoTex = nullptr;
-
+	/// this texture is use for getting the current present rt in the swapchain
+	//RenderTarget* mCurrViewportBuffer = nullptr;
 	RenderTarget* mDepthBuffer = nullptr;
-	RenderTarget* mViewportTextures = nullptr;
 
 	VertexLayout mRoomGeoVertexLayout = {};
 	Geometry* mRoomGeo = nullptr;
 
 	Buffer* mUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
-
-	Vertex mVertices[4] = {
-		{{ 0.5f,  0.5f, 0.0f }, { 1.0f, 0.0f }}, // 0 top_right 
-		{{-0.5f,  0.5f, 0.0f }, { 0.0f, 0.0f }}, // 1 top_left
-		{{-0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f }}, // 2 bot_left
-		{{ 0.5f, -0.5f, 0.0f }, { 1.0f, 1.0f }}  // 3 bot_right
-	};
-
-	const uint32_t mIndices[6] = {
-		0, 1, 2,
-		2, 3, 0,
-	};
-
 	UniformBuffer mUbo;
 	DescriptorSet* mUboDescriptorSet = nullptr;
 
@@ -701,19 +677,20 @@ private:
 	Vec3  mCameraPos = { -3.0f, 0.0f, 0.4f };
 	Vec3  mViewVec = { 1.0f, 0.0f, 0.0f };
 	Vec3  mUpVec = { 0.0f, 0.0f, 1.0f };
-	float mXSensitity = 260.f, mYSensitity = 340.0f;
-	float mCameraMoveSpeed = 1.5f;
-	Vec2  mCurrentMousePos = { 0.0f, 0.0f };
-	float yaw = 0.0f;
-	float pitch = 0.0f;
+	//float mXSensitity = 260.f, mYSensitity = 340.0f;
+	//float mCameraMoveSpeed = 1.5f;
+	//Vec2  mCurrentMousePos = { 0.0f, 0.0f };
+	//float yaw = 0.0f;
+	//float pitch = 0.0f;
 
 	// Gui
 	UIMiddleware  mUiMiddleware;
 	GuiComponent* mMainGui = nullptr;
 	GuiComponent* mSecondGui = nullptr;
-	Vec2          mViewportSize = { 512, 512 };
 	GuiComponent* mViewportGui = nullptr;
-	ViewportWidget* mViewportWidget = nullptr;
+	IWidget* mViewportWidget = nullptr;
+	//Vec2          mViewportSize = { 512, 512 };
+	//ViewportWidget* mViewportWidget = nullptr;
 };
 
 SG_DEFINE_APPLICATION_MAIN(CustomRenderer)

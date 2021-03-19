@@ -10,6 +10,7 @@
 
 namespace SG
 {
+	struct RenderTarget;
 
 	typedef void(*WidgetCallbackFunc)();
 
@@ -61,14 +62,36 @@ namespace SG
 		}
 	};
 
-#pragma region (DockSpace)
+#pragma region (Image)
 
+	// this is specifically used for viewport, we need to check its validity and then present it,
+	// it can be deferred
 	class ViewportWidget : public IWidget
 	{
 	public:
-		ViewportWidget(const eastl::string& label, void* texture, const Vec2& viewportSize,
+		ViewportWidget(const eastl::string& label,
 			const Vec2& uv0 = { 0, 0 }, const Vec2& uv1 = { 1, 1 })
-			:IWidget(label), mTexture(texture), mSize(viewportSize), mUV0(uv0), mUV1(uv1) {}
+			:IWidget(label), mUV0(uv0), mUV1(uv1) {}
+
+		virtual IWidget* OnCopy() const override;
+		virtual void OnDraw() override;
+
+		Vec2 GetUpdatedViewportSize() const;
+		void BindRenderTarget(RenderTarget* rt) { mRenderTarget = rt; }
+	protected:
+		RenderTarget* mRenderTarget = nullptr;
+		Vec2  mSize;
+		Vec2  mUV0;
+		Vec2  mUV1;
+	};
+
+	// this is used for present loading texture
+	class ImageWidget : public IWidget
+	{
+	public:
+		ImageWidget(const eastl::string& label, void* texture, const Vec2& imageSize,
+			const Vec2& uv0 = { 0, 0 }, const Vec2& uv1 = { 1, 1 })
+			:IWidget(label), mTexture(texture), mSize(imageSize), mUV0(uv0), mUV1(uv1) {}
 
 		virtual IWidget* OnCopy() const override;
 		virtual void OnDraw() override;
@@ -79,7 +102,7 @@ namespace SG
 		Vec2  mUV1;
 	};
 
-#pragma endregion (DockSpace)
+#pragma endregion (Image)
 
 #pragma region (Labels)
 
