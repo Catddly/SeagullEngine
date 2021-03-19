@@ -26,6 +26,20 @@ struct UniformBuffer
 
 Vec2 mSliderData = {};
 
+const char* windowSizesName[] = {
+	"1920 x 1080",
+	"1280 x 720"
+};
+
+uint32_t windowSizeSelect;
+uint32_t windowSizeValue;
+bool isEdited = false;
+
+void EditorCallback()
+{
+	isEdited = true;
+}
+
 class CustomRenderer : public IApp
 {
 public:
@@ -41,106 +55,10 @@ public:
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_ANIMATIONS, "Animation");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SCRIPTS, "Scripts");
 
-		SG_LOG_DEBUG("Main thread ID: %ul", Thread::get_curr_thread_id());
+		//SG_LOG_DEBUG("Main thread ID: %ul", Thread::get_curr_thread_id());
 
-		RendererCreateDesc rendererCreate = {};
-		rendererCreate.shaderTarget = SG_SHADER_TARGET_6_3;
-		init_renderer("Seagull Renderer", &rendererCreate, &mRenderer);
-
-		if (!mRenderer)
-		{
-			SG_LOG_ERROR("Failed to initialize renderer!");
+		if (!CreateRenderResource())
 			return false;
-		}
-
-		QueueCreateDesc queueCreate = {};
-		queueCreate.type = SG_QUEUE_TYPE_GRAPHICS;
-		queueCreate.flag = SG_QUEUE_FLAG_INIT_MICROPROFILE;
-		add_queue(mRenderer, &queueCreate, &mGraphicQueue);
-
-		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
-		{
-			CmdPoolCreateDesc cmdPoolCreate = {};
-			cmdPoolCreate.pQueue = mGraphicQueue;
-			cmdPoolCreate.transient = false;
-			add_command_pool(mRenderer, &cmdPoolCreate, &mCmdPools[i]);
-
-			CmdCreateDesc cmdCreate = {};
-			cmdCreate.pPool = mCmdPools[i];
-			add_cmd(mRenderer, &cmdCreate, &mCmds[i]);
-
-			add_fence(mRenderer, &mRenderCompleteFences[i]);
-			add_semaphore(mRenderer, &mRenderCompleteSemaphores[i]);
-		}
-		add_semaphore(mRenderer, &mImageAcquiredSemaphore);
-
-		init_resource_loader_interface(mRenderer);
-
-		TextureLoadDesc textureCreate = {};
-		textureCreate.fileName = "viking_room";
-		textureCreate.ppTexture = &mTexture;
-		add_resource(&textureCreate, nullptr);
-
-		textureCreate.fileName = "logo";
-		textureCreate.ppTexture = &mLogoTex;
-		add_resource(&textureCreate, nullptr);
-
-		mRoomGeoVertexLayout.attribCount = 2;
-
-		mRoomGeoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
-		mRoomGeoVertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
-		mRoomGeoVertexLayout.attribs[0].binding = 0;
-		mRoomGeoVertexLayout.attribs[0].location = 0;
-		mRoomGeoVertexLayout.attribs[0].offset = 0;
-
-		mRoomGeoVertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
-		mRoomGeoVertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
-		mRoomGeoVertexLayout.attribs[1].binding = 0;
-		mRoomGeoVertexLayout.attribs[1].location = 1;
-		mRoomGeoVertexLayout.attribs[1].offset = 3 * sizeof(float);
-
-		GeometryLoadDesc geoCreate = {};
-		geoCreate.fileName = "model.gltf";
-		geoCreate.ppGeometry = &mRoomGeo;
-		geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
-		add_resource(&geoCreate, nullptr);
-
-		ShaderLoadDesc loadBasicShader = {};
-		loadBasicShader.stages[0] = { "triangle.vert", nullptr, 0, "main" };
-		loadBasicShader.stages[1] = { "triangle.frag", nullptr, 0, "main" };
-		add_shader(mRenderer, &loadBasicShader, &mTriangleShader);
-
-		SamplerCreateDesc samplerCreate = {};
-		samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-		samplerCreate.addressV = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-		samplerCreate.addressW = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-		samplerCreate.minFilter = SG_FILTER_LINEAR;
-		samplerCreate.magFilter = SG_FILTER_LINEAR;
-		samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
-		add_sampler(mRenderer, &samplerCreate, &mSampler);
-
-		Shader* submitShaders[] = { mTriangleShader };
-		const char* staticSamplers[] = { "Sampler" };
-		RootSignatureCreateDesc rootSignatureCreate = {};
-		rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
-		rootSignatureCreate.ppStaticSamplers = &mSampler;
-		rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
-		rootSignatureCreate.ppShaders = submitShaders;
-		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
-		add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
-
-		BufferLoadDesc uboCreate;
-		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
-		uboCreate.desc.name = "UniformBuffer";
-		uboCreate.desc.size = sizeof(UniformBuffer);
-		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
-		uboCreate.pData = nullptr;
-		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
-		{
-			uboCreate.ppBuffer = &mUniformBuffer[i];
-			add_resource(&uboCreate, nullptr);
-		}
 
 		if (!mUiMiddleware.OnInit(mRenderer))
 			return false;
@@ -154,6 +72,7 @@ public:
 		guiDesc.startPosition = { 0 , 0 };
 		guiDesc.startSize = { mSettings.width * 0.5 , mSettings.height * 0.5 };
 		guiDesc.defaultTextDrawDesc = UITextDesc;
+
 		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow1", &guiDesc);
 		mMainGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
 		mMainGui->AddWidget(LabelWidget("TestWindow1"));
@@ -165,10 +84,12 @@ public:
 		{
 			SG_LOG_DEBUG("Value: (%f, %f))", mSliderData.x, mSliderData.y);
 		};
+		mSecondGui->AddWidget(ButtonWidget("StopUpdate", &mIsPressed));
+		mSecondGui->AddWidget(DropdownWidget("WindowSize", &windowSizeSelect, windowSizesName, &windowSizeValue, 2))->pOnEdited = EditorCallback;
 
 		mViewportGui = mUiMiddleware.AddGuiComponent("ViewportMini", &guiDesc);
 		mViewportGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
-		mViewportWidget = mViewportGui->AddWidget(ViewportWidget("ViewportMini"));
+		mViewportWidget = mViewportGui->AddWidget(ViewportWidget("Viewport", { mSettings.width, mSettings.height }));
 
 		//mUiMiddleware.mShowDemoUiWindow = true;
 
@@ -226,34 +147,7 @@ public:
 
 		mUiMiddleware.OnExit();
 
-		remove_resource(mTexture);
-		remove_resource(mLogoTex);
-
-		remove_resource(mRoomGeo);
-		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
-		{
-			remove_resource(mUniformBuffer[i]);
-		}
-
-		remove_sampler(mRenderer, mSampler);
-		remove_shader(mRenderer, mTriangleShader);
-
-		exit_resource_loader_interface(mRenderer);
-
-		remove_root_signature(mRenderer, mRootSignature);
-
-		for (uint32_t i = 0; i < IMAGE_COUNT; ++i)
-		{
-			remove_fence(mRenderer, mRenderCompleteFences[i]);
-			remove_semaphore(mRenderer, mRenderCompleteSemaphores[i]);
-
-			remove_cmd(mRenderer, mCmds[i]);
-			remove_command_pool(mRenderer, mCmdPools[i]);
-		}
-		remove_semaphore(mRenderer, mImageAcquiredSemaphore);
-
-		remove_queue(mRenderer, mGraphicQueue);
-		remove_renderer(mRenderer);
+		RemoveRenderResource();
 	}
 
 	virtual bool OnLoad() override
@@ -266,24 +160,16 @@ public:
 		if (!CreateSwapChain())
 			return false;
 
-		//if (!CreateViewportTex())
-		//	return false;
+		if (!mUiMiddleware.OnLoad(mSwapChain->ppRenderTargets))
+			return false;
 
-		//GuiCreateDesc guiDesc{};
-		//guiDesc.defaultTextDrawDesc = { 0, 0xffff00ff, 18.0f };
-		//guiDesc.startPosition = { 0, 0 };
-		//guiDesc.startSize = mViewportSize;
-		//mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
-		//mViewportWidget = sg_new(ViewportWidget, "Viewport",
-		//	(void*)mViewportTextures->pTexture, mViewportSize);
+		if (!CreateRts())
+			return false;
 
 		if (!CreateDepthBuffer())
 			return false;
 
 		wait_for_all_resource_loads();
-
-		if (!mUiMiddleware.OnLoad(mSwapChain->ppRenderTargets))
-			return false;
 
 		if (!CreateGraphicPipeline())
 			return false;
@@ -310,9 +196,8 @@ public:
 
 		mUiMiddleware.OnUnload();
 
-		//mUiMiddleware.RemoveGuiComponent(mViewportGui);
-		//sg_delete(mViewportWidget);
-
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+			remove_render_target(mRenderer, mRts[i]);
 		remove_render_target(mRenderer, mDepthBuffer);
 
 		remove_pipeline(mRenderer, mPipeline);
@@ -383,10 +268,28 @@ public:
 
 		mUbo.model = glm::rotate(Matrix4(1.0f), time * 0.03f * 60.0f, mUpVec);
 		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + glm::normalize(mViewVec), mUpVec);
-		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)mSettings.width / (float)mSettings.height,
+		mUbo.projection = glm::perspective(glm::radians(45.0f), reinterpret_cast<ViewportWidget*>(mViewportWidget)->GetViewportFOV(),
 			0.001f, 100000.0f);
 
 		mUiMiddleware.OnUpdate(deltaTime);
+
+		if (mIsPressed)
+			mStopUpdate = !mStopUpdate;
+
+		if (isEdited)
+		{
+			switch (windowSizeSelect)
+			{
+			case 0:
+				set_window_size(mWindow, 1920, 1080);
+				break;
+			case 1:
+				set_window_size(mWindow, 1280, 720);
+				break;
+			default:
+				break;
+			}
+		}
 
 		return true;
 	}
@@ -420,7 +323,7 @@ public:
 		// begin command buffer
 		begin_cmd(cmd);
 
-		RenderTargetBarrier renderTargetBarriers[2];
+		RenderTargetBarrier renderTargetBarriers;
 
 		LoadActionsDesc loadAction = {};
 		loadAction.loadActionsColor[0] = SG_LOAD_ACTION_CLEAR;
@@ -433,11 +336,11 @@ public:
 		loadAction.clearDepth.depth = 1.0f;
 		loadAction.clearDepth.stencil = 0.0f;
 
-		renderTargetBarriers[0] = { mRts[mCurrentIndex], SG_RESOURCE_STATE_SHADER_RESOURCE, SG_RESOURCE_STATE_RENDER_TARGET };
-		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[0]);
+		renderTargetBarriers = { mRts[imageIndex], SG_RESOURCE_STATE_SHADER_RESOURCE, SG_RESOURCE_STATE_RENDER_TARGET };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
 
 		// begin render pass
-		cmd_bind_render_targets(cmd, 1, &mRts[mCurrentIndex], mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
+		cmd_bind_render_targets(cmd, 1, &mRts[imageIndex], mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
@@ -456,14 +359,13 @@ public:
 			}
 		cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
 
-		renderTargetBarriers[0] = { mRts[mCurrentIndex], SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_SHADER_RESOURCE };
-		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[1]);
+		renderTargetBarriers = { mRts[imageIndex], SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_SHADER_RESOURCE };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
 
+		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_PRESENT, SG_RESOURCE_STATE_RENDER_TARGET };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
 
-		renderTargetBarriers[1] = { renderTarget, SG_RESOURCE_STATE_PRESENT, SG_RESOURCE_STATE_SHADER_RESOURCE };
-		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[1]);
-
-		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
+		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, &loadAction, nullptr, nullptr, -1, -1);
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
@@ -473,8 +375,8 @@ public:
 			mUiMiddleware.OnDraw(cmd);
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
 
-		renderTargetBarriers[1] = { renderTarget, SG_RESOURCE_STATE_SHADER_RESOURCE, SG_RESOURCE_STATE_PRESENT };
-		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers[1]);
+		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_PRESENT };
+		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
 
 		end_cmd(cmd);
 
@@ -504,8 +406,10 @@ public:
 		}
 
 		// update the viewport rt
-		//mCurrViewportBuffer = mSwapChain->ppRenderTargets[mCurrentIndex];
-		reinterpret_cast<ViewportWidget*>(mViewportWidget)->BindRenderTarget(mRts[mCurrentIndex]);
+		if (!mStopUpdate)
+			reinterpret_cast<ViewportWidget*>(mViewportWidget)->BindRenderTexture(mRts[imageIndex]->pTexture);
+		else
+			reinterpret_cast<ViewportWidget*>(mViewportWidget)->BindRenderTexture(mLogoTex);
 
 		mCurrentIndex = (mCurrentIndex + 1) % IMAGE_COUNT;
 
@@ -612,32 +516,168 @@ private:
 		return mDepthBuffer != nullptr;
 	}
 
-	//bool CreateViewportTex()
-	//{
-	//	RenderTargetCreateDesc rt = {};
-	//	rt.clearValue.r = 0.0f;
-	//	rt.clearValue.g = 0.0f;
-	//	rt.clearValue.b = 0.0f;
-	//	rt.clearValue.a = 1.0f;
-	//	rt.arraySize = 1;
-	//	rt.depth = 1;
-	//	rt.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
-	//	rt.format = mSwapChain->ppRenderTargets[0]->format;
-	//	rt.startState = SG_RESOURCE_STATE_SHADER_RESOURCE;
-	//	rt.height = mViewportWidget ? (uint32_t)mViewportWidget->mSize.x : mSettings.width;
-	//	rt.width = mViewportWidget ? (uint32_t)mViewportWidget->mSize.y : mSettings.height;
-	//	rt.sampleCount = SG_SAMPLE_COUNT_1;
-	//	rt.sampleQuality = 0;
-	//	rt.name = "ViewportBuffer";
+	bool CreateRts()
+	{
+		bool success = true;
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			RenderTargetCreateDesc rtDesc = {};
+			rtDesc.format = mSwapChain->ppRenderTargets[0]->format;
+			rtDesc.width = mSettings.width;
+			rtDesc.height = mSettings.height;
+			rtDesc.clearValue.r = 0.0f;
+			rtDesc.clearValue.g = 0.0f;
+			rtDesc.clearValue.b = 0.0f;
+			rtDesc.clearValue.a = 1.0f;
+			rtDesc.sampleCount = SG_SAMPLE_COUNT_1;
+			rtDesc.arraySize = 1;
+			rtDesc.depth = 1;
+			rtDesc.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
+			rtDesc.sampleQuality = 0;
+			rtDesc.startState = SG_RESOURCE_STATE_SHADER_RESOURCE;
+			rtDesc.mipLevels = 0;
+			
+			add_render_target(mRenderer, &rtDesc, &mRts[i]);
+			success &= mRts[i] != nullptr;
+		}
+		return success;
+	}
 
-	//	add_render_target(mRenderer, &rt, &mViewportTextures);
-	//	if (mViewportWidget)
-	//		mViewportSize = mViewportWidget->mSize;
-	//	else
-	//		mViewportSize = { mSettings.width, mSettings.height };
+	bool CreateRenderResource()
+	{
+		RendererCreateDesc rendererCreate = {};
+		rendererCreate.shaderTarget = SG_SHADER_TARGET_6_3;
+		init_renderer("Seagull Renderer", &rendererCreate, &mRenderer);
 
-	//	return mViewportTextures != nullptr;
-	//}
+		if (!mRenderer)
+		{
+			SG_LOG_ERROR("Failed to initialize renderer!");
+			return false;
+		}
+
+		QueueCreateDesc queueCreate = {};
+		queueCreate.type = SG_QUEUE_TYPE_GRAPHICS;
+		queueCreate.flag = SG_QUEUE_FLAG_INIT_MICROPROFILE;
+		add_queue(mRenderer, &queueCreate, &mGraphicQueue);
+
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			CmdPoolCreateDesc cmdPoolCreate = {};
+			cmdPoolCreate.pQueue = mGraphicQueue;
+			cmdPoolCreate.transient = false;
+			add_command_pool(mRenderer, &cmdPoolCreate, &mCmdPools[i]);
+
+			CmdCreateDesc cmdCreate = {};
+			cmdCreate.pPool = mCmdPools[i];
+			add_cmd(mRenderer, &cmdCreate, &mCmds[i]);
+
+			add_fence(mRenderer, &mRenderCompleteFences[i]);
+			add_semaphore(mRenderer, &mRenderCompleteSemaphores[i]);
+		}
+		add_semaphore(mRenderer, &mImageAcquiredSemaphore);
+
+		init_resource_loader_interface(mRenderer);
+
+		TextureLoadDesc textureCreate = {};
+		textureCreate.fileName = "viking_room";
+		textureCreate.ppTexture = &mTexture;
+		add_resource(&textureCreate, nullptr);
+
+		textureCreate.fileName = "logo";
+		textureCreate.ppTexture = &mLogoTex;
+		add_resource(&textureCreate, nullptr);
+
+		mRoomGeoVertexLayout.attribCount = 2;
+
+		mRoomGeoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
+		mRoomGeoVertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
+		mRoomGeoVertexLayout.attribs[0].binding = 0;
+		mRoomGeoVertexLayout.attribs[0].location = 0;
+		mRoomGeoVertexLayout.attribs[0].offset = 0;
+
+		mRoomGeoVertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
+		mRoomGeoVertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
+		mRoomGeoVertexLayout.attribs[1].binding = 0;
+		mRoomGeoVertexLayout.attribs[1].location = 1;
+		mRoomGeoVertexLayout.attribs[1].offset = 3 * sizeof(float);
+
+		GeometryLoadDesc geoCreate = {};
+		geoCreate.fileName = "model.gltf";
+		geoCreate.ppGeometry = &mRoomGeo;
+		geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
+		add_resource(&geoCreate, nullptr);
+
+		ShaderLoadDesc loadBasicShader = {};
+		loadBasicShader.stages[0] = { "triangle.vert", nullptr, 0, "main" };
+		loadBasicShader.stages[1] = { "triangle.frag", nullptr, 0, "main" };
+		add_shader(mRenderer, &loadBasicShader, &mTriangleShader);
+
+		SamplerCreateDesc samplerCreate = {};
+		samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCreate.addressV = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCreate.addressW = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCreate.minFilter = SG_FILTER_LINEAR;
+		samplerCreate.magFilter = SG_FILTER_LINEAR;
+		samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
+		add_sampler(mRenderer, &samplerCreate, &mSampler);
+
+		Shader* submitShaders[] = { mTriangleShader };
+		const char* staticSamplers[] = { "Sampler" };
+		RootSignatureCreateDesc rootSignatureCreate = {};
+		rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
+		rootSignatureCreate.ppStaticSamplers = &mSampler;
+		rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
+		rootSignatureCreate.ppShaders = submitShaders;
+		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
+		add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
+
+		BufferLoadDesc uboCreate;
+		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
+		uboCreate.desc.name = "UniformBuffer";
+		uboCreate.desc.size = sizeof(UniformBuffer);
+		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
+		uboCreate.pData = nullptr;
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			uboCreate.ppBuffer = &mUniformBuffer[i];
+			add_resource(&uboCreate, nullptr);
+		}
+
+		return true;
+	}
+
+	void RemoveRenderResource()
+	{
+		remove_resource(mTexture);
+		remove_resource(mLogoTex);
+
+		remove_resource(mRoomGeo);
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			remove_resource(mUniformBuffer[i]);
+		}
+
+		remove_sampler(mRenderer, mSampler);
+		remove_shader(mRenderer, mTriangleShader);
+
+		exit_resource_loader_interface(mRenderer);
+
+		remove_root_signature(mRenderer, mRootSignature);
+
+		for (uint32_t i = 0; i < IMAGE_COUNT; ++i)
+		{
+			remove_fence(mRenderer, mRenderCompleteFences[i]);
+			remove_semaphore(mRenderer, mRenderCompleteSemaphores[i]);
+
+			remove_cmd(mRenderer, mCmds[i]);
+			remove_command_pool(mRenderer, mCmdPools[i]);
+		}
+		remove_semaphore(mRenderer, mImageAcquiredSemaphore);
+
+		remove_queue(mRenderer, mGraphicQueue);
+		remove_renderer(mRenderer);
+	}
 private:
 	Renderer* mRenderer = nullptr;
 
@@ -647,7 +687,6 @@ private:
 	Cmd* mCmds[IMAGE_COUNT] = { 0 };
 
 	SwapChain* mSwapChain = nullptr;
-	RenderTarget* mRts[IMAGE_COUNT] = { nullptr, nullptr };
 	Fence* mRenderCompleteFences[IMAGE_COUNT] = { 0 };
 	Semaphore* mRenderCompleteSemaphores[IMAGE_COUNT] = { 0 };
 	Semaphore* mImageAcquiredSemaphore = { 0 };
@@ -662,7 +701,6 @@ private:
 	Pipeline* mPipeline = nullptr;
 
 	/// this texture is use for getting the current present rt in the swapchain
-	//RenderTarget* mCurrViewportBuffer = nullptr;
 	RenderTarget* mDepthBuffer = nullptr;
 
 	VertexLayout mRoomGeoVertexLayout = {};
@@ -677,20 +715,18 @@ private:
 	Vec3  mCameraPos = { -3.0f, 0.0f, 0.4f };
 	Vec3  mViewVec = { 1.0f, 0.0f, 0.0f };
 	Vec3  mUpVec = { 0.0f, 0.0f, 1.0f };
-	//float mXSensitity = 260.f, mYSensitity = 340.0f;
-	//float mCameraMoveSpeed = 1.5f;
-	//Vec2  mCurrentMousePos = { 0.0f, 0.0f };
-	//float yaw = 0.0f;
-	//float pitch = 0.0f;
 
 	// Gui
 	UIMiddleware  mUiMiddleware;
 	GuiComponent* mMainGui = nullptr;
 	GuiComponent* mSecondGui = nullptr;
+
 	GuiComponent* mViewportGui = nullptr;
 	IWidget* mViewportWidget = nullptr;
-	//Vec2          mViewportSize = { 512, 512 };
-	//ViewportWidget* mViewportWidget = nullptr;
+	RenderTarget* mRts[IMAGE_COUNT] = { nullptr, nullptr };
+
+	bool mIsPressed = false;
+	bool mStopUpdate = false;
 };
 
 SG_DEFINE_APPLICATION_MAIN(CustomRenderer)

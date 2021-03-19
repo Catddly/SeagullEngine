@@ -245,7 +245,7 @@ namespace SG
 
 	IWidget* ViewportWidget::OnCopy() const
 	{
-		ViewportWidget* pWidget = sg_placement_new<ViewportWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->mRenderTarget,
+		ViewportWidget* pWidget = sg_placement_new<ViewportWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->mSize,
 			this->mUV0, this->mUV1);
 		CopyBase(pWidget);
 		return pWidget;
@@ -268,7 +268,7 @@ namespace SG
 
 	IWidget* ButtonWidget::OnCopy() const
 	{
-		ButtonWidget* pWidget = sg_placement_new<ButtonWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel);
+		ButtonWidget* pWidget = sg_placement_new<ButtonWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->isPressed);
 		CopyBase(pWidget);
 		return pWidget;
 	}

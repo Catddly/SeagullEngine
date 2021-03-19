@@ -10,7 +10,7 @@
 
 namespace SG
 {
-	struct RenderTarget;
+	struct Texture;
 
 	typedef void(*WidgetCallbackFunc)();
 
@@ -69,17 +69,16 @@ namespace SG
 	class ViewportWidget : public IWidget
 	{
 	public:
-		ViewportWidget(const eastl::string& label,
-			const Vec2& uv0 = { 0, 0 }, const Vec2& uv1 = { 1, 1 })
-			:IWidget(label), mUV0(uv0), mUV1(uv1) {}
+		ViewportWidget(const eastl::string& label, const Vec2& viewportSize, const Vec2& uv0 = { 0, 0 }, const Vec2& uv1 = { 1, 1 })
+			:IWidget(label), mSize(viewportSize), mUV0(uv0), mUV1(uv1) {}
 
 		virtual IWidget* OnCopy() const override;
 		virtual void OnDraw() override;
 
-		Vec2 GetUpdatedViewportSize() const;
-		void BindRenderTarget(RenderTarget* rt) { mRenderTarget = rt; }
+		float GetViewportFOV() const { return mSize.x / mSize.y; }
+		void  BindRenderTexture(Texture* rt) { mRenderTexture = rt; }
 	protected:
-		RenderTarget* mRenderTarget = nullptr;
+		Texture* mRenderTexture = nullptr;
 		Vec2  mSize;
 		Vec2  mUV0;
 		Vec2  mUV1;
@@ -135,11 +134,13 @@ namespace SG
 	class ButtonWidget : public IWidget
 	{
 	public:
-		ButtonWidget(const eastl::string& label)
-			:IWidget(label) {}
+		ButtonWidget(const eastl::string& label, bool* b)
+			:IWidget(label), isPressed(b) {}
 
 		virtual IWidget* OnCopy() const override;
 		virtual void OnDraw() override;
+	protected:
+		bool* isPressed;
 	};
 
 	class RadioButtonWidget : public IWidget

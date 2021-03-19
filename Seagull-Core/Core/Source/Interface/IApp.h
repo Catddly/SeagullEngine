@@ -34,7 +34,7 @@ namespace SG
 
 			bool    fullScreen = false;
 			bool    externalWindow = false;
-			bool    enableResize = true;
+			bool    enableResize = false;
 			bool    borderlessWindow = false;
 			bool    allowedOverSizeWindow = false;
 			bool    initialized = false;

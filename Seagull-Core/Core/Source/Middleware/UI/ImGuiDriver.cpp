@@ -91,6 +91,7 @@ namespace ImGui
 
 } // namespace ImGui
 
+#define SG_EDITOR_ENABLE_DOCKSPACE
 
 namespace SG
 {
@@ -1055,17 +1056,17 @@ namespace SG
 
 	void ViewportWidget::OnDraw()
 	{
-		if (mRenderTarget != nullptr) // check for rt's validity
+		//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 2.0f, 3.0f });
+		if (mRenderTexture != nullptr) // check for rt's validity
 		{
-			ImGui::Image(mRenderTarget->pTexture, { (float)mRenderTarget->width, (float)mRenderTarget->height },
+			//ImGui::Image(mRenderTarget->pTexture, { (float)mRenderTarget->width, (float)mRenderTarget->height },
+			//	{ mUV0.x, mUV0.y }, { mUV1.x, mUV1.y });
+			mSize = { ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y };
+			ImGui::Image(mRenderTexture, ImGui::GetContentRegionAvail(),
 				{ mUV0.x, mUV0.y }, { mUV1.x, mUV1.y });
 			ProcessCallback();
 		}
-	}
-
-	Vec2 ViewportWidget::GetUpdatedViewportSize() const
-	{
-		return { ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y };
+		//ImGui::PopStyleVar();
 	}
 
 	void LabelWidget::OnDraw()
@@ -1082,7 +1083,7 @@ namespace SG
 
 	void ButtonWidget::OnDraw()
 	{
-		ImGui::Button(mLabel.c_str());
+		*isPressed = ImGui::Button(mLabel.c_str());
 		ProcessCallback();
 	}
 
