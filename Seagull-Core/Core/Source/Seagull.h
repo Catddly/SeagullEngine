@@ -17,8 +17,8 @@
 
 #include "Math/MathTypes.h"
 
-#include "../../Seagull-Core/Renderer/IRenderer/Include/IRenderer.h"
-#include "../../Seagull-Core/Renderer/IRenderer/Include/IResourceLoader.h"
+#include "../../../Seagull-Core/Renderer/IRenderer/Include/IRenderer.h"
+#include "../../../Seagull-Core/Renderer/IRenderer/Include/IResourceLoader.h"
 
 #include "Middleware/UI/UIMiddleware.h"
 

@@ -91,8 +91,6 @@ namespace ImGui
 
 } // namespace ImGui
 
-#define SG_EDITOR_ENABLE_DOCKSPACE
-
 namespace SG
 {
 
@@ -540,13 +538,22 @@ namespace SG
 				style.WindowMinSize.x = windowMinSizeX;
 				if (ImGui::BeginMenuBar())
 				{
-					static bool saveScenePopup = false;
-					if (ImGui::BeginMenu("File and settings"))
+					if (ImGui::BeginMenu("File and Settings"))
 					{
-						ImGui::Separator();
-
-						if (ImGui::MenuItem("exit"))
+						if (ImGui::MenuItem("Exit"))
 							request_shutdown();
+
+						ImGui::EndMenu();
+					}
+
+					if (ImGui::BeginMenu("Windows"))
+					{
+						static WindowDesc window;
+						if (ImGui::MenuItem("New Window?"))
+							open_window("Test", &window);
+						if (ImGui::MenuItem("Close New Window?"))
+							close_window(&window);
+
 						ImGui::EndMenu();
 					}
 					ImGui::EndMenuBar();

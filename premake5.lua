@@ -95,6 +95,7 @@ filter "system:windows"
     defines
     {
         "SG_PLATFORM_WINDOWS",
+        "SG_EDITOR_ENABLE_DOCKSPACE"
         -- "SG_GRAPHIC_API_D3D12_SUPPORTED",
     }
 
@@ -155,7 +156,7 @@ group "Renderer"
 group ""
 
 project "Sandbox"
-    location "Sandbox"
+    location "User/Sandbox"
     kind "ConsoleApp"
     language "C++"
     cppdialect "C++17"
@@ -169,8 +170,8 @@ project "Sandbox"
     -- include files
     files
 	{
-		"%{prj.name}/Source/**.h",
-		"%{prj.name}/Source/**.cpp"
+		"User/%{prj.name}/Source/**.h",
+		"User/%{prj.name}/Source/**.cpp"
 	}
 
     -- include directories
@@ -209,6 +210,67 @@ filter "configurations:Release-Vulkan"
     {
         "SG_RELEASE",
         "SG_GRAPHIC_API_VULKAN"
+    }
+    runtime "Release"
+    optimize "on"
+
+
+project "Editor"
+    location "User/Editor"
+    kind "ConsoleApp"
+    language "C++"
+    cppdialect "C++17"
+    staticruntime "on"
+
+    -- bin/Debug-windows-x64/Seagull Core
+    targetdir ("Bin/" .. outputdir .. "/%{prj.name}")
+    -- bin-int/Debug-windows-x64/Seagull Core
+    objdir    ("Bin-int/" .. outputdir .. "/%{prj.name}")
+
+    -- include files
+    files
+	{
+		"User/%{prj.name}/Source/**.h",
+		"User/%{prj.name}/Source/**.cpp"
+	}
+
+    -- include directories
+    includedirs
+    {
+        "Seagull-Core/Core/Source/",
+        "%{IncludeDir.eastl}",
+        "%{IncludeDir.glm}",
+        "%{IncludeDir.RendererVulkan}"
+    }
+
+    -- link libraries
+    links
+    {
+        "Seagull-Core",
+        "RendererVulkan",
+        "eastl"
+    }
+
+filter "system:windows"
+    systemversion "latest"
+    defines "SG_PLATFORM_WINDOWS"
+
+filter "configurations:Debug-Vulkan"
+    defines
+    {
+         "SG_DEBUG",
+         "SG_GRAPHIC_API_VULKAN",
+         "SG_EDITOR_ENABLE_DOCKSPACE"
+    }
+    runtime "Debug"
+    symbols "on"
+
+filter "configurations:Release-Vulkan"
+    defines 
+    {
+        "SG_RELEASE",
+        "SG_GRAPHIC_API_VULKAN",
+        "SG_EDITOR_ENABLE_DOCKSPACE"
     }
     runtime "Release"
     optimize "on"
