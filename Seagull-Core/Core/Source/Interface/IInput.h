@@ -202,8 +202,29 @@ namespace SG
 
 		SG_BUTTON_ANY = SG_MOUSE_7 + 1,
 
+		SG_GESTURE_BINDINGS_BEGIN,
+		SG_GESTURE_TAP = SG_GESTURE_BINDINGS_BEGIN,
+		SG_GESTURE_PAN,
+		SG_GESTURE_PINCH,
+		SG_GESTURE_ROTATE,
+		SG_GESTURE_LONG_PRESS,
+		SG_GESTURE_BINDINGS_END = SG_GESTURE_LONG_PRESS,
+
 		SG_TEXT
 	};
+
+	typedef struct GestureDesc
+	{
+		/// Configuring Pan gesture
+		uint32_t    minNumberOfTouches;
+		uint32_t    maxNumberOfTouches;
+		/// Configuring Tap gesture (single tap, double tap, ...)
+		uint32_t    numberOfTapsRequired;
+		/// Configuring Long press gesture
+		float       minimumPressDuration;
+
+		uint32_t    triggerBinding;
+	} GestureDesc;
 
 	typedef enum InputDeviceType
 	{
@@ -260,6 +281,8 @@ namespace SG
 		/// callback when the button state is changed
 		InputActionCallback callback;
 		void*    pUserData;
+		/// register Gesture
+		GestureDesc pGesture;
 		/// which device to apply
 		uint8_t  userId;
 	} InputActionDesc;

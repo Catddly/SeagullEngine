@@ -5,6 +5,7 @@
 #include "Interface/IThread.h"
 #include "Interface/ITime.h"
 #include "Interface/IInput.h"
+#include "Interface/ICameraController.h"
 
 #include "ThreadSystem/ThreadSystem.h"
 

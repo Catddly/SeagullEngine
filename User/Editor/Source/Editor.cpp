@@ -45,6 +45,8 @@ void EditorCallback()
 	isEdited = true;
 }
 
+ICameraController* gCamera = nullptr;
+
 class CustomRenderer : public IApp
 {
 public:
@@ -97,6 +99,8 @@ public:
 
 		//mUiMiddleware.mShowDemoUiWindow = true;
 
+		gCamera = create_perspective_camera({ -3.0f, 0.0f, 0.4f }, { 1.0f, 0.0f, 0.0f });
+
 		init_input_system(mWindow);
 
 		InputActionDesc inputAction = { SG_KEY_ESCAPE,
@@ -140,6 +144,8 @@ public:
 		};
 		add_input_action(&inputAction);
 
+		RegisterCameraControls();
+
 		return true;
 	}
 
@@ -147,6 +153,7 @@ public:
 	{
 		wait_queue_idle(mGraphicQueue);
 
+		destroy_camera(gCamera);
 		exit_input_system();
 
 		mUiMiddleware.OnExit();
@@ -220,63 +227,18 @@ public:
 	{
 		update_input_system(mSettings.width, mSettings.height);
 
+		gCamera->SetCameraLens(glm::radians(45.0f), reinterpret_cast<ViewportWidget*>(mViewportWidget)->GetViewportFOV(), 0.001f, 1000.0f);
+		gCamera->OnUpdate(deltaTime);
+
 		//static float degreed = 45.0f;
 		static float time = 0.0f;
 		time += deltaTime;
 		
-		/*if (InputListener::IsMousePressed(SG_MOUSE_LEFT) &&
-			InputListener::GetMousePosClient().first >= 0 &&
-			InputListener::GetMousePosClient().first <= mSettings.width &&
-			InputListener::GetMousePosClient().second >= 0 &&
-			InputListener::GetMousePosClient().second <= mSettings.height)
-		{
-			auto xOffset = InputListener::GetMousePosClient().first - mCurrentMousePos.x;
-			auto yOffset = InputListener::GetMousePosClient().second - mCurrentMousePos.y;
-			mCurrentMousePos.x = InputListener::GetMousePosClient().first;
-			mCurrentMousePos.y = InputListener::GetMousePosClient().second;
-
-			xOffset *= deltaTime * mXSensitity;
-			yOffset *= deltaTime * mYSensitity;
-
-			yaw -= xOffset;
-			pitch -= yOffset;
-
-			if (pitch <= -89.0f)
-				pitch = -89.0f;
-			if (pitch >= 89.0f)
-				pitch = 89.0f;
-
-			mViewVec.x = glm::cos(glm::radians(yaw));
-			mViewVec.y = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
-			mViewVec.z = glm::sin(glm::radians(pitch));
-		}
-		else
-		{
-			mCurrentMousePos.x = InputListener::GetMousePosClient().first;
-			mCurrentMousePos.y = InputListener::GetMousePosClient().second;
-		}
-
-		if (InputListener::IsKeyPressed(SG_KEY_W))
-			mCameraPos += mViewVec * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_S))
-			mCameraPos -= mViewVec * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_A))
-			mCameraPos -= glm::cross(mViewVec, mUpVec) * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_D))
-			mCameraPos += glm::cross(mViewVec, mUpVec) * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_SPACE))
-			mCameraPos += mUpVec * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_CTRLL))
-			mCameraPos -= mUpVec * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_O))
-			degreed += deltaTime * 20.0f;
-		if (InputListener::IsKeyPressed(SG_KEY_P))
-			degreed -= deltaTime * 20.0f;*/
-
 		mUbo.model = glm::rotate(Matrix4(1.0f), time * 0.03f * 60.0f, mUpVec);
-		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + glm::normalize(mViewVec), mUpVec);
-		mUbo.projection = glm::perspective(glm::radians(45.0f), reinterpret_cast<ViewportWidget*>(mViewportWidget)->GetViewportFOV(),
-			0.001f, 100000.0f);
+		mUbo.view = gCamera->GetViewMatrix();
+		mUbo.projection = gCamera->GetProjMatrix();
+		//mUbo.projection = glm::perspective(glm::radians(45.0f), reinterpret_cast<ViewportWidget*>(mViewportWidget)->GetViewportFOV(),
+		//	0.001f, 100000.0f);
 
 		mUiMiddleware.OnUpdate(deltaTime);
 
@@ -723,6 +685,97 @@ private:
 		remove_queue(mRenderer, mGraphicQueue);
 		remove_renderer(mRenderer);
 	}
+
+	void RegisterCameraControls()
+	{
+		//InputActionDesc inputAction = { SG_KEY_W,
+		//	[](InputActionContext* ctx)
+		//		{
+		//			gCamera->OnMove({ 20.0f, 0.0f, 0.0f });
+		//			return true;
+		//		},
+		//	nullptr
+		//};
+		//add_input_action(&inputAction);
+
+		InputActionDesc inputAction = { SG_KEY_S,
+			[](InputActionContext* ctx)
+				{
+					gCamera->OnMove({ -20.0f, 0.0f, 0.0f });
+					return true;
+				},
+			nullptr
+		};
+		add_input_action(&inputAction);
+
+		inputAction = { SG_KEY_A,
+			[](InputActionContext* ctx)
+				{
+					gCamera->OnMove({ 0.0f, -20.0f, 0.0f });
+					return true;
+				},
+			nullptr
+		};
+		add_input_action(&inputAction);
+
+		inputAction = { SG_KEY_D,
+			[](InputActionContext* ctx)
+				{
+					gCamera->OnMove({ 0.0f, 20.0f, 0.0f });
+					return true;
+				},
+			nullptr
+		};
+		add_input_action(&inputAction);
+
+		inputAction = { SG_KEY_S,
+			[](InputActionContext* ctx)
+				{
+					gCamera->OnMove({ -20.0f, 0.0f, 0.0f });
+					return true;
+				},
+			nullptr
+		};
+		add_input_action(&inputAction);
+
+		inputAction = { SG_KEY_SPACE,
+			[](InputActionContext* ctx)
+				{
+					gCamera->OnMove({ 0.0f, 0.0f, 20.0f });
+					return true;
+				},
+			nullptr
+		};
+		add_input_action(&inputAction);
+
+		inputAction = { SG_KEY_CTRLL,
+			[](InputActionContext* ctx)
+				{
+					gCamera->OnMove({ 0.0f, 0.0f, -20.0f });
+					return true;
+				},
+			nullptr
+		};
+		add_input_action(&inputAction);
+
+		GestureDesc gestureDesc;
+		gestureDesc.minimumPressDuration = 1000;
+		gestureDesc.triggerBinding = SG_MOUSE_LEFT;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					if (ctx->pPosition)
+					{
+						SG_LOG_DEBUG("mouse pos: (%f, %f)", ctx->pPosition->x, ctx->pPosition->y);
+						//gCamera->OnRotate(*ctx->pPosition);
+					}
+					return true;
+				},
+			nullptr,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+	}
 private:
 	Renderer* mRenderer = nullptr;
 
@@ -772,6 +825,8 @@ private:
 
 	bool mStopUpdate = false;
 	uint32_t mDelayDrawCount = 0;
+
+	//GestureDesc mGestureDesc;
 };
 
 SG_DEFINE_APPLICATION_MAIN(CustomRenderer)

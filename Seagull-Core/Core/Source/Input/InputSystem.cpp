@@ -330,6 +330,8 @@ namespace SG
 		eastl::vector<eastl::vector<IControl*> > controls[SG_MAX_DEVICES];
 		/// List of gestures
 		eastl::vector<InputAction*>              gestureControls;
+		gainput::InputMap*						 gestureInputMap;
+
 		/// List of all text input actions
 		/// These actions will be invoked everytime there is a text character typed on a physical / virtual keyboard
 		eastl::vector<InputAction*>              textInputControls;
@@ -415,11 +417,15 @@ namespace SG
 
 			pInputManager->AddListener(this);
 
+			gestureInputMap = sg_new(gainput::InputMap, *pInputManager, "GestureMap");
+
 			return InitSubView();
 		}
 
 		void OnExit()
 		{
+			sg_delete(gestureInputMap);
+
 			ASSERT(pInputManager);
 
 			for (uint32_t i = 0; i < (uint32_t)controlPool.size(); ++i)
@@ -491,6 +497,39 @@ namespace SG
 			// update gainput manager
 			pInputManager->SetDisplaySize(width, height);
 			pInputManager->Update();
+
+			// update all the long hold gesture
+			for (auto* pAction : gestureControls)
+			{
+				GestureDesc* pGesture = &pAction->desc.pGesture;
+
+				if (gestureInputMap->GetBool(pGesture->triggerBinding))
+				{
+					uint32_t deviceId = pGesture->triggerBinding >= SG_KEY_COUNT ? mouseDeviceID : keyboardDeviceID;
+
+					InputActionContext ctx = {};
+					ctx.deviceType = pDeviceTypes[deviceId];
+					ctx.pCaptured = IsPointerType(deviceId) ? &inputCaptured : &defaultCapture;
+
+					if (IsPointerType(deviceId))
+					{
+						gainput::InputDeviceMouse* pMouse = (gainput::InputDeviceMouse*)pInputManager->GetDevice(mouseDeviceID);
+						mousePosition[0] = pMouse->GetFloat(gainput::MouseAxisX);
+						mousePosition[1] = pMouse->GetFloat(gainput::MouseAxisY);
+						ctx.pPosition = &mousePosition;
+						ctx.scrollValue = pMouse->GetFloat(gainput::MouseButtonMiddle);
+					}
+
+					ctx.pUserData = pAction->desc.pUserData;
+					ctx.bindings = pGesture->triggerBinding;
+					ctx.isPressed = true;
+
+					ctx.phase = INPUT_ACTION_PHASE_PERFORMED;
+					pAction->desc.callback(&ctx);
+
+					SG_LOG_DEBUG("Trigger!");
+				}
+			}
 
 #if defined(__linux__) && !defined(__ANDROID__) && !defined(GAINPUT_PLATFORM_GGP)
 			//this needs to be done before updating the events
@@ -712,6 +751,50 @@ namespace SG
 #endif
 				}
 			}*/
+
+			// long pressed gesture
+			if (control == SG_GESTURE_LONG_PRESS)
+			{
+				IControl* pControl = AllocateControl<IControl>();
+				ASSERT(pControl);
+
+				pControl->type = SG_CONTROL_BUTTON;
+				pControl->pAction = pAction;
+
+				decltype(mMouseMap)::const_iterator mouseIt = mMouseMap.find(pDesc->pGesture.triggerBinding);
+				if (mouseIt != mMouseMap.end())
+				{
+					gestureControls.emplace_back(pAction);
+
+					gainput::HoldGesture* hg = pInputManager->CreateAndGetDevice<gainput::HoldGesture>();
+					ASSERT(hg);
+
+					//SG_LOG_DEBUG("%d", mouseIt->second);
+					hg->Initialize(mouseDeviceID, mouseIt->second,
+						mouseDeviceID, gainput::MouseAxisX, 0.01f,
+						mouseDeviceID, gainput::MouseAxisY, 0.01f,
+						false, pDesc->pGesture.minimumPressDuration);
+
+					gestureInputMap->MapBool(pDesc->pGesture.triggerBinding, hg->GetDeviceId(), gainput::HoldTriggered);
+				}
+
+				decltype(mKeyMap)::const_iterator keyIt = mKeyMap.find(pDesc->pGesture.triggerBinding);
+				if (keyIt != mKeyMap.end())
+				{
+					gestureControls.emplace_back(pAction);
+
+					gainput::HoldGesture* hg = pInputManager->CreateAndGetDevice<gainput::HoldGesture>();
+					ASSERT(hg);
+
+					//SG_LOG_DEBUG("%d", mouseIt->second);
+					hg->Initialize(keyboardDeviceID, keyIt->second,
+						mouseDeviceID, gainput::MouseAxisX, 1.f,
+						mouseDeviceID, gainput::MouseAxisY, 1.f,
+						false, pDesc->pGesture.minimumPressDuration);
+
+					gestureInputMap->MapBool(pDesc->pGesture.triggerBinding, hg->GetDeviceId(), gainput::HoldTriggered);
+				}
+			}
 
 			return pAction;
 		}
@@ -1196,7 +1279,7 @@ namespace SG
 			return true;
 		}
 
-		bool OnDeviceButtonFloat(gainput::DeviceId device, gainput::DeviceButtonId deviceButton, float oldValue, float newValue)
+		bool OnDeviceButtonFloat(gainput::DeviceId device, gainput::DeviceButtonId deviceButton, float oldValue, float newValue) override
 		{
 #if TOUCH_INPUT
 			if (mTouchDeviceID == device)
@@ -1344,39 +1427,6 @@ namespace SG
 					}
 				}
 			}
-
-			return true;
-		}
-
-		bool OnDeviceButtonGesture(gainput::DeviceId device, gainput::DeviceButtonId deviceButton, const struct gainput::GestureChange& gesture)
-		{
-#if defined(TARGET_IOS)
-			const InputActionDesc* pDesc = &mGestureControls[deviceButton]->mDesc;
-			if (pDesc->callback)
-			{
-				InputActionContext ctx = {};
-				ctx.pUserData = pDesc->pUserData;
-				ctx.mDeviceType = pDeviceTypes[device];
-				ctx.pPosition = (float2*)gesture.position;
-				if (gesture.type == gainput::GesturePan)
-				{
-					ctx.value2 = { gesture.translation[0], gesture.translation[1] };
-				}
-				else if (gesture.type == gainput::GesturePinch)
-				{
-					ctx.mFloat4 =
-					{
-						gesture.velocity,
-						gesture.scale,
-						gesture.distance[0],
-						gesture.distance[1]
-					};
-				}
-
-				ctx.phase = INPUT_ACTION_PHASE_PERFORMED;
-				pDesc->callback(&ctx);
-			}
-#endif
 
 			return true;
 		}
