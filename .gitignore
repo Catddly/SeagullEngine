@@ -45,3 +45,6 @@ Bin-int/
 
 # Log files
 .log
+
+# compiled shaders
+.bin
