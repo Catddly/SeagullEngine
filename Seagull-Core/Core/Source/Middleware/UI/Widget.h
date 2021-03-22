@@ -76,12 +76,19 @@ namespace SG
 		virtual void OnDraw() override;
 
 		float GetViewportFOV() const { return mSize.x / mSize.y; }
+		Vec4  GetViewportClipRect() const { return { mRectMin.x, mRectMin.y, mRectMax.x, mRectMax.y }; }
+		bool  IsWindowFocused() const { return mOnWindowFocus; }
 		void  BindRenderTexture(Texture* rt) { mRenderTexture = rt; }
 	protected:
 		Texture* mRenderTexture = nullptr;
 		Vec2  mSize;
 		Vec2  mUV0;
 		Vec2  mUV1;
+
+		Vec2  mRectMin;
+		Vec2  mRectMax;
+
+		bool mOnWindowFocus = false;
 	};
 
 	// this is used for present loading texture

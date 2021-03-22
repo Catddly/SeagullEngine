@@ -300,6 +300,7 @@ namespace SG
 
 	/// to capture which window and block other windows event
 	bool set_enable_capture_input(bool enable);
+	bool set_enable_capture_input_custom(bool enable, const Vec4& windowRectRelative);
 
 	//void set_on_device_change_callback(void(*onDeviceChnageCallBack)(const char* name, bool added), unsigned int gamePadIndex);
 

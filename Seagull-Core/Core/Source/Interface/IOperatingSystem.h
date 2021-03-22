@@ -121,6 +121,9 @@ namespace SG
 
 	bool  is_cursor_inside_tracking_area(RectDescription* pRect);
 
+	Vec2 get_mouse_pos_absolutely();
+	Vec2 get_mouse_pos_relative(const WindowDesc* pWindow);
+
 	void set_mouse_position_relative(const WindowDesc* pWindow, int32_t x, int32_t y);
 	void set_mouse_position_absolutely(int32_t x, int32_t y);
 

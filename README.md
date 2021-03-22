@@ -43,6 +43,8 @@ Open the solution file, build the whole solution and you are ready to go!
 
 If you have got some errors on compiling the shaders, please install VulkanSDK(at least version 1.2 or higher)
 
+Make sure the filepath of the engine have no unicode!
+
 ## 简介
 
 目前引擎任然属于最基础的beta阶段，正在努力开发中。  

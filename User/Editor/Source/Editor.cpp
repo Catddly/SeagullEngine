@@ -46,6 +46,10 @@ void EditorCallback()
 }
 
 ICameraController* gCamera = nullptr;
+Vec2			   gLastMousePos;
+
+bool        gIsStopPressed = false;
+bool        gStopRotating = false;
 
 class CustomRenderer : public IApp
 {
@@ -61,6 +65,15 @@ public:
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_FONTS, "../../../Resources/Fonts");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_ANIMATIONS, "Animation");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SCRIPTS, "Scripts");
+
+		//sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SHADER_SOURCES, "Resources/Shaders");
+		//sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_DEBUG, SG_RD_SHADER_BINARIES, "Resources/CompiledShaders");
+		//sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_GPU_CONFIG, "GPUfg");
+		//sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_TEXTURES, "Resources/Textures");
+		//sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_MESHES, "Resources/Meshes");
+		//sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_FONTS, "Resources/Fonts");
+		//sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_ANIMATIONS, "Animation");
+		//sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SCRIPTS, "Scripts");
 
 		//SG_LOG_DEBUG("Main thread ID: %ul", Thread::get_curr_thread_id());
 
@@ -91,6 +104,7 @@ public:
 		{
 			SG_LOG_DEBUG("Value: (%f, %f))", mSliderData.x, mSliderData.y);
 		};
+		mSecondGui->AddWidget(ButtonWidget("Stop Rotate", &gIsStopPressed));
 		mSecondGui->AddWidget(DropdownWidget("WindowSize", &windowSizeSelect, windowSizesName, &windowSizeValue, COUNT_OF(windowSizesName)))->pOnEdited = EditorCallback;
 
 		mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
@@ -119,7 +133,7 @@ public:
 			{
 				auto* uiMiddleware = (UIMiddleware*)ctx->pUserData;
 				bool capture = uiMiddleware->OnButton(ctx->bindings, ctx->isPressed, ctx->pPosition);
-				set_enable_capture_input(capture && INPUT_ACTION_PHASE_CANCELED != ctx->phase);
+				//set_enable_capture_input(capture && INPUT_ACTION_PHASE_CANCELED != ctx->phase);
 				//SG_LOG_DEBUG("button %d (%d)", ctx->bindings, (int)ctx->isPressed);
 				//if (ctx->pPosition)
 				//	SG_LOG_DEBUG("mouse pos: (%f, %f)", ctx->pPosition->x, ctx->pPosition->y);
@@ -207,10 +221,6 @@ public:
 
 		mUiMiddleware.OnUnload();
 
-		//if (mCurrentIndex == 0)
-		//	remove_render_target(mRenderer, mRts[1]);
-		//else
-		//	remove_render_target(mRenderer, mRts[0]);
 		remove_render_target(mRenderer, mRt);
 		remove_render_target(mRenderer, mDepthBuffer);
 
@@ -225,20 +235,22 @@ public:
 
 	virtual bool OnUpdate(float deltaTime) override
 	{
+		if (gIsStopPressed)
+			gStopRotating = !gStopRotating;
+
 		update_input_system(mSettings.width, mSettings.height);
 
 		gCamera->SetCameraLens(glm::radians(45.0f), reinterpret_cast<ViewportWidget*>(mViewportWidget)->GetViewportFOV(), 0.001f, 1000.0f);
 		gCamera->OnUpdate(deltaTime);
+		gLastMousePos = get_mouse_pos_relative(mWindow);
 
-		//static float degreed = 45.0f;
 		static float time = 0.0f;
-		time += deltaTime;
+		if (!gStopRotating)
+			time += deltaTime;
 		
 		mUbo.model = glm::rotate(Matrix4(1.0f), time * 0.03f * 60.0f, mUpVec);
 		mUbo.view = gCamera->GetViewMatrix();
 		mUbo.projection = gCamera->GetProjMatrix();
-		//mUbo.projection = glm::perspective(glm::radians(45.0f), reinterpret_cast<ViewportWidget*>(mViewportWidget)->GetViewportFOV(),
-		//	0.001f, 100000.0f);
 
 		mUiMiddleware.OnUpdate(deltaTime);
 
@@ -688,93 +700,131 @@ private:
 
 	void RegisterCameraControls()
 	{
-		//InputActionDesc inputAction = { SG_KEY_W,
-		//	[](InputActionContext* ctx)
-		//		{
-		//			gCamera->OnMove({ 20.0f, 0.0f, 0.0f });
-		//			return true;
-		//		},
-		//	nullptr
-		//};
-		//add_input_action(&inputAction);
-
-		InputActionDesc inputAction = { SG_KEY_S,
-			[](InputActionContext* ctx)
-				{
-					gCamera->OnMove({ -20.0f, 0.0f, 0.0f });
-					return true;
-				},
-			nullptr
-		};
-		add_input_action(&inputAction);
-
-		inputAction = { SG_KEY_A,
-			[](InputActionContext* ctx)
-				{
-					gCamera->OnMove({ 0.0f, -20.0f, 0.0f });
-					return true;
-				},
-			nullptr
-		};
-		add_input_action(&inputAction);
-
-		inputAction = { SG_KEY_D,
-			[](InputActionContext* ctx)
-				{
-					gCamera->OnMove({ 0.0f, 20.0f, 0.0f });
-					return true;
-				},
-			nullptr
-		};
-		add_input_action(&inputAction);
-
-		inputAction = { SG_KEY_S,
-			[](InputActionContext* ctx)
-				{
-					gCamera->OnMove({ -20.0f, 0.0f, 0.0f });
-					return true;
-				},
-			nullptr
-		};
-		add_input_action(&inputAction);
-
-		inputAction = { SG_KEY_SPACE,
-			[](InputActionContext* ctx)
-				{
-					gCamera->OnMove({ 0.0f, 0.0f, 20.0f });
-					return true;
-				},
-			nullptr
-		};
-		add_input_action(&inputAction);
-
-		inputAction = { SG_KEY_CTRLL,
-			[](InputActionContext* ctx)
-				{
-					gCamera->OnMove({ 0.0f, 0.0f, -20.0f });
-					return true;
-				},
-			nullptr
-		};
-		add_input_action(&inputAction);
-
 		GestureDesc gestureDesc;
-		gestureDesc.minimumPressDuration = 1000;
+		gestureDesc.minimumPressDuration = 0.01;
+		gestureDesc.triggerBinding = SG_KEY_W;
+		InputActionDesc inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					auto* viewportWidget = (ViewportWidget*)ctx->pUserData;
+					if (viewportWidget->IsWindowFocused())
+						gCamera->OnMove({ 0.6f, 0.0f, 0.0f });
+					return true;
+				},
+			mViewportWidget,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_S;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					auto* viewportWidget = (ViewportWidget*)ctx->pUserData;
+					if (viewportWidget->IsWindowFocused())
+						gCamera->OnMove({ -0.6f, 0.0f, 0.0f });
+					return true;
+				},
+			mViewportWidget,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_A;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					auto* viewportWidget = (ViewportWidget*)ctx->pUserData;
+					if (viewportWidget->IsWindowFocused())
+						gCamera->OnMove({ 0.0f, -0.6f, 0.0f });
+					return true;
+				},
+			mViewportWidget,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_D;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					auto* viewportWidget = (ViewportWidget*)ctx->pUserData;
+					if (viewportWidget->IsWindowFocused())
+						gCamera->OnMove({ 0.0f, 0.6f, 0.0f });
+					return true;
+				},
+			mViewportWidget,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_SPACE;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					auto* viewportWidget = (ViewportWidget*)ctx->pUserData;
+					if (viewportWidget->IsWindowFocused())
+						gCamera->OnMove({ 0.0f, 0.0f, 0.3f });
+					return true;
+				},
+			mViewportWidget,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_CTRLL;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					auto* viewportWidget = (ViewportWidget*)ctx->pUserData;
+					if (viewportWidget->IsWindowFocused())
+						gCamera->OnMove({ 0.0f, 0.0f, -0.3f });
+					return true;
+				},
+			mViewportWidget,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
 		gestureDesc.triggerBinding = SG_MOUSE_LEFT;
 		inputAction = { SG_GESTURE_LONG_PRESS,
 			[](InputActionContext* ctx)
 				{
-					if (ctx->pPosition)
+					auto* viewportWidget = (ViewportWidget*)ctx->pUserData;
+					if (viewportWidget->IsWindowFocused())
 					{
-						SG_LOG_DEBUG("mouse pos: (%f, %f)", ctx->pPosition->x, ctx->pPosition->y);
-						//gCamera->OnRotate(*ctx->pPosition);
+						Vec2 offset = { ctx->pPosition->x - gLastMousePos.x, ctx->pPosition->y - gLastMousePos.y };
+						gCamera->OnRotate(offset);
+						if (viewportWidget->isHovered)
+							set_enable_capture_input_custom(true, viewportWidget->GetViewportClipRect());
 					}
+					gLastMousePos = *ctx->pPosition;
 					return true;
 				},
-			nullptr,
+			mViewportWidget,
 			gestureDesc
 		};
 		add_input_action(&inputAction);
+
+		inputAction = { SG_MOUSE_LEFT,
+			[](InputActionContext* ctx)
+				{
+					if (ctx->phase == INPUT_ACTION_PHASE_CANCELED)
+					{
+						auto* viewportWidget = (ViewportWidget*)ctx->pUserData;
+						set_enable_capture_input_custom(false, viewportWidget->GetViewportClipRect());
+					}
+					return true;
+				},
+			mViewportWidget
+		};
+		add_input_action(&inputAction);
+
+		//if (ctx->pPosition)
+		//{
+		//	SG_LOG_DEBUG("mouse pos: (%f, %f)", ctx->pPosition->x, ctx->pPosition->y);
+		//	//gCamera->OnRotate(*ctx->pPosition);
+		//}
 	}
 private:
 	Renderer* mRenderer = nullptr;

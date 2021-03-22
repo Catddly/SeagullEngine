@@ -1071,6 +1071,9 @@ namespace SG
 			mSize = { ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y };
 			ImGui::Image(mRenderTexture, ImGui::GetContentRegionAvail(),
 				{ mUV0.x, mUV0.y }, { mUV1.x, mUV1.y });
+			mOnWindowFocus = ImGui::IsWindowFocused();
+			mRectMin = { ImGui::GetItemRectMin().x, ImGui::GetItemRectMin().y };
+			mRectMax = { ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y };
 			ProcessCallback();
 		}
 		//ImGui::PopStyleVar();

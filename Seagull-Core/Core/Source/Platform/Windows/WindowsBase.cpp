@@ -534,6 +534,21 @@ namespace SG
 		return gCursorInsideRectangle;
 	}
 
+	Vec2 get_mouse_pos_absolutely()
+	{
+		POINT cursorPos = {};
+		GetCursorPos(&cursorPos);
+		return { cursorPos.x, cursorPos.y };
+	}
+
+	Vec2 get_mouse_pos_relative(const WindowDesc* pWindow)
+	{
+		POINT cursorPos = {};
+		GetCursorPos(&cursorPos);
+		ScreenToClient((HWND)pWindow->handle.window, &cursorPos);
+		return { cursorPos.x, cursorPos.y };
+	}
+
 	void set_mouse_position_relative(const WindowDesc* pWindow, int32_t x, int32_t y)
 	{
 		POINT p = { (LONG)x, (LONG)y };

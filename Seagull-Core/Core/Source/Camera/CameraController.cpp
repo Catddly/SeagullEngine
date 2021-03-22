@@ -1,12 +1,21 @@
 #include "Interface/ICameraController.h"
 
 #include "Interface/IInput.h"
+#include "Interface/ILog.h"
 #include <include/gtc/matrix_transform.hpp>
 
 #include "Interface/IMemory.h"
 
 namespace SG
 {
+
+	static void clamp(float& value, float min, float max)
+	{
+		if (value <= min)
+			value = min;
+		if (value >= max)
+			value = max;
+	}
 
 #pragma region (Perspective)
 
@@ -53,14 +62,16 @@ namespace SG
 		float mFovY = 0.0f;
 
 		float mCameraMoveSpeed = 4.0f;
-		float mMouseXSensitity = 0.1f, mMouseYSensitity = 0.1f;
+		float mMouseXSensitity = 180.0f, mMouseYSensitity = 170.0f;
 
 		float dx, dy, dz;
-		float rx, ry;
+		float pitch = 0.0f, yaw = 0.0f;
+		float drx, dry;
 
 		Matrix4 mViewMat = Matrix4(1.0f);
 		Matrix4 mProjMat = Matrix4(1.0f);
 
+		bool mPosDirty = true;
 		bool mViewDirty = true;
 	};
 
@@ -68,46 +79,36 @@ namespace SG
 	{
 		if (mViewDirty)
 		{
-			rx *= deltaTime * mMouseXSensitity;
-			ry *= deltaTime * mMouseYSensitity;
+			pitch -= drx * mMouseXSensitity * deltaTime;
+			yaw -= dry * mMouseYSensitity * deltaTime;
 
-			mLookAtVec = Vec4(mLookAtVec, 1.0f) * glm::rotate(Matrix4(1.0f), rx, mUpVec);
-			mLookAtVec = Vec4(mLookAtVec, 1.0f) * glm::rotate(Matrix4(1.0f), ry, mRightVec);
+			clamp(yaw, -89.5f, 89.5f);
+
+			mLookAtVec.x = glm::cos(glm::radians(pitch));
+			mLookAtVec.y = glm::sin(glm::radians(pitch)) * glm::cos(glm::radians(yaw));
+			mLookAtVec.z = glm::sin(glm::radians(yaw));
+
+			glm::normalize(mLookAtVec);
 
 			mCurrPos += dx * deltaTime * mCameraMoveSpeed * mLookAtVec;
 			mCurrPos += dy * deltaTime * mCameraMoveSpeed * glm::cross(mLookAtVec, mUpVec);
 			mCurrPos += dz * deltaTime * mCameraMoveSpeed * mUpVec;
 
-			//mViewMat[0][0] = mRightVec.x;
-			//mViewMat[1][0] = mRightVec.y;
-			//mViewMat[2][0] = mRightVec.z;
-			//mViewMat[3][0] = -glm::dot(mCurrPos, mRightVec);
-
-			//mViewMat[0][1] = mUpVec.x;
-			//mViewMat[1][1] = mUpVec.y;
-			//mViewMat[2][1] = mUpVec.z;
-			//mViewMat[3][1] = -glm::dot(mCurrPos, mLookAtVec);
-
-			//mViewMat[0][2] = mLookAtVec.x;
-			//mViewMat[1][2] = mLookAtVec.y;
-			//mViewMat[2][2] = mLookAtVec.z;
-			//mViewMat[3][2] = -glm::dot(mCurrPos, mUpVec);
-
-			//mViewMat[0][3] = 0.0f;
-			//mViewMat[1][3] = 0.0f;
-			//mViewMat[2][3] = 0.0f;
-			//mViewMat[3][3] = 1.0f;
+			mViewDirty = false;
+			drx = 0.0f;
+			dry = 0.0f;
+			dx = 0.0f;
+			dy = 0.0f;
+			dz = 0.0f;
 
 			mViewMat = glm::lookAt(mCurrPos, mCurrPos + mLookAtVec, mUpVec);
-
-			mViewDirty = false;
 		}
 	}
 
 	void PersPectiveCamera::OnRotate(const Vec2& screenMouseMove)
 	{
-		rx = screenMouseMove.x;
-		ry = screenMouseMove.y;
+		drx = screenMouseMove.x;
+		dry = screenMouseMove.y;
 
 		mViewDirty = true;
 	}

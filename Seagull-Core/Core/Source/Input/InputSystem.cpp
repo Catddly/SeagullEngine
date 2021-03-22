@@ -503,11 +503,14 @@ namespace SG
 			{
 				GestureDesc* pGesture = &pAction->desc.pGesture;
 
+				InputActionContext ctx = {};
+				//if (gestureInputMap->GetBool(pGesture->triggerBinding))
+				//SG_LOG_DEBUG("Trigger: %d", gestureInputMap->GetBool(pGesture->triggerBinding));
+
 				if (gestureInputMap->GetBool(pGesture->triggerBinding))
 				{
 					uint32_t deviceId = pGesture->triggerBinding >= SG_KEY_COUNT ? mouseDeviceID : keyboardDeviceID;
 
-					InputActionContext ctx = {};
 					ctx.deviceType = pDeviceTypes[deviceId];
 					ctx.pCaptured = IsPointerType(deviceId) ? &inputCaptured : &defaultCapture;
 
@@ -526,9 +529,29 @@ namespace SG
 
 					ctx.phase = INPUT_ACTION_PHASE_PERFORMED;
 					pAction->desc.callback(&ctx);
-
-					SG_LOG_DEBUG("Trigger!");
 				}
+				//else
+				//{
+				//	uint32_t deviceId = pGesture->triggerBinding >= SG_KEY_COUNT ? mouseDeviceID : keyboardDeviceID;
+
+				//	ctx.deviceType = pDeviceTypes[deviceId];
+				//	ctx.pCaptured = IsPointerType(deviceId) ? &inputCaptured : &defaultCapture;
+
+				//	if (IsPointerType(deviceId))
+				//	{
+				//		gainput::InputDeviceMouse* pMouse = (gainput::InputDeviceMouse*)pInputManager->GetDevice(mouseDeviceID);
+				//		mousePosition[0] = pMouse->GetFloat(gainput::MouseAxisX);
+				//		mousePosition[1] = pMouse->GetFloat(gainput::MouseAxisY);
+				//		ctx.pPosition = &mousePosition;
+				//		ctx.scrollValue = pMouse->GetFloat(gainput::MouseButtonMiddle);
+				//	}
+
+				//	ctx.pUserData = pAction->desc.pUserData;
+				//	ctx.bindings = pGesture->triggerBinding;
+				//	ctx.isPressed = false;
+
+				//	ctx.phase = INPUT_ACTION_PHASE_CANCELED;
+				//}
 			}
 
 #if defined(__linux__) && !defined(__ANDROID__) && !defined(GAINPUT_PLATFORM_GGP)
@@ -771,8 +794,8 @@ namespace SG
 
 					//SG_LOG_DEBUG("%d", mouseIt->second);
 					hg->Initialize(mouseDeviceID, mouseIt->second,
-						mouseDeviceID, gainput::MouseAxisX, 0.01f,
-						mouseDeviceID, gainput::MouseAxisY, 0.01f,
+						mouseDeviceID, gainput::MouseAxisX, 1.f,
+						mouseDeviceID, gainput::MouseAxisY, 1.f,
 						false, pDesc->pGesture.minimumPressDuration);
 
 					gestureInputMap->MapBool(pDesc->pGesture.triggerBinding, hg->GetDeviceId(), gainput::HoldTriggered);
@@ -880,17 +903,17 @@ namespace SG
 			ASSERT(pWindow);
 
 #if defined(SG_PLATFORM_WINDOWS) && !defined(XBOX)
-			static int32_t lastCursorPosX = 0;
-			static int32_t lastCursorPosY = 0;
+			//static int32_t lastCursorPosX = 0;
+			//static int32_t lastCursorPosY = 0;
 
 			if (enable != inputCaptured)
 			{
 				if (enable)
 				{
-					POINT lastCursorPoint;
-					GetCursorPos(&lastCursorPoint);
-					lastCursorPosX = lastCursorPoint.x;
-					lastCursorPosY = lastCursorPoint.y;
+					//POINT lastCursorPoint;
+					//GetCursorPos(&lastCursorPoint);
+					//lastCursorPosX = lastCursorPoint.x;
+					//lastCursorPosY = lastCursorPoint.y;
 
 					HWND handle = (HWND)pWindow->handle.window;
 					SetCapture(handle);
@@ -919,7 +942,7 @@ namespace SG
 					ClipCursor(NULL);
 					ShowCursor(TRUE);
 					ReleaseCapture();
-					SetCursorPos(lastCursorPosX, lastCursorPosY);
+					//SetCursorPos(lastCursorPosX, lastCursorPosY);
 				}
 
 				inputCaptured = enable;
@@ -982,6 +1005,55 @@ namespace SG
 			}
 #endif
 
+			return false;
+		}
+
+		bool SetEnableCaptureInputCustom(bool enable, const Vec4& windowRectRelative)
+		{
+			ASSERT(pWindow);
+
+#if defined(SG_PLATFORM_WINDOWS) && !defined(XBOX)
+			if (enable != inputCaptured)
+			{
+				if (enable)
+				{
+					HWND handle = (HWND)pWindow->handle.window;
+					SetCapture(handle);
+
+					RECT clientRect;
+					GetClientRect(handle, &clientRect);
+
+					POINT tl = { windowRectRelative.x, windowRectRelative.y };
+					POINT br = { windowRectRelative.z, windowRectRelative.w };
+					ClientToScreen(handle, &tl);
+					ClientToScreen(handle, &br);
+
+					SetRect(&clientRect, tl.x, tl.y, br.x, br.y);
+					ClipCursor(&clientRect);
+					ShowCursor(FALSE);
+				}
+				else
+				{
+					HWND handle = (HWND)pWindow->handle.window;
+					RECT clientRect;
+					GetClientRect(handle, &clientRect);
+
+					POINT ptClientUL = { clientRect.left, clientRect.top };
+					POINT ptClientLR = { clientRect.right + 1, clientRect.bottom + 1 };
+					ClientToScreen(handle, &ptClientUL);
+					ClientToScreen(handle, &ptClientLR);
+
+					SetRect(&clientRect, ptClientUL.x, ptClientUL.y, ptClientLR.x, ptClientLR.y);
+
+					ClipCursor(NULL);
+					ShowCursor(TRUE);
+					ReleaseCapture();
+				}
+
+				inputCaptured = enable;
+				return true;
+			}
+#endif
 			return false;
 		}
 
@@ -1515,6 +1587,13 @@ namespace SG
 		ASSERT(pInputSystem);
 
 		return pInputSystem->SetEnableCaptureInput(enable);
+	}
+
+	bool set_enable_capture_input_custom(bool enable, const Vec4& windowRectRelative)
+	{
+		ASSERT(pInputSystem);
+
+		return pInputSystem->SetEnableCaptureInputCustom(enable, windowRectRelative);
 	}
 
 }
