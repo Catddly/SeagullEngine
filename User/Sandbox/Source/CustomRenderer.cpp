@@ -91,10 +91,6 @@ public:
 		};
 		mSecondGui->AddWidget(DropdownWidget("WindowSize", &windowSizeSelect, windowSizesName, &windowSizeValue, COUNT_OF(windowSizesName)))->pOnEdited = EditorCallback;
 
-		mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
-		mViewportGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
-		mViewportWidget = mViewportGui->AddWidget(ViewportWidget("Viewport", { mSettings.width, mSettings.height }));
-
 		//mUiMiddleware.mShowDemoUiWindow = true;
 
 		init_input_system(mWindow);
@@ -167,9 +163,6 @@ public:
 		if (!mUiMiddleware.OnLoad(mSwapChain->ppRenderTargets))
 			return false;
 
-		if (!CreateRts())
-			return false;
-
 		if (!CreateDepthBuffer())
 			return false;
 
@@ -200,11 +193,6 @@ public:
 
 		mUiMiddleware.OnUnload();
 
-		//if (mCurrentIndex == 0)
-		//	remove_render_target(mRenderer, mRts[1]);
-		//else
-		//	remove_render_target(mRenderer, mRts[0]);
-		remove_render_target(mRenderer, mRt);
 		remove_render_target(mRenderer, mDepthBuffer);
 
 		remove_pipeline(mRenderer, mPipeline);
@@ -220,62 +208,12 @@ public:
 	{
 		update_input_system(mSettings.width, mSettings.height);
 
-		//static float degreed = 45.0f;
 		static float time = 0.0f;
 		time += deltaTime;
-		
-		/*if (InputListener::IsMousePressed(SG_MOUSE_LEFT) &&
-			InputListener::GetMousePosClient().first >= 0 &&
-			InputListener::GetMousePosClient().first <= mSettings.width &&
-			InputListener::GetMousePosClient().second >= 0 &&
-			InputListener::GetMousePosClient().second <= mSettings.height)
-		{
-			auto xOffset = InputListener::GetMousePosClient().first - mCurrentMousePos.x;
-			auto yOffset = InputListener::GetMousePosClient().second - mCurrentMousePos.y;
-			mCurrentMousePos.x = InputListener::GetMousePosClient().first;
-			mCurrentMousePos.y = InputListener::GetMousePosClient().second;
-
-			xOffset *= deltaTime * mXSensitity;
-			yOffset *= deltaTime * mYSensitity;
-
-			yaw -= xOffset;
-			pitch -= yOffset;
-
-			if (pitch <= -89.0f)
-				pitch = -89.0f;
-			if (pitch >= 89.0f)
-				pitch = 89.0f;
-
-			mViewVec.x = glm::cos(glm::radians(yaw));
-			mViewVec.y = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
-			mViewVec.z = glm::sin(glm::radians(pitch));
-		}
-		else
-		{
-			mCurrentMousePos.x = InputListener::GetMousePosClient().first;
-			mCurrentMousePos.y = InputListener::GetMousePosClient().second;
-		}
-
-		if (InputListener::IsKeyPressed(SG_KEY_W))
-			mCameraPos += mViewVec * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_S))
-			mCameraPos -= mViewVec * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_A))
-			mCameraPos -= glm::cross(mViewVec, mUpVec) * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_D))
-			mCameraPos += glm::cross(mViewVec, mUpVec) * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_SPACE))
-			mCameraPos += mUpVec * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_CTRLL))
-			mCameraPos -= mUpVec * deltaTime * mCameraMoveSpeed;
-		if (InputListener::IsKeyPressed(SG_KEY_O))
-			degreed += deltaTime * 20.0f;
-		if (InputListener::IsKeyPressed(SG_KEY_P))
-			degreed -= deltaTime * 20.0f;*/
 
 		mUbo.model = glm::rotate(Matrix4(1.0f), time * 0.03f * 60.0f, mUpVec);
 		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + glm::normalize(mViewVec), mUpVec);
-		mUbo.projection = glm::perspective(glm::radians(45.0f), reinterpret_cast<ViewportWidget*>(mViewportWidget)->GetViewportFOV(),
+		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)mSettings.width / (float)mSettings.height,
 			0.001f, 100000.0f);
 
 		mUiMiddleware.OnUpdate(deltaTime);
@@ -285,54 +223,29 @@ public:
 			switch (windowSizeSelect)
 			{
 			case 0:
-				if (mDelayDrawCount == 1)
 					set_window_size(mWindow, 2560, 1440);
-				mStopUpdate = true;
 				break;
 			case 1:
-				if (mDelayDrawCount == 1)
 					set_window_size(mWindow, 2176, 1224);
-				mStopUpdate = true;
 				break;
 			case 2:
-				if (mDelayDrawCount == 1)
 					set_window_size(mWindow, 1920, 1080);
-				mStopUpdate = true;
 				break;
 			case 3:
-				if (mDelayDrawCount == 1)
 					set_window_size(mWindow, 1440, 1080);
-				mStopUpdate = true;
 				break;
 			case 4:
-				if (mDelayDrawCount == 1)
 					set_window_size(mWindow, 1440, 720);
-				mStopUpdate = true;
 				break;
 			case 5:
-				if (mDelayDrawCount == 1)
 					set_window_size(mWindow, 1280, 720);
-				mStopUpdate = true;
 				break;
 			case 6:
-				if (mDelayDrawCount == 1)
 					set_window_size(mWindow, 640, 320);
-				mStopUpdate = true;
 				break;
 			default:
 				break;
 			}
-		}
-
-		// update the viewport rt
-		if (!mStopUpdate)
-			reinterpret_cast<ViewportWidget*>(mViewportWidget)->BindRenderTexture(mRt->pTexture);
-		else
-		{
-			reinterpret_cast<ViewportWidget*>(mViewportWidget)->BindRenderTexture(mLogoTex);
-			// delay for viewport to update
-			if (mDelayDrawCount == 0)
-				mDelayDrawCount += 2;
 		}
 
 		return true;
@@ -340,9 +253,6 @@ public:
 
 	virtual bool OnDraw() override
 	{
-		if (mDelayDrawCount > 0)
-			--mDelayDrawCount;
-
 		uint32_t imageIndex;
 		acquire_next_image(mRenderer, mSwapChain, mImageAcquiredSemaphore, nullptr, &imageIndex);
 
@@ -365,7 +275,7 @@ public:
 		*(UniformBuffer*)uboUpdate.pMappedData = mUbo;
 		end_update_resource(&uboUpdate, nullptr);
 
-		const uint32_t stride = Vertex::GetStructSize();
+		const uint32_t stride = (uint32_t)Vertex::GetStructSize();
 		Cmd* cmd = mCmds[mCurrentIndex];
 		// begin command buffer
 		begin_cmd(cmd);
@@ -381,47 +291,37 @@ public:
 
 		loadAction.loadActionDepth = SG_LOAD_ACTION_CLEAR;
 		loadAction.clearDepth.depth = 1.0f;
-		loadAction.clearDepth.stencil = 0.0f;
-
-		if (!mStopUpdate)
-		{
-			renderTargetBarriers = { mRt, SG_RESOURCE_STATE_SHADER_RESOURCE, SG_RESOURCE_STATE_RENDER_TARGET };
-			cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
-
-			// begin render pass
-			cmd_bind_render_targets(cmd, 1, &mRt, mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
-				cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
-				cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
-
-				cmd_bind_pipeline(cmd, mPipeline);
-				cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
-				cmd_bind_descriptor_set(cmd, mCurrentIndex, mUboDescriptorSet);
-
-				cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
-				Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
-				cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mRoomGeo->vertexStrides, nullptr);
-
-				for (uint32_t i = 0; i < mRoomGeo->drawArgCount; i++)
-				{
-					IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
-					cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
-				}
-			cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
-
-			renderTargetBarriers = { mRt, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_SHADER_RESOURCE };
-			cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
-		}
+		loadAction.clearDepth.stencil = 0;
 
 		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_PRESENT, SG_RESOURCE_STATE_RENDER_TARGET };
 		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
 
-		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, &loadAction, nullptr, nullptr, -1, -1);
+		// begin render pass
+		cmd_bind_render_targets(cmd, 1, &renderTarget, mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
+			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
+			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
+
+			cmd_bind_pipeline(cmd, mPipeline);
+			cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
+			cmd_bind_descriptor_set(cmd, mCurrentIndex, mUboDescriptorSet);
+
+			cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
+			Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
+			cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mRoomGeo->vertexStrides, nullptr);
+
+			for (uint32_t i = 0; i < mRoomGeo->drawArgCount; i++)
+			{
+				IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
+				cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
+			}
+		cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
+
+		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
 			mUiMiddleware.AddUpdateGui(mMainGui);
 			mUiMiddleware.AddUpdateGui(mSecondGui);
-			mUiMiddleware.AddUpdateGui(mViewportGui);
 			mUiMiddleware.OnDraw(cmd);
 		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
 
@@ -456,12 +356,6 @@ public:
 		}
 
 		mCurrentIndex = (mCurrentIndex + 1) % IMAGE_COUNT;
-
-		if (mDelayDrawCount == 0)
-		{
-			mStopUpdate = false;
-			isEdited = false;
-		}
 
 		return true;
 	}
@@ -564,28 +458,6 @@ private:
 
 		add_render_target(mRenderer, &depthRT, &mDepthBuffer);
 		return mDepthBuffer != nullptr;
-	}
-
-	bool CreateRts()
-	{
-		RenderTargetCreateDesc rtDesc = {};
-		rtDesc.format = mSwapChain->ppRenderTargets[0]->format;
-		rtDesc.width = mSettings.width;
-		rtDesc.height = mSettings.height;
-		rtDesc.clearValue.r = 0.0f;
-		rtDesc.clearValue.g = 0.0f;
-		rtDesc.clearValue.b = 0.0f;
-		rtDesc.clearValue.a = 1.0f;
-		rtDesc.sampleCount = SG_SAMPLE_COUNT_1;
-		rtDesc.arraySize = 1;
-		rtDesc.depth = 1;
-		rtDesc.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
-		rtDesc.sampleQuality = 0;
-		rtDesc.startState = SG_RESOURCE_STATE_SHADER_RESOURCE;
-		rtDesc.mipLevels = 0;
-			
-		add_render_target(mRenderer, &rtDesc, &mRt);
-		return mRt != nullptr;
 	}
 
 	bool CreateRenderResource()
@@ -765,13 +637,6 @@ private:
 	UIMiddleware  mUiMiddleware;
 	GuiComponent* mMainGui = nullptr;
 	GuiComponent* mSecondGui = nullptr;
-
-	GuiComponent* mViewportGui = nullptr;
-	IWidget* mViewportWidget = nullptr;
-	RenderTarget* mRt = nullptr;
-
-	bool mStopUpdate = false;
-	uint32_t mDelayDrawCount = 0;
 };
 
 SG_DEFINE_APPLICATION_MAIN(CustomRenderer)

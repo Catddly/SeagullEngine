@@ -21,6 +21,12 @@ project "gainput"
 		"../glm/"
 	}
 
+	defines
+	{
+		"_CRT_SECURE_NO_WARNINGS",
+		"_CRT_NONSTDC_NO_DEPRECATE"
+	}
+
 	filter "system:windows"
 		systemversion "latest"
 		defines 

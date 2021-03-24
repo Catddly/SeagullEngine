@@ -425,6 +425,7 @@ namespace SG
 
 			return fonsAddFontMem(fs, identification, (unsigned char*)buffer, (int)bytes, 0);
 		}
+		return -1;
 	}
 
 	void* FontStash::GetFontBuffer(uint32_t fontId)

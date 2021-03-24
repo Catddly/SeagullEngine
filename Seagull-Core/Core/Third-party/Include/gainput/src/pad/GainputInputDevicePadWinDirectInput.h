@@ -1538,8 +1538,8 @@ namespace gainput
 			if (!gamepadInfo.hidDevice)
 			{
 				WCHAR buffer[1024] = {};
-				MultiByteToWideChar(CP_ACP, 0, gamepadInfo.name, strlen(gamepadInfo.name) + 1,
-					buffer, sizeof(buffer) / sizeof(buffer[0]));
+				MultiByteToWideChar(CP_ACP, 0, gamepadInfo.name, (int)strlen(gamepadInfo.name) + 1,
+					buffer, (int)sizeof(buffer) / (int)sizeof(buffer[0]));
 				gamepadInfo.hidDevice = CreateFile(
 					buffer,
 					GENERIC_READ | GENERIC_WRITE,
@@ -1583,8 +1583,8 @@ namespace gainput
 			if (!gamepadInfo.hidDevice)
 			{
 				WCHAR buffer[1024] = {};
-				MultiByteToWideChar(CP_ACP, 0, gamepadInfo.name, strlen(gamepadInfo.name) + 1,
-					buffer, sizeof(buffer) / sizeof(buffer[0]));
+				MultiByteToWideChar(CP_ACP, 0, gamepadInfo.name, (int)strlen(gamepadInfo.name) + 1,
+					buffer, (int)sizeof(buffer) / (int)sizeof(buffer[0]));
 				gamepadInfo.hidDevice = CreateFile(
 					buffer,
 					GENERIC_READ | GENERIC_WRITE,

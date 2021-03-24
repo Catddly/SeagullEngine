@@ -16,9 +16,10 @@ namespace SG
 	{
 	}
 
-	bool UIMiddleware::OnInit(Renderer* pRenderer)
+	bool UIMiddleware::OnInit(Renderer* pRenderer, bool enableDockSpace)
 	{
 		mShowDemoUiWindow = false;
+		mShowDockSpace = enableDockSpace;
 
 		pImpl = sg_new(UIAppImpl);
 		pImpl->pRenderer = pRenderer;// renderer receive from outer space

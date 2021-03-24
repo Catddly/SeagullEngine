@@ -80,7 +80,7 @@ public:
 		if (!CreateRenderResource())
 			return false;
 
-		if (!mUiMiddleware.OnInit(mRenderer))
+		if (!mUiMiddleware.OnInit(mRenderer, true))
 			return false;
 
 		mUiMiddleware.LoadFont("Source_Sans_Pro/SourceSansPro-Regular.ttf");
@@ -248,7 +248,7 @@ public:
 		if (!gStopRotating)
 			time += deltaTime;
 		
-		mUbo.model = glm::rotate(Matrix4(1.0f), time * 0.03f * 60.0f, mUpVec);
+		mUbo.model = glm::rotate(Matrix4(1.0f), time * 0.03f * 60.0f, { 0, 0, 1 });
 		mUbo.view = gCamera->GetViewMatrix();
 		mUbo.projection = gCamera->GetProjMatrix();
 
@@ -339,7 +339,7 @@ public:
 		*(UniformBuffer*)uboUpdate.pMappedData = mUbo;
 		end_update_resource(&uboUpdate, nullptr);
 
-		const uint32_t stride = Vertex::GetStructSize();
+		const uint32_t stride = (uint32_t)Vertex::GetStructSize();
 		Cmd* cmd = mCmds[mCurrentIndex];
 		// begin command buffer
 		begin_cmd(cmd);
@@ -355,7 +355,7 @@ public:
 
 		loadAction.loadActionDepth = SG_LOAD_ACTION_CLEAR;
 		loadAction.clearDepth.depth = 1.0f;
-		loadAction.clearDepth.stencil = 0.0f;
+		loadAction.clearDepth.stencil = 0;
 
 		if (!mStopUpdate)
 		{
@@ -701,7 +701,7 @@ private:
 	void RegisterCameraControls()
 	{
 		GestureDesc gestureDesc;
-		gestureDesc.minimumPressDuration = 0.01;
+		gestureDesc.minimumPressDurationMs = 1;
 		gestureDesc.triggerBinding = SG_KEY_W;
 		InputActionDesc inputAction = { SG_GESTURE_LONG_PRESS,
 			[](InputActionContext* ctx)
@@ -859,10 +859,6 @@ private:
 	DescriptorSet* mUboDescriptorSet = nullptr;
 
 	uint32_t mCurrentIndex = 0;
-
-	Vec3  mCameraPos = { -3.0f, 0.0f, 0.4f };
-	Vec3  mViewVec = { 1.0f, 0.0f, 0.0f };
-	Vec3  mUpVec = { 0.0f, 0.0f, 1.0f };
 
 	// Gui
 	UIMiddleware  mUiMiddleware;

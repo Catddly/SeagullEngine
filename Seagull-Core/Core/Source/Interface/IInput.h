@@ -221,7 +221,7 @@ namespace SG
 		/// Configuring Tap gesture (single tap, double tap, ...)
 		uint32_t    numberOfTapsRequired;
 		/// Configuring Long press gesture
-		float       minimumPressDuration;
+		uint32_t    minimumPressDurationMs;
 
 		uint32_t    triggerBinding;
 	} GestureDesc;

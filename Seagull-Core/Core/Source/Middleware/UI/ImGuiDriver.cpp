@@ -101,7 +101,7 @@ namespace SG
 		ImGuiGuiDriver() = default;
 		virtual ~ImGuiGuiDriver() = default;
 
-		virtual bool OnInit(Renderer* pRenderer, uint32_t const maxDynamicUIUpdatesPerBatch) override;
+		virtual bool OnInit(Renderer* pRenderer, uint32_t const maxDynamicUIUpdatesPerBatch, bool enableDockSpace = false) override;
 		virtual void OnExit() override;
 
 		virtual bool OnLoad(RenderTarget** ppRenderTargets, uint32_t renderTargetCount = 1) override;
@@ -158,6 +158,8 @@ namespace SG
 		bool         mIsActive;
 		bool         mUseCustomShader;
 		bool         mPostUpdateKeyDownStates[512]; // for delay updating key pressed purpose
+	
+		bool         mEnableDockspace;
 	};
 
 	// user defined window changes callbacks
@@ -195,8 +197,10 @@ namespace SG
 			pOnDeactivatedAfterEdit();
 	}
 
-	bool ImGuiGuiDriver::OnInit(Renderer* pRenderer, uint32_t const maxDynamicUIUpdatesPerBatch)
+	bool ImGuiGuiDriver::OnInit(Renderer* pRenderer, uint32_t const maxDynamicUIUpdatesPerBatch, bool enableDockSpace)
 	{
+		mEnableDockspace = enableDockSpace;
+
 		// reset
 		mHandledGestures = false;
 		this->pRenderer = pRenderer;
@@ -488,8 +492,8 @@ namespace SG
 				ImGui::ShowDemoWindow();
 
 			ImGuiWindowFlags guiWinFlags = SG_GUI_FLAGS_NONE;
-
-#ifdef SG_EDITOR_ENABLE_DOCKSPACE
+			
+			if (!mEnableDockspace)
 			{
 				static ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
 				// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 
@@ -560,7 +564,6 @@ namespace SG
 				}
 				ImGui::End();
 			}
-#endif
 
 			mLastUpdateCount = update->componentCount;
 

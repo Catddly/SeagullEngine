@@ -8,7 +8,7 @@ namespace SG
 
 	Timer::Timer(const eastl::string_view& name)
 		:mName(name), mDeltaTime(-1.0), mSecondsPerCount(0.0),
-		mBaseTime(0.0), mPausedTime(0.0), mStopTime(0.0), mPrevTime(0.0), mCurrTime(0.0), mIsStopped(false)
+		mBaseTime(0), mPausedTime(0), mStopTime(0), mPrevTime(0), mCurrTime(0), mIsStopped(false)
 	{
 		uint64_t countsPerSeconds;
 		QueryPerformanceFrequency((LARGE_INTEGER*)&countsPerSeconds);

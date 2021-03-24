@@ -12,7 +12,7 @@ namespace SG
 	class IMiddleware
 	{
 	public:
-		virtual bool OnInit(Renderer* pRenderer) = 0;
+		virtual bool OnInit(Renderer* pRenderer, bool enableDockSpace = false) = 0;
 		virtual void OnExit() = 0;
 
 		virtual bool OnLoad(RenderTarget** ppRenderTarget, uint32_t renderTargetCount = 1) = 0;

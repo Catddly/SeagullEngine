@@ -137,7 +137,7 @@ namespace SG
 		};
 		virtual ~GUIDriver() {}
 
-		virtual bool OnInit(Renderer* pRenderer, uint32_t const maxDynamicUIUpdatesPerBatch) = 0;
+		virtual bool OnInit(Renderer* pRenderer, uint32_t const maxDynamicUIUpdatesPerBatch, bool enableDockSpace = false) = 0;
 		virtual void OnExit() = 0;
 
 		virtual bool OnLoad(RenderTarget** ppRenderTargets, uint32_t renderTargetCount = 1) = 0;
@@ -177,7 +177,7 @@ namespace SG
 	public:
 		UIMiddleware(int32_t const fontAtlasSize = 0, uint32_t const maxDynamicUIUpdatesPerBatch = 20u, uint32_t const fontStashRingSizeBytes = 1024 * 1024);
 
-		virtual bool OnInit(Renderer* pRenderer) override;
+		virtual bool OnInit(Renderer* pRenderer, bool enableDockSpace = false) override;
 		virtual void OnExit() override;
 
 		virtual bool OnLoad(RenderTarget** ppRenderTarget, uint32_t renderTargetCount = 1) override;
@@ -219,6 +219,8 @@ namespace SG
 		// following var is useful for seeing UI capabilities and tweaking style settings.
 		// will only take effect if at least one GUI Component is active.
 		bool mShowDemoUiWindow;
+
+		bool mShowDockSpace;
 	private:
 		float mWidth;
 		float mHeight;

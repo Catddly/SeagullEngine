@@ -796,7 +796,7 @@ namespace SG
 					hg->Initialize(mouseDeviceID, mouseIt->second,
 						mouseDeviceID, gainput::MouseAxisX, 1.f,
 						mouseDeviceID, gainput::MouseAxisY, 1.f,
-						false, pDesc->pGesture.minimumPressDuration);
+						false, pDesc->pGesture.minimumPressDurationMs);
 
 					gestureInputMap->MapBool(pDesc->pGesture.triggerBinding, hg->GetDeviceId(), gainput::HoldTriggered);
 				}
@@ -813,7 +813,7 @@ namespace SG
 					hg->Initialize(keyboardDeviceID, keyIt->second,
 						mouseDeviceID, gainput::MouseAxisX, 1.f,
 						mouseDeviceID, gainput::MouseAxisY, 1.f,
-						false, pDesc->pGesture.minimumPressDuration);
+						false, pDesc->pGesture.minimumPressDurationMs);
 
 					gestureInputMap->MapBool(pDesc->pGesture.triggerBinding, hg->GetDeviceId(), gainput::HoldTriggered);
 				}
@@ -1023,8 +1023,8 @@ namespace SG
 					RECT clientRect;
 					GetClientRect(handle, &clientRect);
 
-					POINT tl = { windowRectRelative.x, windowRectRelative.y };
-					POINT br = { windowRectRelative.z, windowRectRelative.w };
+					POINT tl = { (LONG)windowRectRelative.x, (LONG)windowRectRelative.y };
+					POINT br = { (LONG)windowRectRelative.z, (LONG)windowRectRelative.w };
 					ClientToScreen(handle, &tl);
 					ClientToScreen(handle, &br);
 
