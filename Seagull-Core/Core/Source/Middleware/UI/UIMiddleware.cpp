@@ -39,7 +39,7 @@ namespace SG
 		if (pCustomShader)
 			pDriver->SetCustomShader(pCustomShader);
 
-		return pDriver->OnInit(pImpl->pRenderer, mMaxDynamicUIUpdatesPerBatch);
+		return pDriver->OnInit(pImpl->pRenderer, mMaxDynamicUIUpdatesPerBatch, enableDockSpace);
 	}
 
 	void UIMiddleware::OnExit()

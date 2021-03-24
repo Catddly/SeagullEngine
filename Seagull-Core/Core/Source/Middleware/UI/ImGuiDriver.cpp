@@ -493,7 +493,7 @@ namespace SG
 
 			ImGuiWindowFlags guiWinFlags = SG_GUI_FLAGS_NONE;
 			
-			if (!mEnableDockspace)
+			if (mEnableDockspace)
 			{
 				static ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
 				// When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background 

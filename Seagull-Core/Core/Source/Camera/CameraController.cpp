@@ -107,17 +107,17 @@ namespace SG
 
 	void PersPectiveCamera::OnRotate(const Vec2& screenMouseMove)
 	{
-		drx = screenMouseMove.x;
-		dry = screenMouseMove.y;
+		drx += screenMouseMove.x;
+		dry += screenMouseMove.y;
 
 		mViewDirty = true;
 	}
 
 	void PersPectiveCamera::OnMove(const Vec3& screenMouseMove)
 	{
-		dx = screenMouseMove.x;
-		dy = screenMouseMove.y;
-		dz = screenMouseMove.z;
+		dx += screenMouseMove.x;
+		dy += screenMouseMove.y;
+		dz += screenMouseMove.z;
 
 		mViewDirty = true;
 	}
