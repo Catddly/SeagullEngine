@@ -1094,6 +1094,12 @@ namespace SG
 		ProcessCallback();
 	}
 
+	void FloatLabelWidget::OnDraw()
+	{
+		ImGui::Text(mLabel.c_str(), *pValue);
+		ProcessCallback();
+	}
+
 	void ButtonWidget::OnDraw()
 	{
 		*isPressed = ImGui::Button(mLabel.c_str());

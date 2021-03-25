@@ -134,6 +134,18 @@ namespace SG
 		Vec4 mColor;
 	};
 
+	class FloatLabelWidget : public IWidget
+	{
+	public:
+		FloatLabelWidget(const eastl::string& label, float* v)
+			: IWidget(label), pValue(v) {}
+
+		virtual IWidget* OnCopy() const override;
+		virtual void OnDraw() override;
+	protected:
+		float* pValue;
+	};
+
 #pragma endregion (Labels)
 
 #pragma region (Buttons)

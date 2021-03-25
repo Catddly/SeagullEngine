@@ -24,17 +24,45 @@ struct UniformBuffer
 	alignas(16) Matrix4 projection;
 };
 
+static eastl::vector<const char*> ParserPairsToStr(const eastl::vector<eastl::pair<uint32_t, uint32_t>>& vec)
+{
+	eastl::vector<const char*> s;
+	for (auto& e : vec)
+	{
+		char widthStr[20];
+		char heightStr[10];
+		sprintf(widthStr, "%d", e.first);
+		sprintf(heightStr, "%d", e.second);
+		strcat(widthStr, " x ");
+		strcat(widthStr, heightStr);
+
+		s.emplace_back(widthStr);
+		SG_LOG_DEBUG("%s", widthStr);
+	}
+	return s;
+}
+
 Vec2 mSliderData = {};
 
-const char* windowSizesName[] = {
-	"2560 x 1440",
-	"2176 x 1224",
-	"1920 x 1080",
-	"1440 x 1080",
-	"1440 x 720",
-	"1280 x 720",
-	"640 x 320",
+eastl::vector<eastl::pair<uint32_t, uint32_t>> windowSizesPair = {
+	{ 2560, 1440 },
+	{ 2176, 1224 },
+	{ 1920, 1080 },
+	{ 1440, 1080 },
+	{ 1440, 720 },
+	{ 1280, 720 },
+	{ 640, 320 }
 };
+
+//const char* windowSizesName[] = {
+//	"2560 x 1440",
+//	"2176 x 1224",
+//	"1920 x 1080",
+//	"1440 x 1080", 
+//	"1440 x 720",
+//	"1280 x 720",
+//	"640 x 320"
+//};
 
 uint32_t windowSizeSelect = 2;
 uint32_t windowSizeValue;
@@ -50,6 +78,7 @@ Vec2			   gLastMousePos;
 
 bool        gIsStopPressed = false;
 bool        gStopRotating = false;
+float       gFps = 0.0;
 
 class CustomRenderer : public IApp
 {
@@ -96,6 +125,7 @@ public:
 		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow", &guiDesc);
 		mMainGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
 		mMainGui->AddWidget(LabelWidget("TestWindow1"));
+		mMainGui->AddWidget(FloatLabelWidget("Fps: %.2f", &gFps));
 		mMainGui->AddWidget(ImageWidget("Logo", (void*)mLogoTex, { 256, 256 }));
 
 		mSecondGui = mUiMiddleware.AddGuiComponent("Settings", &guiDesc);
@@ -105,10 +135,12 @@ public:
 			SG_LOG_DEBUG("Value: (%f, %f))", mSliderData.x, mSliderData.y);
 		};
 		mSecondGui->AddWidget(ButtonWidget("Stop Rotate", &gIsStopPressed));
-		mSecondGui->AddWidget(DropdownWidget("WindowSize", &windowSizeSelect, windowSizesName, &windowSizeValue, COUNT_OF(windowSizesName)))->pOnEdited = EditorCallback;
+
+		mSecondGui->AddWidget(DropdownWidget("WindowSize", &windowSizeSelect, ParserPairsToStr(windowSizesPair).data(), &windowSizeValue, windowSizesPair.size()))->pOnEdited = EditorCallback;
 
 		mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
 		mViewportGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
+		mViewportGui->flags |= SG_GUI_FLAGS_NO_TITLE_BAR;
 		mViewportWidget = mViewportGui->AddWidget(ViewportWidget("Viewport", { mSettings.width, mSettings.height }));
 
 		//mUiMiddleware.mShowDemoUiWindow = true;
@@ -235,6 +267,9 @@ public:
 
 	virtual bool OnUpdate(float deltaTime) override
 	{
+		static float time = 0.0f;
+		time += deltaTime;
+
 		if (gIsStopPressed)
 			gStopRotating = !gStopRotating;
 
@@ -244,11 +279,17 @@ public:
 		gCamera->OnUpdate(deltaTime);
 		gLastMousePos = get_mouse_pos_relative(mWindow);
 
-		static float time = 0.0f;
+		static float rotateTime = 0.0f;
 		if (!gStopRotating)
-			time += deltaTime;
+			rotateTime += deltaTime;
+
+		if (time >= 0.2f)
+		{
+			gFps = 1.0f / deltaTime;
+			time = 0.0f;
+		}
 		
-		mUbo.model = glm::rotate(Matrix4(1.0f), time * 0.03f * 60.0f, { 0, 0, 1 });
+		mUbo.model = glm::rotate(Matrix4(1.0f), rotateTime * 0.03f * 60.0f, { 0, 0, 1 });
 		mUbo.view = gCamera->GetViewMatrix();
 		mUbo.projection = gCamera->GetProjMatrix();
 
@@ -256,46 +297,9 @@ public:
 
 		if (isEdited)
 		{
-			switch (windowSizeSelect)
-			{
-			case 0:
-				if (mDelayDrawCount == 1)
-					set_window_size(mWindow, 2560, 1440);
-				mStopUpdate = true;
-				break;
-			case 1:
-				if (mDelayDrawCount == 1)
-					set_window_size(mWindow, 2176, 1224);
-				mStopUpdate = true;
-				break;
-			case 2:
-				if (mDelayDrawCount == 1)
-					set_window_size(mWindow, 1920, 1080);
-				mStopUpdate = true;
-				break;
-			case 3:
-				if (mDelayDrawCount == 1)
-					set_window_size(mWindow, 1440, 1080);
-				mStopUpdate = true;
-				break;
-			case 4:
-				if (mDelayDrawCount == 1)
-					set_window_size(mWindow, 1440, 720);
-				mStopUpdate = true;
-				break;
-			case 5:
-				if (mDelayDrawCount == 1)
-					set_window_size(mWindow, 1280, 720);
-				mStopUpdate = true;
-				break;
-			case 6:
-				if (mDelayDrawCount == 1)
-					set_window_size(mWindow, 640, 320);
-				mStopUpdate = true;
-				break;
-			default:
-				break;
-			}
+			if (mDelayDrawCount == 1)
+				set_window_size(mWindow, windowSizesPair[windowSizeSelect].first, windowSizesPair[windowSizeSelect].second);
+			mStopUpdate = true;
 		}
 
 		// update the viewport rt
@@ -442,7 +446,7 @@ public:
 
 	virtual const char* GetName() override
 	{
-		return "Custom Renderer";
+		return "Seagull Engine";
 	}
 private:
 	bool CreateSwapChain()
@@ -794,6 +798,7 @@ private:
 					if (viewportWidget->IsWindowFocused())
 					{
 						Vec2 offset = { ctx->pPosition->x - gLastMousePos.x, ctx->pPosition->y - gLastMousePos.y };
+						offset *= get_dpi_scale();
 						gCamera->OnRotate(offset);
 						if (viewportWidget->isHovered)
 							set_enable_capture_input_custom(true, viewportWidget->GetViewportClipRect());
@@ -819,12 +824,6 @@ private:
 			mViewportWidget
 		};
 		add_input_action(&inputAction);
-
-		//if (ctx->pPosition)
-		//{
-		//	SG_LOG_DEBUG("mouse pos: (%f, %f)", ctx->pPosition->x, ctx->pPosition->y);
-		//	//gCamera->OnRotate(*ctx->pPosition);
-		//}
 	}
 private:
 	Renderer* mRenderer = nullptr;
@@ -871,8 +870,6 @@ private:
 
 	bool mStopUpdate = false;
 	uint32_t mDelayDrawCount = 0;
-
-	//GestureDesc mGestureDesc;
 };
 
 SG_DEFINE_APPLICATION_MAIN(CustomRenderer)

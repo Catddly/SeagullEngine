@@ -267,6 +267,13 @@ namespace SG
 		return pWidget;
 	}
 
+	IWidget* FloatLabelWidget::OnCopy() const
+	{
+		FloatLabelWidget* pWidget = sg_placement_new<FloatLabelWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->pValue);
+		CopyBase(pWidget);
+		return pWidget;
+	}
+
 	IWidget* ButtonWidget::OnCopy() const
 	{
 		ButtonWidget* pWidget = sg_placement_new<ButtonWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->isPressed);

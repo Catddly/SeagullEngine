@@ -45,6 +45,8 @@ void EditorCallback()
 	isEdited = true;
 }
 
+float       gFps = 0.0;
+
 class CustomRenderer : public IApp
 {
 public:
@@ -210,13 +212,22 @@ public:
 
 		static float time = 0.0f;
 		time += deltaTime;
+		static float rotateTime = 0.0f;
+		rotateTime += deltaTime;
 
-		mUbo.model = glm::rotate(Matrix4(1.0f), time * 0.03f * 60.0f, mUpVec);
+		mUbo.model = glm::rotate(Matrix4(1.0f), rotateTime * 0.03f * 60.0f, mUpVec);
 		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + glm::normalize(mViewVec), mUpVec);
 		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)mSettings.width / (float)mSettings.height,
 			0.001f, 100000.0f);
 
 		mUiMiddleware.OnUpdate(deltaTime);
+
+		if (time >= 0.2f)
+		{
+			gFps = 1.0f / deltaTime;
+			time = 0.0f;
+			SG_LOG_DEBUG("Fps: %f", gFps);
+		}
 
 		if (isEdited)
 		{
@@ -316,14 +327,14 @@ public:
 			}
 		cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
 
-		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
-			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
-			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
+		//cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
+		//	cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
+		//	cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
-			mUiMiddleware.AddUpdateGui(mMainGui);
-			mUiMiddleware.AddUpdateGui(mSecondGui);
-			mUiMiddleware.OnDraw(cmd);
-		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
+		//	mUiMiddleware.AddUpdateGui(mMainGui);
+		//	mUiMiddleware.AddUpdateGui(mSecondGui);
+		//	mUiMiddleware.OnDraw(cmd);
+		//cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
 
 		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_PRESENT };
 		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
@@ -362,7 +373,7 @@ public:
 
 	virtual const char* GetName() override
 	{
-		return "Custom Renderer";
+		return "Seagull Engine";
 	}
 private:
 	bool CreateSwapChain()
