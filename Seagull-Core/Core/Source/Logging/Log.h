@@ -34,7 +34,7 @@ namespace SG
 	typedef void(*log_close_t)(void* pUserData);
 	typedef void(*log_flush_t)(void* pUserData);
 
-	class Logger : public ISingleton
+	class Logger : public ISingleton<Logger>
 	{
 	public:
 		struct LogInfo

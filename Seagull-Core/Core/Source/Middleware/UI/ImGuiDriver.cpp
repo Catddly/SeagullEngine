@@ -1114,7 +1114,7 @@ namespace SG
 
 	void SliderFloatWidget::OnDraw()
 	{
-		ImGui::Text("%s", mLabel.c_str());
+		//ImGui::Text("%s", mLabel.c_str());
 		ImGui::SliderFloatWithSteps(mLabel.c_str(), pData, mMin, mMax, mStep, mFormat.c_str());
 		ProcessCallback();
 	}

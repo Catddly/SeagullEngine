@@ -1,6 +1,7 @@
 #include "Seagull.h"
-
 using namespace SG;
+
+#include "CustomLighting/Light.h"
 
 #define IMAGE_COUNT 2
 
@@ -10,8 +11,9 @@ struct Vertex
 {
 	Vec3 Position;
 	Vec2 TexCoord;
+	Vec3 Normal;
 
-	static float GetStructSize()
+	static float GetStructSize()	
 	{
 		return sizeof(Vertex);
 	}
@@ -24,28 +26,16 @@ struct UniformBuffer
 	alignas(16) Matrix4 projection;
 };
 
-Vec2 mSliderData = {};
+Vec2  gSliderData = {};
+float gFps = 0.0;
+bool  gIsGuiFocused = false;
 
-const char* windowSizesName[] = {
-	"2560 x 1440",
-	"2176 x 1224",
-	"1920 x 1080",
-	"1440 x 1080",
-	"1440 x 720",
-	"1280 x 720",
-	"640 x 320",
-};
+ICameraController* gCamera = nullptr;
+Vec2			   gLastMousePos;
 
-uint32_t windowSizeSelect = 2;
-uint32_t windowSizeValue;
-
-bool isEdited = false;
-void EditorCallback()
-{
-	isEdited = true;
-}
-
-float       gFps = 0.0;
+Light gDefaultLight;
+float gLightIntensity = 1.0f;
+uint32_t gLightColor = 0xffffffff;
 
 class CustomRenderer : public IApp
 {
@@ -62,7 +52,9 @@ public:
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_ANIMATIONS, "Animation");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SCRIPTS, "Scripts");
 
-		//SG_LOG_DEBUG("Main thread ID: %ul", Thread::get_curr_thread_id());
+		gDefaultLight.color = { 1.0f, 1.0f, 1.0f };
+		gDefaultLight.position = { 0.0f, 0.0f, 1.5f };
+		gDefaultLight.intensity = 1.0f;
 
 		if (!CreateRenderResource())
 			return false;
@@ -77,7 +69,7 @@ public:
 		float dpiScale = get_dpi_scale().x;
 		GuiCreateDesc guiDesc{};
 		guiDesc.startPosition = { 0 , 0 };
-		guiDesc.startSize = { mSettings.width * 0.5 , mSettings.height * 0.5 };
+		guiDesc.startSize = { mSettings.width * 0.5 * dpiScale , mSettings.height * 0.5 * dpiScale };
 		guiDesc.defaultTextDrawDesc = UITextDesc;
 
 		mMainGui = mUiMiddleware.AddGuiComponent("TestWindow", &guiDesc);
@@ -87,13 +79,15 @@ public:
 
 		mSecondGui = mUiMiddleware.AddGuiComponent("Settings", &guiDesc);
 		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
-		mSecondGui->AddWidget(SliderFloat2Widget("Slider", &mSliderData, { 0 , 0 }, { 5 , 5 }))->pOnEdited = []
-		{
-			SG_LOG_DEBUG("Value: (%f, %f))", mSliderData.x, mSliderData.y);
-		};
-		mSecondGui->AddWidget(DropdownWidget("WindowSize", &windowSizeSelect, windowSizesName, &windowSizeValue, COUNT_OF(windowSizesName)))->pOnEdited = EditorCallback;
-
+		mSecondGui->AddWidget(SliderFloatWidget("LightIntensity", &gLightIntensity, 0.0f, 1.0f));
+		mSecondGui->AddWidget(ColorSliderWidget("Light Color", &gLightColor));
+		//mSecondGui->AddWidget(SliderFloat2Widget("Slider", &gSliderData, { 0 , 0 }, { 5 , 5 }))->pOnEdited = []
+		//{
+		//	SG_LOG_DEBUG("Value: (%f, %f))", gSliderData.x, gSliderData.y);
+		//};
 		//mUiMiddleware.mShowDemoUiWindow = true;
+
+		gCamera = create_perspective_camera({ -3.0f, 0.0f, 0.4f }, { 1.0f, 0.0f, 0.0f });
 
 		init_input_system(mWindow);
 
@@ -138,6 +132,8 @@ public:
 		};
 		add_input_action(&inputAction);
 
+		RegisterCameraControls();
+
 		return true;
 	}
 
@@ -145,6 +141,7 @@ public:
 	{
 		wait_queue_idle(mGraphicQueue);
 
+		destroy_camera(gCamera);
 		exit_input_system();
 
 		mUiMiddleware.OnExit();
@@ -154,10 +151,12 @@ public:
 
 	virtual bool OnLoad() override
 	{
-		DescriptorSetCreateDesc descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
-		add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
-		descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
-		add_descriptor_set(mRenderer, &descriptorSetCreate, &mUboDescriptorSet);
+		//DescriptorSetCreateDesc descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
+		//add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
+		DescriptorSetCreateDesc descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
+		add_descriptor_set(mRenderer, &descriptorSetCreate, &mRoomUboDescriptorSet);
+		descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
+		add_descriptor_set(mRenderer, &descriptorSetCreate, &mCubeUboDescriptorSet);
 
 		if (!CreateSwapChain())
 			return false;
@@ -173,17 +172,30 @@ public:
 		if (!CreateGraphicPipeline())
 			return false;
 
-		DescriptorData updateData[2] = {};
-		updateData[0].name = "Texture";
-		updateData[0].ppTextures = &mTexture;
-		update_descriptor_set(mRenderer, 0, mDescriptorSet, 1, updateData); // update the descriptor sets use 
+		if (!CreateLightpassPipeline())
+			return false;
+
+		//DescriptorData updateData[2] = {};
+		//updateData[0].name = "Texture";
+		//updateData[0].ppTextures = &mTexture;
+		//update_descriptor_set(mRenderer, 0, mDescriptorSet, 1, updateData); // update the descriptor sets use 
+
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			DescriptorData bufferUpdate[2] = {};
+			bufferUpdate[0].name = "ubo";
+			bufferUpdate[0].ppBuffers = &mRoomUniformBuffer[i];
+			bufferUpdate[1].name = "light";
+			bufferUpdate[1].ppBuffers = &mLightUniformBuffer[i];
+			update_descriptor_set(mRenderer, i, mRoomUboDescriptorSet, 2, bufferUpdate);
+		}
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			DescriptorData bufferUpdate[1] = {};
 			bufferUpdate[0].name = "ubo";
-			bufferUpdate[0].ppBuffers = &mUniformBuffer[i];
-			update_descriptor_set(mRenderer, i, mUboDescriptorSet, 1, bufferUpdate);
+			bufferUpdate[0].ppBuffers = &mCubeUniformBuffer[i];
+			update_descriptor_set(mRenderer, i, mCubeUboDescriptorSet, 1, bufferUpdate);
 		}
 
 		return true;
@@ -197,11 +209,12 @@ public:
 
 		remove_render_target(mRenderer, mDepthBuffer);
 
-		remove_pipeline(mRenderer, mPipeline);
+		remove_pipeline(mRenderer, mLightpassPipeline);
+		remove_pipeline(mRenderer, mDefaultPipeline);
 		remove_swapchain(mRenderer, mSwapChain);
 
-		remove_descriptor_set(mRenderer, mDescriptorSet);
-		remove_descriptor_set(mRenderer, mUboDescriptorSet);
+		remove_descriptor_set(mRenderer, mRoomUboDescriptorSet);
+		remove_descriptor_set(mRenderer, mCubeUboDescriptorSet);
 
 		return true;
 	}
@@ -210,54 +223,28 @@ public:
 	{
 		update_input_system(mSettings.width, mSettings.height);
 
+		gCamera->SetCameraLens(glm::radians(45.0f), (float)mSettings.width / mSettings.height, 0.001f, 1000.0f);
+		gCamera->OnUpdate(deltaTime);
+		gLastMousePos = get_mouse_pos_relative(mWindow);
+
 		static float time = 0.0f;
 		time += deltaTime;
 		static float rotateTime = 0.0f;
 		rotateTime += deltaTime;
 
-		mUbo.model = glm::rotate(Matrix4(1.0f), rotateTime * 0.03f * 60.0f, mUpVec);
-		mUbo.view = glm::lookAt(mCameraPos, mCameraPos + glm::normalize(mViewVec), mUpVec);
-		mUbo.projection = glm::perspective(glm::radians(45.0f), (float)mSettings.width / (float)mSettings.height,
-			0.001f, 100000.0f);
+		mRoomUbo.model = glm::rotate(Matrix4(1.0f), rotateTime * 0.03f * 60.0f, { 0.0f, 0.0f, 1.0f });
+		mRoomUbo.view = gCamera->GetViewMatrix();
+		mRoomUbo.projection = gCamera->GetProjMatrix();
+
+		mCubeUbo.model = glm::translate(Matrix4(1.0f), gDefaultLight.position) * glm::scale(Matrix4(1.0f), { 0.2f, 0.2f, 0.2f });
+		mCubeUbo.view = gCamera->GetViewMatrix();
+		mCubeUbo.projection = gCamera->GetProjMatrix();
+
+		gDefaultLight.intensity = gLightIntensity;
+		gDefaultLight.color = UintToVec4Color(gLightColor) / 255.0f;
 
 		mUiMiddleware.OnUpdate(deltaTime);
-
-		if (time >= 0.2f)
-		{
-			gFps = 1.0f / deltaTime;
-			time = 0.0f;
-			SG_LOG_DEBUG("Fps: %f", gFps);
-		}
-
-		if (isEdited)
-		{
-			switch (windowSizeSelect)
-			{
-			case 0:
-					set_window_size(mWindow, 2560, 1440);
-				break;
-			case 1:
-					set_window_size(mWindow, 2176, 1224);
-				break;
-			case 2:
-					set_window_size(mWindow, 1920, 1080);
-				break;
-			case 3:
-					set_window_size(mWindow, 1440, 1080);
-				break;
-			case 4:
-					set_window_size(mWindow, 1440, 720);
-				break;
-			case 5:
-					set_window_size(mWindow, 1280, 720);
-				break;
-			case 6:
-					set_window_size(mWindow, 640, 320);
-				break;
-			default:
-				break;
-			}
-		}
+		gIsGuiFocused = mUiMiddleware.IsFocused();
 
 		return true;
 	}
@@ -281,9 +268,19 @@ public:
 		reset_command_pool(mRenderer, mCmdPools[mCurrentIndex]);
 		
 		BufferUpdateDesc uboUpdate = {};
-		uboUpdate.pBuffer = mUniformBuffer[mCurrentIndex];
+		uboUpdate.pBuffer = mRoomUniformBuffer[mCurrentIndex];
 		begin_update_resource(&uboUpdate);
-		*(UniformBuffer*)uboUpdate.pMappedData = mUbo;
+		*(UniformBuffer*)uboUpdate.pMappedData = mRoomUbo;
+		end_update_resource(&uboUpdate, nullptr);
+
+		uboUpdate.pBuffer = mCubeUniformBuffer[mCurrentIndex];
+		begin_update_resource(&uboUpdate);
+		*(UniformBuffer*)uboUpdate.pMappedData = mCubeUbo;
+		end_update_resource(&uboUpdate, nullptr);
+
+		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex];
+		begin_update_resource(&uboUpdate);
+		*(Light*)uboUpdate.pMappedData = gDefaultLight;
 		end_update_resource(&uboUpdate, nullptr);
 
 		const uint32_t stride = (uint32_t)Vertex::GetStructSize();
@@ -312,9 +309,24 @@ public:
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
-			cmd_bind_pipeline(cmd, mPipeline);
-			cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
-			cmd_bind_descriptor_set(cmd, mCurrentIndex, mUboDescriptorSet);
+			/// light pass start
+			cmd_bind_pipeline(cmd, mLightpassPipeline);
+			cmd_bind_descriptor_set(cmd, mCurrentIndex, mCubeUboDescriptorSet);
+
+			cmd_bind_index_buffer(cmd, mCubeGeo->pIndexBuffer, mCubeGeo->indexType, 0);
+			Buffer* CubeVertexBuffer[] = { mCubeGeo->pVertexBuffers[0] };
+			cmd_bind_vertex_buffer(cmd, 1, CubeVertexBuffer, mCubeGeo->vertexStrides, nullptr);
+
+			for (uint32_t i = 0; i < mCubeGeo->drawArgCount; i++)
+			{
+				IndirectDrawIndexArguments& cmdDraw = mCubeGeo->pDrawArgs[i];
+				cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
+			}
+			/// light pass end
+
+			/// geom start
+			cmd_bind_pipeline(cmd, mDefaultPipeline);
+			cmd_bind_descriptor_set(cmd, mCurrentIndex, mRoomUboDescriptorSet);
 
 			cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
 			Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
@@ -325,16 +337,17 @@ public:
 				IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
 				cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
 			}
+			/// geom end
 		cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
 
-		//cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
-		//	cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
-		//	cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
+		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
+			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
+			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
-		//	mUiMiddleware.AddUpdateGui(mMainGui);
-		//	mUiMiddleware.AddUpdateGui(mSecondGui);
-		//	mUiMiddleware.OnDraw(cmd);
-		//cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
+			mUiMiddleware.AddUpdateGui(mMainGui);
+			mUiMiddleware.AddUpdateGui(mSecondGui);
+			mUiMiddleware.OnDraw(cmd);
+		cmd_bind_render_targets(cmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
 
 		renderTargetBarriers = { renderTarget, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_PRESENT };
 		cmd_resource_barrier(cmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
@@ -395,7 +408,7 @@ private:
 	bool CreateGraphicPipeline()
 	{
 		VertexLayout vertexLayout = {};
-		vertexLayout.attribCount = 2;
+		vertexLayout.attribCount = 3;
 		vertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
 		vertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
 		vertexLayout.attribs[0].binding = 0;
@@ -407,6 +420,12 @@ private:
 		vertexLayout.attribs[1].binding = 0;
 		vertexLayout.attribs[1].location = 1;
 		vertexLayout.attribs[1].offset = 3 * sizeof(float);
+
+		vertexLayout.attribs[2].semantic = SG_SEMANTIC_NORMAL;
+		vertexLayout.attribs[2].format = TinyImageFormat_R32G32B32_SFLOAT;
+		vertexLayout.attribs[2].binding = 0;
+		vertexLayout.attribs[2].location = 2;
+		vertexLayout.attribs[2].offset = 5 * sizeof(float);
 
 		RasterizerStateDesc rasterizeState = {};
 		rasterizeState.cullMode = SG_CULL_MODE_BACK;
@@ -438,8 +457,8 @@ private:
 		graphicPipe.sampleCount = mSwapChain->ppRenderTargets[0]->sampleCount;
 		graphicPipe.sampleQuality = mSwapChain->ppRenderTargets[0]->sampleQuality;
 
-		graphicPipe.pRootSignature = mRootSignature;
-		graphicPipe.pShaderProgram = mTriangleShader;
+		graphicPipe.pRootSignature = mRoomRootSignature;
+		graphicPipe.pShaderProgram = mDefaultShader;
 
 		graphicPipe.pVertexLayout = &vertexLayout;
 		graphicPipe.pRasterizerState = &rasterizeState;
@@ -447,9 +466,75 @@ private:
 		graphicPipe.depthStencilFormat = mDepthBuffer->format;
 
 		graphicPipe.pBlendState = &blendStateDesc;
-		add_pipeline(mRenderer, &pipelineCreate, &mPipeline);
+		add_pipeline(mRenderer, &pipelineCreate, &mDefaultPipeline);
 
-		return mPipeline != nullptr;
+		return mDefaultPipeline != nullptr;
+	}
+
+	bool CreateLightpassPipeline()
+	{
+		VertexLayout vertexLayout = {};
+		vertexLayout.attribCount = 3;
+		vertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
+		vertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
+		vertexLayout.attribs[0].binding = 0;
+		vertexLayout.attribs[0].location = 0;
+		vertexLayout.attribs[0].offset = 0;
+
+		vertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
+		vertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
+		vertexLayout.attribs[1].binding = 0;
+		vertexLayout.attribs[1].location = 1;
+		vertexLayout.attribs[1].offset = 3 * sizeof(float);
+
+		vertexLayout.attribs[2].semantic = SG_SEMANTIC_NORMAL;
+		vertexLayout.attribs[2].format = TinyImageFormat_R32G32B32_SFLOAT;
+		vertexLayout.attribs[2].binding = 0;
+		vertexLayout.attribs[2].location = 2;
+		vertexLayout.attribs[2].offset = 5 * sizeof(float);
+
+		RasterizerStateDesc rasterizeState = {};
+		rasterizeState.cullMode = SG_CULL_MODE_NONE;
+		//rasterizeState.frontFace = SG_FRONT_FACE_CCW;
+
+		DepthStateDesc depthStateDesc = {};
+		depthStateDesc.depthTest = true;
+		depthStateDesc.depthWrite = true;
+		depthStateDesc.depthFunc = SG_COMPARE_MODE_LESS;
+
+		BlendStateDesc blendStateDesc = {};
+		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_ONE;
+		blendStateDesc.srcFactors[1] = SG_BLEND_CONST_ONE;
+		blendStateDesc.srcAlphaFactors[0] = SG_BLEND_CONST_ONE;
+		blendStateDesc.srcAlphaFactors[1] = SG_BLEND_CONST_ONE;
+		blendStateDesc.renderTargetMask = SG_BLEND_STATE_TARGET_0;
+		blendStateDesc.masks[0] = SG_BLEND_COLOR_MASK_ALL;
+		blendStateDesc.masks[1] = SG_BLEND_COLOR_MASK_ALL;
+
+		PipelineCreateDesc pipelineCreate = {};
+		pipelineCreate.type = SG_PIPELINE_TYPE_GRAPHICS;
+		GraphicsPipelineDesc& graphicPipe = pipelineCreate.graphicsDesc;
+		graphicPipe.primitiveTopo = SG_PRIMITIVE_TOPO_TRI_LIST;
+		graphicPipe.renderTargetCount = 1;
+
+		graphicPipe.pColorFormats = &mSwapChain->ppRenderTargets[0]->format;
+		graphicPipe.pDepthState = &depthStateDesc;
+
+		graphicPipe.sampleCount = mSwapChain->ppRenderTargets[0]->sampleCount;
+		graphicPipe.sampleQuality = mSwapChain->ppRenderTargets[0]->sampleQuality;
+
+		graphicPipe.pRootSignature = mRoomRootSignature;
+		graphicPipe.pShaderProgram = mLightShader;
+
+		graphicPipe.pVertexLayout = &vertexLayout;
+		graphicPipe.pRasterizerState = &rasterizeState;
+
+		graphicPipe.depthStencilFormat = mDepthBuffer->format;
+
+		graphicPipe.pBlendState = &blendStateDesc;
+		add_pipeline(mRenderer, &pipelineCreate, &mLightpassPipeline);
+
+		return mLightpassPipeline != nullptr;
 	}
 
 	bool CreateDepthBuffer()
@@ -507,15 +592,15 @@ private:
 		init_resource_loader_interface(mRenderer);
 
 		TextureLoadDesc textureCreate = {};
-		textureCreate.fileName = "viking_room";
-		textureCreate.ppTexture = &mTexture;
-		add_resource(&textureCreate, nullptr);
+		//textureCreate.fileName = "viking_room";
+		//textureCreate.ppTexture = &mTexture;
+		//add_resource(&textureCreate, nullptr);
 
 		textureCreate.fileName = "logo";
 		textureCreate.ppTexture = &mLogoTex;
 		add_resource(&textureCreate, nullptr);
 
-		mRoomGeoVertexLayout.attribCount = 2;
+		mRoomGeoVertexLayout.attribCount = 3;
 
 		mRoomGeoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
 		mRoomGeoVertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
@@ -529,46 +614,85 @@ private:
 		mRoomGeoVertexLayout.attribs[1].location = 1;
 		mRoomGeoVertexLayout.attribs[1].offset = 3 * sizeof(float);
 
+		mRoomGeoVertexLayout.attribs[2].semantic = SG_SEMANTIC_NORMAL;
+		mRoomGeoVertexLayout.attribs[2].format = TinyImageFormat_R32G32B32_SFLOAT;
+		mRoomGeoVertexLayout.attribs[2].binding = 0;
+		mRoomGeoVertexLayout.attribs[2].location = 2;
+		mRoomGeoVertexLayout.attribs[2].offset = 5 * sizeof(float);
+
 		GeometryLoadDesc geoCreate = {};
 		geoCreate.fileName = "model.gltf";
 		geoCreate.ppGeometry = &mRoomGeo;
 		geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
 		add_resource(&geoCreate, nullptr);
 
+		geoCreate.fileName = "cube.gltf";
+		geoCreate.ppGeometry = &mCubeGeo;
+		geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
+		add_resource(&geoCreate, nullptr);
+
 		ShaderLoadDesc loadBasicShader = {};
-		loadBasicShader.stages[0] = { "triangle.vert", nullptr, 0, "main" };
-		loadBasicShader.stages[1] = { "triangle.frag", nullptr, 0, "main" };
-		add_shader(mRenderer, &loadBasicShader, &mTriangleShader);
+		loadBasicShader.stages[0] = { "default.vert", nullptr, 0, "main" };
+		loadBasicShader.stages[1] = { "default.frag", nullptr, 0, "main" };
+		add_shader(mRenderer, &loadBasicShader, &mDefaultShader);
 
-		SamplerCreateDesc samplerCreate = {};
-		samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-		samplerCreate.addressV = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-		samplerCreate.addressW = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
-		samplerCreate.minFilter = SG_FILTER_LINEAR;
-		samplerCreate.magFilter = SG_FILTER_LINEAR;
-		samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
-		add_sampler(mRenderer, &samplerCreate, &mSampler);
+		loadBasicShader.stages[0] = { "CustomLighting/light.vert", nullptr, 0, "main" };
+		loadBasicShader.stages[1] = { "CustomLighting/light.frag", nullptr, 0, "main" };
+		add_shader(mRenderer, &loadBasicShader, &mLightShader);
 
-		Shader* submitShaders[] = { mTriangleShader };
-		const char* staticSamplers[] = { "Sampler" };
+		//SamplerCreateDesc samplerCreate = {};
+		//samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+		//samplerCreate.addressV = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+		//samplerCreate.addressW = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
+		//samplerCreate.minFilter = SG_FILTER_LINEAR;
+		//samplerCreate.magFilter = SG_FILTER_LINEAR;
+		//samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
+		//add_sampler(mRenderer, &samplerCreate, &mSampler);
+
+		Shader* submitShaders[] = { mDefaultShader, mLightShader };
+		//const char* staticSamplers[] = { "Sampler" };
 		RootSignatureCreateDesc rootSignatureCreate = {};
-		rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
-		rootSignatureCreate.ppStaticSamplers = &mSampler;
-		rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
+		//rootSignatureCreate.staticSamplerCount = 0;
+		//rootSignatureCreate.ppStaticSamplers = &mSampler;
+		//rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
 		rootSignatureCreate.ppShaders = submitShaders;
 		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
-		add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
+		add_root_signature(mRenderer, &rootSignatureCreate, &mRoomRootSignature);
 
 		BufferLoadDesc uboCreate;
 		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
-		uboCreate.desc.name = "UniformBuffer";
+		uboCreate.desc.name = "RoomUniformBuffer";
 		uboCreate.desc.size = sizeof(UniformBuffer);
 		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
 		uboCreate.pData = nullptr;
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			uboCreate.ppBuffer = &mUniformBuffer[i];
+			uboCreate.ppBuffer = &mRoomUniformBuffer[i];
+			add_resource(&uboCreate, nullptr);
+		}
+
+		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
+		uboCreate.desc.name = "CubeUniformBuffer";
+		uboCreate.desc.size = sizeof(UniformBuffer);
+		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
+		uboCreate.pData = nullptr;
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			uboCreate.ppBuffer = &mCubeUniformBuffer[i];
+			add_resource(&uboCreate, nullptr);
+		}
+
+		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
+		uboCreate.desc.name = "LightUbo";
+		uboCreate.desc.size = sizeof(Light);
+		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
+		uboCreate.pData = nullptr;
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			uboCreate.ppBuffer = &mLightUniformBuffer[i];
 			add_resource(&uboCreate, nullptr);
 		}
 
@@ -577,21 +701,25 @@ private:
 
 	void RemoveRenderResource()
 	{
-		remove_resource(mTexture);
+		//remove_resource(mTexture);
 		remove_resource(mLogoTex);
 
 		remove_resource(mRoomGeo);
+		remove_resource(mCubeGeo);
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			remove_resource(mUniformBuffer[i]);
+			remove_resource(mRoomUniformBuffer[i]);
+			remove_resource(mCubeUniformBuffer[i]);
+			remove_resource(mLightUniformBuffer[i]);
 		}
 
-		remove_sampler(mRenderer, mSampler);
-		remove_shader(mRenderer, mTriangleShader);
+		//remove_sampler(mRenderer, mSampler);
+		remove_shader(mRenderer, mDefaultShader);
+		remove_shader(mRenderer, mLightShader);
 
 		exit_resource_loader_interface(mRenderer);
 
-		remove_root_signature(mRenderer, mRootSignature);
+		remove_root_signature(mRenderer, mRoomRootSignature);
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; ++i)
 		{
@@ -606,6 +734,125 @@ private:
 		remove_queue(mRenderer, mGraphicQueue);
 		remove_renderer(mRenderer);
 	}
+
+	void RegisterCameraControls()
+	{
+		GestureDesc gestureDesc;
+		gestureDesc.minimumPressDurationMs = 1;
+		gestureDesc.triggerBinding = SG_KEY_W;
+		InputActionDesc inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					if (!gIsGuiFocused)
+						gCamera->OnMove({ 0.6f, 0.0f, 0.0f });
+					return true;
+				},
+			nullptr,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_S;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					if (!gIsGuiFocused)
+						gCamera->OnMove({ -0.6f, 0.0f, 0.0f });
+					return true;
+				},
+			nullptr,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_A;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					if (!gIsGuiFocused)
+						gCamera->OnMove({ 0.0f, -0.6f, 0.0f });
+					return true;
+				},
+			nullptr,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_D;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					if (!gIsGuiFocused)
+						gCamera->OnMove({ 0.0f, 0.6f, 0.0f });
+					return true;
+				},
+			nullptr,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_SPACE;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					if (!gIsGuiFocused)
+						gCamera->OnMove({ 0.0f, 0.0f, 0.3f });
+					return true;
+				},
+			nullptr,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_KEY_CTRLL;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					if (!gIsGuiFocused)
+						gCamera->OnMove({ 0.0f, 0.0f, -0.3f });
+					return true;
+				},
+			nullptr,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		gestureDesc.triggerBinding = SG_MOUSE_LEFT;
+		inputAction = { SG_GESTURE_LONG_PRESS,
+			[](InputActionContext* ctx)
+				{
+					if (!gIsGuiFocused)
+					{
+						Vec2 offset = { ctx->pPosition->x - gLastMousePos.x, ctx->pPosition->y - gLastMousePos.y };
+						offset *= get_dpi_scale();
+						gCamera->OnRotate(offset);
+						auto* window = (WindowDesc*)ctx->pUserData;
+						set_enable_capture_input_custom(true, window->clientRect);
+					}
+					return true;
+				},
+			mWindow,
+			gestureDesc
+		};
+		add_input_action(&inputAction);
+
+		inputAction = { SG_MOUSE_LEFT,
+			[](InputActionContext* ctx)
+				{
+					if (!gIsGuiFocused)
+					{
+						if (ctx->phase == INPUT_ACTION_PHASE_CANCELED)
+						{
+							auto* window = (WindowDesc*)ctx->pUserData;
+							set_enable_capture_input_custom(false, window->clientRect);
+						}
+					}
+					return true;
+				},
+			mWindow
+		};
+		add_input_action(&inputAction);
+	}
 private:
 	Renderer* mRenderer = nullptr;
 
@@ -619,30 +866,33 @@ private:
 	Semaphore* mRenderCompleteSemaphores[IMAGE_COUNT] = { 0 };
 	Semaphore* mImageAcquiredSemaphore = { 0 };
 
-	Shader* mTriangleShader = nullptr;
-	Sampler* mSampler = nullptr;
+	Shader* mDefaultShader = nullptr;
+	Shader* mLightShader = nullptr;
+	//Sampler* mSampler = nullptr;
 
-	Texture* mTexture = nullptr;
+	//Texture* mTexture = nullptr;
 	Texture* mLogoTex = nullptr;
-	RootSignature* mRootSignature = nullptr;
-	DescriptorSet* mDescriptorSet = nullptr;
-	Pipeline* mPipeline = nullptr;
+	RootSignature* mRoomRootSignature = nullptr;
+	//DescriptorSet* mDescriptorSet = nullptr;
+	Pipeline* mDefaultPipeline = nullptr;
+	Pipeline* mLightpassPipeline = nullptr;
 
 	/// this texture is use for getting the current present rt in the swapchain
 	RenderTarget* mDepthBuffer = nullptr;
 
 	VertexLayout mRoomGeoVertexLayout = {};
 	Geometry* mRoomGeo = nullptr;
+	Geometry* mCubeGeo = nullptr;
 
-	Buffer* mUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
-	UniformBuffer mUbo;
-	DescriptorSet* mUboDescriptorSet = nullptr;
+	Buffer* mRoomUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
+	Buffer* mCubeUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
+	Buffer* mLightUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
+	UniformBuffer mRoomUbo;
+	UniformBuffer mCubeUbo;
+	DescriptorSet* mRoomUboDescriptorSet = nullptr;
+	DescriptorSet* mCubeUboDescriptorSet = nullptr;
 
 	uint32_t mCurrentIndex = 0;
-
-	Vec3  mCameraPos = { -3.0f, 0.0f, 0.4f };
-	Vec3  mViewVec = { 1.0f, 0.0f, 0.0f };
-	Vec3  mUpVec = { 0.0f, 0.0f, 1.0f };
 
 	// Gui
 	UIMiddleware  mUiMiddleware;

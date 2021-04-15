@@ -16,7 +16,7 @@ namespace SG
 
 	/// a widget is a small component of a window
 	/// inherit form singleton to disable common copy
-	class IWidget : public ISingleton
+	class IWidget : public ISingleton<IWidget>
 	{
 	public:
 		IWidget(const eastl::string& label)

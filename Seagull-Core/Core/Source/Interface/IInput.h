@@ -1,6 +1,5 @@
 #include <stdint.h>
 
-#include "BasicType/ISingleton.h"
 #include "Interface/IOperatingSystem.h"
 
 #include <include/EASTL/utility.h>

@@ -19,30 +19,36 @@ struct Vertex
 
 struct UniformBuffer
 {
-	alignas(16) Matrix4 model;
-	alignas(16) Matrix4 view;
-	alignas(16) Matrix4 projection;
+	Matrix4 model;
+	Matrix4 view;
+	Matrix4 projection;
 };
 
-static eastl::vector<const char*> ParserPairsToStr(const eastl::vector<eastl::pair<uint32_t, uint32_t>>& vec)
+char* ParserPairsToStr(const eastl::vector<eastl::pair<uint32_t, uint32_t>>& vec)
 {
-	eastl::vector<const char*> s;
-	for (auto& e : vec)
+	char strs[400];
+	memset(strs, 0, sizeof(strs));
+	for (uint32_t i = 0; i < vec.size(); i++)
 	{
 		char widthStr[20];
 		char heightStr[10];
-		sprintf(widthStr, "%d", e.first);
-		sprintf(heightStr, "%d", e.second);
+		sprintf(widthStr, "%d", vec[i].first);
+		sprintf(heightStr, "%d", vec[i].second);
 		strcat(widthStr, " x ");
 		strcat(widthStr, heightStr);
-
-		s.emplace_back(widthStr);
-		SG_LOG_DEBUG("%s", widthStr);
+		strcpy(strs, widthStr);
+		SG_LOG_DEBUG("%s", strs[i]);
 	}
-	return s;
+	
+	for (uint32_t i = 0; i < vec.size(); i++)
+	{
+		SG_LOG_DEBUG("%s", strs[i]);
+	}
+	
+	return strs;
 }
 
-Vec2 mSliderData = {};
+Vec2 gSliderData = {};
 
 eastl::vector<eastl::pair<uint32_t, uint32_t>> windowSizesPair = {
 	{ 2560, 1440 },
@@ -54,15 +60,15 @@ eastl::vector<eastl::pair<uint32_t, uint32_t>> windowSizesPair = {
 	{ 640, 320 }
 };
 
-//const char* windowSizesName[] = {
-//	"2560 x 1440",
-//	"2176 x 1224",
-//	"1920 x 1080",
-//	"1440 x 1080", 
-//	"1440 x 720",
-//	"1280 x 720",
-//	"640 x 320"
-//};
+const char* windowSizesName[] = {
+	{ "2560 x 1440" },
+	{ "2176 x 1224" },
+	{ "1920 x 1080" },
+	{ "1440 x 1080" },
+	{ "1440 x 720" },
+	{ "1280 x 720" },
+	{ "640 x 320" }
+};
 
 uint32_t windowSizeSelect = 2;
 uint32_t windowSizeValue;
@@ -130,13 +136,14 @@ public:
 
 		mSecondGui = mUiMiddleware.AddGuiComponent("Settings", &guiDesc);
 		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
-		mSecondGui->AddWidget(SliderFloat2Widget("Slider", &mSliderData, { 0 , 0 }, { 5 , 5 }))->pOnEdited = []
+		mSecondGui->AddWidget(SliderFloat2Widget("Slider", &gSliderData, { 0 , 0 }, { 5 , 5 }))->pOnEdited = []
 		{
-			SG_LOG_DEBUG("Value: (%f, %f))", mSliderData.x, mSliderData.y);
+			SG_LOG_DEBUG("Value: (%f, %f))", gSliderData.x, gSliderData.y);
 		};
 		mSecondGui->AddWidget(ButtonWidget("Stop Rotate", &gIsStopPressed));
 
-		mSecondGui->AddWidget(DropdownWidget("WindowSize", &windowSizeSelect, ParserPairsToStr(windowSizesPair).data(), &windowSizeValue, windowSizesPair.size()))->pOnEdited = EditorCallback;
+		//windowSizesName = ParserPairsToStr(windowSizesPair);
+		mSecondGui->AddWidget(DropdownWidget("WindowSize", &windowSizeSelect, windowSizesName, &windowSizeValue, windowSizesPair.size()))->pOnEdited = EditorCallback;
 
 		mViewportGui = mUiMiddleware.AddGuiComponent("Viewport", &guiDesc);
 		mViewportGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
@@ -209,10 +216,10 @@ public:
 
 	virtual bool OnLoad() override
 	{
-		DescriptorSetCreateDesc descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
+		DescriptorSetCreateDesc descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
-		descriptorSetCreate = { mRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
-		add_descriptor_set(mRenderer, &descriptorSetCreate, &mUboDescriptorSet);
+		descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
+		add_descriptor_set(mRenderer, &descriptorSetCreate, &mRoomUboDescriptorSet);
 
 		if (!CreateSwapChain())
 			return false;
@@ -240,8 +247,8 @@ public:
 		{
 			DescriptorData bufferUpdate[1] = {};
 			bufferUpdate[0].name = "ubo";
-			bufferUpdate[0].ppBuffers = &mUniformBuffer[i];
-			update_descriptor_set(mRenderer, i, mUboDescriptorSet, 1, bufferUpdate);
+			bufferUpdate[0].ppBuffers = &mRoomUniformBuffer[i];
+			update_descriptor_set(mRenderer, i, mRoomUboDescriptorSet, 1, bufferUpdate);
 		}
 
 		return true;
@@ -256,11 +263,11 @@ public:
 		remove_render_target(mRenderer, mRt);
 		remove_render_target(mRenderer, mDepthBuffer);
 
-		remove_pipeline(mRenderer, mPipeline);
+		remove_pipeline(mRenderer, mDefaultPipeline);
 		remove_swapchain(mRenderer, mSwapChain);
 
 		remove_descriptor_set(mRenderer, mDescriptorSet);
-		remove_descriptor_set(mRenderer, mUboDescriptorSet);
+		remove_descriptor_set(mRenderer, mRoomUboDescriptorSet);
 
 		return true;
 	}
@@ -289,9 +296,9 @@ public:
 			time = 0.0f;
 		}
 		
-		mUbo.model = glm::rotate(Matrix4(1.0f), rotateTime * 0.03f * 60.0f, { 0, 0, 1 });
-		mUbo.view = gCamera->GetViewMatrix();
-		mUbo.projection = gCamera->GetProjMatrix();
+		mRoomUbo.model = glm::rotate(Matrix4(1.0f), rotateTime * 0.03f * 60.0f, { 0, 0, 1 });
+		mRoomUbo.view = gCamera->GetViewMatrix();
+		mRoomUbo.projection = gCamera->GetProjMatrix();
 
 		mUiMiddleware.OnUpdate(deltaTime);
 
@@ -338,9 +345,9 @@ public:
 		reset_command_pool(mRenderer, mCmdPools[mCurrentIndex]);
 		
 		BufferUpdateDesc uboUpdate = {};
-		uboUpdate.pBuffer = mUniformBuffer[mCurrentIndex];
+		uboUpdate.pBuffer = mRoomUniformBuffer[mCurrentIndex];
 		begin_update_resource(&uboUpdate);
-		*(UniformBuffer*)uboUpdate.pMappedData = mUbo;
+		*(UniformBuffer*)uboUpdate.pMappedData = mRoomUbo;
 		end_update_resource(&uboUpdate, nullptr);
 
 		const uint32_t stride = (uint32_t)Vertex::GetStructSize();
@@ -371,9 +378,9 @@ public:
 				cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 				cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
-				cmd_bind_pipeline(cmd, mPipeline);
+				cmd_bind_pipeline(cmd, mDefaultPipeline);
 				cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
-				cmd_bind_descriptor_set(cmd, mCurrentIndex, mUboDescriptorSet);
+				cmd_bind_descriptor_set(cmd, mCurrentIndex, mRoomUboDescriptorSet);
 
 				cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
 				Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
@@ -511,8 +518,8 @@ private:
 		graphicPipe.sampleCount = mSwapChain->ppRenderTargets[0]->sampleCount;
 		graphicPipe.sampleQuality = mSwapChain->ppRenderTargets[0]->sampleQuality;
 
-		graphicPipe.pRootSignature = mRootSignature;
-		graphicPipe.pShaderProgram = mTriangleShader;
+		graphicPipe.pRootSignature = mRoomRootSignature;
+		graphicPipe.pShaderProgram = mDefaultShader;
 
 		graphicPipe.pVertexLayout = &vertexLayout;
 		graphicPipe.pRasterizerState = &rasterizeState;
@@ -520,9 +527,9 @@ private:
 		graphicPipe.depthStencilFormat = mDepthBuffer->format;
 
 		graphicPipe.pBlendState = &blendStateDesc;
-		add_pipeline(mRenderer, &pipelineCreate, &mPipeline);
+		add_pipeline(mRenderer, &pipelineCreate, &mDefaultPipeline);
 
-		return mPipeline != nullptr;
+		return mDefaultPipeline != nullptr;
 	}
 
 	bool CreateDepthBuffer()
@@ -633,7 +640,7 @@ private:
 		ShaderLoadDesc loadBasicShader = {};
 		loadBasicShader.stages[0] = { "triangle.vert", nullptr, 0, "main" };
 		loadBasicShader.stages[1] = { "triangle.frag", nullptr, 0, "main" };
-		add_shader(mRenderer, &loadBasicShader, &mTriangleShader);
+		add_shader(mRenderer, &loadBasicShader, &mDefaultShader);
 
 		SamplerCreateDesc samplerCreate = {};
 		samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
@@ -644,7 +651,7 @@ private:
 		samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
 		add_sampler(mRenderer, &samplerCreate, &mSampler);
 
-		Shader* submitShaders[] = { mTriangleShader };
+		Shader* submitShaders[] = { mDefaultShader };
 		const char* staticSamplers[] = { "Sampler" };
 		RootSignatureCreateDesc rootSignatureCreate = {};
 		rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
@@ -652,7 +659,7 @@ private:
 		rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
 		rootSignatureCreate.ppShaders = submitShaders;
 		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
-		add_root_signature(mRenderer, &rootSignatureCreate, &mRootSignature);
+		add_root_signature(mRenderer, &rootSignatureCreate, &mRoomRootSignature);
 
 		BufferLoadDesc uboCreate;
 		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -663,7 +670,7 @@ private:
 		uboCreate.pData = nullptr;
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			uboCreate.ppBuffer = &mUniformBuffer[i];
+			uboCreate.ppBuffer = &mRoomUniformBuffer[i];
 			add_resource(&uboCreate, nullptr);
 		}
 
@@ -678,15 +685,15 @@ private:
 		remove_resource(mRoomGeo);
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			remove_resource(mUniformBuffer[i]);
+			remove_resource(mRoomUniformBuffer[i]);
 		}
 
 		remove_sampler(mRenderer, mSampler);
-		remove_shader(mRenderer, mTriangleShader);
+		remove_shader(mRenderer, mDefaultShader);
 
 		exit_resource_loader_interface(mRenderer);
 
-		remove_root_signature(mRenderer, mRootSignature);
+		remove_root_signature(mRenderer, mRoomRootSignature);
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; ++i)
 		{
@@ -838,14 +845,14 @@ private:
 	Semaphore* mRenderCompleteSemaphores[IMAGE_COUNT] = { 0 };
 	Semaphore* mImageAcquiredSemaphore = { 0 };
 
-	Shader* mTriangleShader = nullptr;
+	Shader* mDefaultShader = nullptr;
 	Sampler* mSampler = nullptr;
 
 	Texture* mTexture = nullptr;
 	Texture* mLogoTex = nullptr;
-	RootSignature* mRootSignature = nullptr;
+	RootSignature* mRoomRootSignature = nullptr;
 	DescriptorSet* mDescriptorSet = nullptr;
-	Pipeline* mPipeline = nullptr;
+	Pipeline* mDefaultPipeline = nullptr;
 
 	/// this texture is use for getting the current present rt in the swapchain
 	RenderTarget* mDepthBuffer = nullptr;
@@ -853,9 +860,9 @@ private:
 	VertexLayout mRoomGeoVertexLayout = {};
 	Geometry* mRoomGeo = nullptr;
 
-	Buffer* mUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
-	UniformBuffer mUbo;
-	DescriptorSet* mUboDescriptorSet = nullptr;
+	Buffer* mRoomUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
+	UniformBuffer mRoomUbo;
+	DescriptorSet* mRoomUboDescriptorSet = nullptr;
 
 	uint32_t mCurrentIndex = 0;
 

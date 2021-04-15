@@ -41,6 +41,11 @@ namespace SG
 		int32_t top;
 		int32_t right;
 		int32_t bottom;
+
+		operator Vec4()
+		{
+			return { left, top, right, bottom };
+		}
 	} RectDescription;
 
 	static inline int32_t get_rect_width(const RectDescription& rect) { return rect.right - rect.left; }

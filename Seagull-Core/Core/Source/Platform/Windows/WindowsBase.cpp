@@ -469,7 +469,7 @@ namespace SG
 				(LONG)(clientRectStyleAdjusted.left + get_rect_width(rect)),
 				(LONG)(clientRectStyleAdjusted.top + get_rect_height(rect))
 			};
-			AdjustWindowRectEx(&clientRectStyleAdjusted, windowStyle, FALSE, windowStyleEx);
+			::AdjustWindowRectEx(&clientRectStyleAdjusted, windowStyle, FALSE, windowStyleEx);
 
 			pWindow->windowedRect =
 			{
@@ -478,7 +478,7 @@ namespace SG
 				(int32_t)clientRectStyleAdjusted.right,
 				(int32_t)clientRectStyleAdjusted.bottom
 			};
-			SetWindowPos(hwnd,
+			::SetWindowPos(hwnd,
 				HWND_NOTOPMOST,
 				clientRectStyleAdjusted.left, clientRectStyleAdjusted.top,
 				clientRectStyleAdjusted.right - clientRectStyleAdjusted.left,

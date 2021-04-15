@@ -590,25 +590,6 @@ namespace SG
 			ASSERT(pAction);
 
 			pAction->desc = *pDesc;
-#if defined(TARGET_IOS)
-			if (pGainputView && GESTURE_BINDINGS_BEGIN <= pDesc->bindings && GESTURE_BINDINGS_END >= pDesc->bindings)
-			{
-				const GestureDesc* pGesture = pDesc->pGesture;
-				ASSERT(pGesture);
-
-				GainputView* view = (__bridge GainputView*)pGainputView;
-				uint32_t gestureId = (uint32_t)gestureControls.size();
-				gainput::GestureConfig gestureConfig = {};
-				gestureConfig.mType = (gainput::GestureType)(pDesc->bindings - GESTURE_BINDINGS_BEGIN);
-				gestureConfig.mMaxNumberOfTouches = pGesture->mMaxNumberOfTouches;
-				gestureConfig.mMinNumberOfTouches = pGesture->mMinNumberOfTouches;
-				gestureConfig.mMinimumPressDuration = pGesture->mMinimumPressDuration;
-				gestureConfig.mNumberOfTapsRequired = pGesture->mNumberOfTapsRequired;
-				[view addGestureMapping : gestureId withConfig : gestureConfig] ;
-				gestureControls.emplace_back(pAction);
-				return pAction;
-			}
-#endif
 
 			if (pDesc->bindings == SG_TEXT)
 			{

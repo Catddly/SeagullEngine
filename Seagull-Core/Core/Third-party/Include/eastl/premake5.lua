@@ -21,6 +21,11 @@ project "eastl"
 	{
 	}
 
+	defines
+	{
+		-- "EA_DLL"
+	}
+
 	filter "system:windows"
 		systemversion "latest"
 		defines 
