@@ -5,6 +5,7 @@ layout(SG_UPDATE_FREQ_PER_FRAME, binding = 0) uniform UniformBuffer
     mat4 model;
 	mat4 view;
 	mat4 proj;
+    vec3 cameraPos;
 } ubo;
     
 layout(location = 0) in vec3 Position;

@@ -5,11 +5,12 @@
 namespace SG
 {
 
-	struct Light
+	struct PointLight
 	{
 		Vec3  position;
 		float intensity;
 		Vec3  color;
+		float range; // it is 1 / r^2
 	};
 
 	Vec4 UintToVec4Color(uint32_t color)

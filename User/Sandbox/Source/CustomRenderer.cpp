@@ -24,6 +24,7 @@ struct UniformBuffer
 	alignas(16) Matrix4 model;
 	alignas(16) Matrix4 view;
 	alignas(16) Matrix4 projection;
+	Vec3 cameraPos;
 };
 
 Vec2  gSliderData = {};
@@ -33,9 +34,16 @@ bool  gIsGuiFocused = false;
 ICameraController* gCamera = nullptr;
 Vec2			   gLastMousePos;
 
-Light gDefaultLight;
-float gLightIntensity = 1.0f;
-uint32_t gLightColor = 0xffffffff;
+PointLight gDefaultLight1;
+uint32_t gLightColor1 = 0xffffffff;
+float    gLightRange1 = 0.6f;
+
+PointLight gDefaultLight2;
+uint32_t gLightColor2 = 0xffffffff;
+float    gLightRange2 = 1.0f;
+
+bool  gToggleRotate = false;
+bool  gIsRotating = false;
 
 class CustomRenderer : public IApp
 {
@@ -52,9 +60,15 @@ public:
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_ANIMATIONS, "Animation");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SCRIPTS, "Scripts");
 
-		gDefaultLight.color = { 1.0f, 1.0f, 1.0f };
-		gDefaultLight.position = { 0.0f, 0.0f, 1.5f };
-		gDefaultLight.intensity = 1.0f;
+		gDefaultLight1.color = { 1.0f, 1.0f, 1.0f };
+		gDefaultLight1.intensity = 1.0f;
+		gDefaultLight1.position = { 0.0f, 0.0f, 1.0f };
+		gDefaultLight1.range = 0.6f;
+
+		gDefaultLight2.color = { 1.0f, 1.0f, 1.0f };
+		gDefaultLight2.intensity = 1.0f;
+		gDefaultLight2.position = { -0.8f, 0.0f, 0.1f };
+		gDefaultLight2.range = 1.0f;
 
 		if (!CreateRenderResource())
 			return false;
@@ -79,8 +93,17 @@ public:
 
 		mSecondGui = mUiMiddleware.AddGuiComponent("Settings", &guiDesc);
 		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
-		mSecondGui->AddWidget(SliderFloatWidget("LightIntensity", &gLightIntensity, 0.0f, 1.0f));
-		mSecondGui->AddWidget(ColorSliderWidget("Light Color", &gLightColor));
+		mSecondGui->AddWidget(ButtonWidget("Toggle Rotate", &gToggleRotate));
+		mSecondGui->AddWidget(SliderFloatWidget("Light1 Intensity", &gDefaultLight1.intensity, 0.0f, 1.0f));
+		mSecondGui->AddWidget(ColorSliderWidget("Light1 Color", &gLightColor1));
+		mSecondGui->AddWidget(SliderFloat3Widget("Light1 Position", &gDefaultLight1.position, { -4.0f, -4.0f, -4.0f },
+			{ 4.0f, 4.0f, 4.0f }));
+		mSecondGui->AddWidget(SliderFloatWidget("Light1 Range", &gLightRange1, 0.0f, 3.0f));
+		mSecondGui->AddWidget(SliderFloatWidget("Light2 Intensity", &gDefaultLight2.intensity, 0.0f, 1.0f));
+		mSecondGui->AddWidget(ColorSliderWidget("Light2 Color", &gLightColor2));
+		mSecondGui->AddWidget(SliderFloat3Widget("Light2 Position", &gDefaultLight2.position, { -4.0f, -4.0f, -4.0f },
+			{ 4.0f, 4.0f, 4.0f }));
+		mSecondGui->AddWidget(SliderFloatWidget("Light2 Range", &gLightRange2, 0.0f, 3.0f));
 		//mSecondGui->AddWidget(SliderFloat2Widget("Slider", &gSliderData, { 0 , 0 }, { 5 , 5 }))->pOnEdited = []
 		//{
 		//	SG_LOG_DEBUG("Value: (%f, %f))", gSliderData.x, gSliderData.y);
@@ -186,7 +209,8 @@ public:
 			bufferUpdate[0].name = "ubo";
 			bufferUpdate[0].ppBuffers = &mRoomUniformBuffer[i];
 			bufferUpdate[1].name = "light";
-			bufferUpdate[1].ppBuffers = &mLightUniformBuffer[i];
+			bufferUpdate[1].ppBuffers = mLightUniformBuffer[i];
+			bufferUpdate[1].count = 2;
 			update_descriptor_set(mRenderer, i, mRoomUboDescriptorSet, 2, bufferUpdate);
 		}
 
@@ -194,7 +218,8 @@ public:
 		{
 			DescriptorData bufferUpdate[1] = {};
 			bufferUpdate[0].name = "ubo";
-			bufferUpdate[0].ppBuffers = &mCubeUniformBuffer[i];
+			bufferUpdate[0].ppBuffers = mCubeUniformBuffer[i];
+			bufferUpdate[0].count = 2;
 			update_descriptor_set(mRenderer, i, mCubeUboDescriptorSet, 1, bufferUpdate);
 		}
 
@@ -209,7 +234,7 @@ public:
 
 		remove_render_target(mRenderer, mDepthBuffer);
 
-		remove_pipeline(mRenderer, mLightpassPipeline);
+		remove_pipeline(mRenderer, mLightProxyGeomPipeline);
 		remove_pipeline(mRenderer, mDefaultPipeline);
 		remove_swapchain(mRenderer, mSwapChain);
 
@@ -229,19 +254,33 @@ public:
 
 		static float time = 0.0f;
 		time += deltaTime;
-		static float rotateTime = 0.0f;
-		rotateTime += deltaTime;
 
-		mRoomUbo.model = glm::rotate(Matrix4(1.0f), rotateTime * 0.03f * 60.0f, { 0.0f, 0.0f, 1.0f });
+		if (gToggleRotate)
+			gIsRotating = !gIsRotating;
+		static float rotateTime = 0.0f;
+		if (gIsRotating)
+			rotateTime += deltaTime;
+
+		mRoomUbo.model = glm::rotate(Matrix4(1.0f), glm::radians(145.0f)
+			, { 0.0f, 0.0f, 1.0f });
 		mRoomUbo.view = gCamera->GetViewMatrix();
 		mRoomUbo.projection = gCamera->GetProjMatrix();
+		mRoomUbo.cameraPos = gCamera->GetPosition();
 
-		mCubeUbo.model = glm::translate(Matrix4(1.0f), gDefaultLight.position) * glm::scale(Matrix4(1.0f), { 0.2f, 0.2f, 0.2f });
-		mCubeUbo.view = gCamera->GetViewMatrix();
-		mCubeUbo.projection = gCamera->GetProjMatrix();
+		mCubeUbo[0].model = glm::translate(Matrix4(1.0f), gDefaultLight1.position) * glm::scale(Matrix4(1.0f), { 0.05f, 0.05f, 0.05f });
+		mCubeUbo[0].view = gCamera->GetViewMatrix();
+		mCubeUbo[0].projection = gCamera->GetProjMatrix();
+		mCubeUbo[0].cameraPos = gCamera->GetPosition();
+		mCubeUbo[1].model = glm::translate(Matrix4(1.0f), gDefaultLight2.position) * glm::scale(Matrix4(1.0f), { 0.05f, 0.05f, 0.05f });
+		mCubeUbo[1].view = gCamera->GetViewMatrix();
+		mCubeUbo[1].projection = gCamera->GetProjMatrix();
+		mCubeUbo[1].cameraPos = gCamera->GetPosition();
 
-		gDefaultLight.intensity = gLightIntensity;
-		gDefaultLight.color = UintToVec4Color(gLightColor) / 255.0f;
+		gDefaultLight1.color = UintToVec4Color(gLightColor1) / 255.0f;
+		gDefaultLight1.range = 1.0f / eastl::max(glm::pow(gLightRange1, 2.0f), 0.000001f);
+
+		gDefaultLight2.color = UintToVec4Color(gLightColor2) / 255.0f;
+		gDefaultLight2.range = 1.0f / eastl::max(glm::pow(gLightRange2, 2.0f), 0.000001f);
 
 		mUiMiddleware.OnUpdate(deltaTime);
 		gIsGuiFocused = mUiMiddleware.IsFocused();
@@ -273,14 +312,24 @@ public:
 		*(UniformBuffer*)uboUpdate.pMappedData = mRoomUbo;
 		end_update_resource(&uboUpdate, nullptr);
 
-		uboUpdate.pBuffer = mCubeUniformBuffer[mCurrentIndex];
+		uboUpdate.pBuffer = mCubeUniformBuffer[mCurrentIndex][0];
 		begin_update_resource(&uboUpdate);
-		*(UniformBuffer*)uboUpdate.pMappedData = mCubeUbo;
+		*(UniformBuffer*)uboUpdate.pMappedData = mCubeUbo[0];
 		end_update_resource(&uboUpdate, nullptr);
 
-		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex];
+		uboUpdate.pBuffer = mCubeUniformBuffer[mCurrentIndex][1];
 		begin_update_resource(&uboUpdate);
-		*(Light*)uboUpdate.pMappedData = gDefaultLight;
+		*(UniformBuffer*)uboUpdate.pMappedData = mCubeUbo[1];
+		end_update_resource(&uboUpdate, nullptr);
+
+		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex][0];
+		begin_update_resource(&uboUpdate);
+		*(PointLight*)uboUpdate.pMappedData = gDefaultLight1;
+		end_update_resource(&uboUpdate, nullptr);
+
+		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex][1];
+		begin_update_resource(&uboUpdate);
+		*(PointLight*)uboUpdate.pMappedData = gDefaultLight2;
 		end_update_resource(&uboUpdate, nullptr);
 
 		const uint32_t stride = (uint32_t)Vertex::GetStructSize();
@@ -310,7 +359,7 @@ public:
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
 			/// light pass start
-			cmd_bind_pipeline(cmd, mLightpassPipeline);
+			cmd_bind_pipeline(cmd, mLightProxyGeomPipeline);
 			cmd_bind_descriptor_set(cmd, mCurrentIndex, mCubeUboDescriptorSet);
 
 			cmd_bind_index_buffer(cmd, mCubeGeo->pIndexBuffer, mCubeGeo->indexType, 0);
@@ -532,9 +581,9 @@ private:
 		graphicPipe.depthStencilFormat = mDepthBuffer->format;
 
 		graphicPipe.pBlendState = &blendStateDesc;
-		add_pipeline(mRenderer, &pipelineCreate, &mLightpassPipeline);
+		add_pipeline(mRenderer, &pipelineCreate, &mLightProxyGeomPipeline);
 
-		return mLightpassPipeline != nullptr;
+		return mLightProxyGeomPipeline != nullptr;
 	}
 
 	bool CreateDepthBuffer()
@@ -636,8 +685,8 @@ private:
 		loadBasicShader.stages[1] = { "default.frag", nullptr, 0, "main" };
 		add_shader(mRenderer, &loadBasicShader, &mDefaultShader);
 
-		loadBasicShader.stages[0] = { "CustomLighting/light.vert", nullptr, 0, "main" };
-		loadBasicShader.stages[1] = { "CustomLighting/light.frag", nullptr, 0, "main" };
+		loadBasicShader.stages[0] = { "LightProxy/lightGeo.vert", nullptr, 0, "main" };
+		loadBasicShader.stages[1] = { "LightProxy/lightGeo.frag", nullptr, 0, "main" };
 		add_shader(mRenderer, &loadBasicShader, &mLightShader);
 
 		//SamplerCreateDesc samplerCreate = {};
@@ -680,19 +729,23 @@ private:
 		uboCreate.pData = nullptr;
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			uboCreate.ppBuffer = &mCubeUniformBuffer[i];
+			uboCreate.ppBuffer = &mCubeUniformBuffer[i][0];
+			add_resource(&uboCreate, nullptr);
+			uboCreate.ppBuffer = &mCubeUniformBuffer[i][1];
 			add_resource(&uboCreate, nullptr);
 		}
 
 		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
 		uboCreate.desc.name = "LightUbo";
-		uboCreate.desc.size = sizeof(Light);
+		uboCreate.desc.size = sizeof(PointLight);
 		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
 		uboCreate.pData = nullptr;
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			uboCreate.ppBuffer = &mLightUniformBuffer[i];
+			uboCreate.ppBuffer = &mLightUniformBuffer[i][0];
+			add_resource(&uboCreate, nullptr);
+			uboCreate.ppBuffer = &mLightUniformBuffer[i][1];
 			add_resource(&uboCreate, nullptr);
 		}
 
@@ -709,8 +762,10 @@ private:
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			remove_resource(mRoomUniformBuffer[i]);
-			remove_resource(mCubeUniformBuffer[i]);
-			remove_resource(mLightUniformBuffer[i]);
+			remove_resource(mCubeUniformBuffer[i][0]);
+			remove_resource(mCubeUniformBuffer[i][1]);
+			remove_resource(mLightUniformBuffer[i][0]);
+			remove_resource(mLightUniformBuffer[i][1]);
 		}
 
 		//remove_sampler(mRenderer, mSampler);
@@ -875,7 +930,7 @@ private:
 	RootSignature* mRoomRootSignature = nullptr;
 	//DescriptorSet* mDescriptorSet = nullptr;
 	Pipeline* mDefaultPipeline = nullptr;
-	Pipeline* mLightpassPipeline = nullptr;
+	Pipeline* mLightProxyGeomPipeline = nullptr;
 
 	/// this texture is use for getting the current present rt in the swapchain
 	RenderTarget* mDepthBuffer = nullptr;
@@ -885,10 +940,10 @@ private:
 	Geometry* mCubeGeo = nullptr;
 
 	Buffer* mRoomUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
-	Buffer* mCubeUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
-	Buffer* mLightUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
+	Buffer* mCubeUniformBuffer[IMAGE_COUNT][2] = { nullptr, nullptr, nullptr, nullptr };
+	Buffer* mLightUniformBuffer[IMAGE_COUNT][2] = { nullptr, nullptr, nullptr, nullptr };
 	UniformBuffer mRoomUbo;
-	UniformBuffer mCubeUbo;
+	UniformBuffer mCubeUbo[2];
 	DescriptorSet* mRoomUboDescriptorSet = nullptr;
 	DescriptorSet* mCubeUboDescriptorSet = nullptr;
 
