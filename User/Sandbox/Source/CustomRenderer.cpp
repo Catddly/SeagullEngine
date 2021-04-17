@@ -7,24 +7,20 @@ using namespace SG;
 
 #define COUNT_OF(a) (sizeof(a) / sizeof(a[0]))
 
-struct Vertex
-{
-	Vec3 Position;
-	Vec2 TexCoord;
-	Vec3 Normal;
-
-	static float GetStructSize()	
-	{
-		return sizeof(Vertex);
-	}
-};
-
 struct UniformBuffer
 {
 	alignas(16) Matrix4 model;
 	alignas(16) Matrix4 view;
 	alignas(16) Matrix4 projection;
 	Vec3 cameraPos;
+};
+
+struct UboLight
+{
+	alignas(16) Matrix4 model[2]; // 2 instances of lights
+	alignas(16) Matrix4 view;
+	alignas(16) Matrix4 projection;
+	alignas(16) Vec4 lightColor[2];
 };
 
 Vec2  gSliderData = {};
@@ -44,6 +40,54 @@ float    gLightRange2 = 1.0f;
 
 bool  gToggleRotate = false;
 bool  gIsRotating = false;
+
+Vec3 pCubePoints[36];
+static void GenerateCube(Vec3* pPoints)
+{
+	uint32_t counter = 0;
+	// bottom face
+	pPoints[counter++] = { -0.5f, -0.5f, -0.5f };
+	pPoints[counter++] = { -0.5f,  0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f, -0.5f };
+	pPoints[counter++] = { -0.5f, -0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f, -0.5f, -0.5f };
+	/// upper face
+	pPoints[counter++] = { -0.5f, -0.5f,  0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f,  0.5f };
+	pPoints[counter++] = { -0.5f,  0.5f,  0.5f };
+	pPoints[counter++] = { -0.5f, -0.5f,  0.5f };
+	pPoints[counter++] = {  0.5f, -0.5f,  0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f,  0.5f };
+	/// right face
+	pPoints[counter++] = {  0.5f, -0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f,  0.5f };
+	pPoints[counter++] = {  0.5f, -0.5f,  0.5f };
+	pPoints[counter++] = {  0.5f, -0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f,  0.5f };
+	//// left face
+	pPoints[counter++] = { -0.5f, -0.5f, -0.5f };
+	pPoints[counter++] = { -0.5f, -0.5f,  0.5f };
+	pPoints[counter++] = { -0.5f,  0.5f,  0.5f };
+	pPoints[counter++] = { -0.5f, -0.5f, -0.5f };
+	pPoints[counter++] = { -0.5f,  0.5f,  0.5f };
+	pPoints[counter++] = { -0.5f,  0.5f, -0.5f };
+	///// front face
+	pPoints[counter++] = { -0.5f, -0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f, -0.5f,  0.5f };
+	pPoints[counter++] = { -0.5f, -0.5f,  0.5f };
+	pPoints[counter++] = { -0.5f, -0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f, -0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f, -0.5f,  0.5f };
+	//// back face
+	pPoints[counter++] = { -0.5f,  0.5f, -0.5f };
+	pPoints[counter++] = { -0.5f,  0.5f,  0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f,  0.5f };
+	pPoints[counter++] = { -0.5f,  0.5f, -0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f,  0.5f };
+	pPoints[counter++] = {  0.5f,  0.5f, -0.5f };
+}
 
 class CustomRenderer : public IApp
 {
@@ -94,15 +138,17 @@ public:
 		mSecondGui = mUiMiddleware.AddGuiComponent("Settings", &guiDesc);
 		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
 		mSecondGui->AddWidget(ButtonWidget("Toggle Rotate", &gToggleRotate));
-		mSecondGui->AddWidget(SliderFloatWidget("Light1 Intensity", &gDefaultLight1.intensity, 0.0f, 1.0f));
+
+		mSecondGui->AddWidget(SeparatorWidget());
 		mSecondGui->AddWidget(ColorSliderWidget("Light1 Color", &gLightColor1));
-		mSecondGui->AddWidget(SliderFloat3Widget("Light1 Position", &gDefaultLight1.position, { -4.0f, -4.0f, -4.0f },
-			{ 4.0f, 4.0f, 4.0f }));
+		mSecondGui->AddWidget(SliderFloat3Widget("Light1 Position", &gDefaultLight1.position, { -4.0f, -4.0f, -4.0f }, { 4.0f, 4.0f, 4.0f }));
+		mSecondGui->AddWidget(SliderFloatWidget("Light1 Intensity", &gDefaultLight1.intensity, 0.0f, 1.0f));
 		mSecondGui->AddWidget(SliderFloatWidget("Light1 Range", &gLightRange1, 0.0f, 3.0f));
-		mSecondGui->AddWidget(SliderFloatWidget("Light2 Intensity", &gDefaultLight2.intensity, 0.0f, 1.0f));
+
+		mSecondGui->AddWidget(SeparatorWidget());
 		mSecondGui->AddWidget(ColorSliderWidget("Light2 Color", &gLightColor2));
-		mSecondGui->AddWidget(SliderFloat3Widget("Light2 Position", &gDefaultLight2.position, { -4.0f, -4.0f, -4.0f },
-			{ 4.0f, 4.0f, 4.0f }));
+		mSecondGui->AddWidget(SliderFloat3Widget("Light2 Position", &gDefaultLight2.position, { -4.0f, -4.0f, -4.0f }, { 4.0f, 4.0f, 4.0f }));
+		mSecondGui->AddWidget(SliderFloatWidget("Light2 Intensity", &gDefaultLight2.intensity, 0.0f, 1.0f));
 		mSecondGui->AddWidget(SliderFloatWidget("Light2 Range", &gLightRange2, 0.0f, 3.0f));
 		//mSecondGui->AddWidget(SliderFloat2Widget("Slider", &gSliderData, { 0 , 0 }, { 5 , 5 }))->pOnEdited = []
 		//{
@@ -178,7 +224,7 @@ public:
 		//add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
 		DescriptorSetCreateDesc descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mRoomUboDescriptorSet);
-		descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
+		descriptorSetCreate = { mCubeRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mCubeUboDescriptorSet);
 
 		if (!CreateSwapChain())
@@ -218,8 +264,7 @@ public:
 		{
 			DescriptorData bufferUpdate[1] = {};
 			bufferUpdate[0].name = "ubo";
-			bufferUpdate[0].ppBuffers = mCubeUniformBuffer[i];
-			bufferUpdate[0].count = 2;
+			bufferUpdate[0].ppBuffers = &mCubeUniformBuffer[i];
 			update_descriptor_set(mRenderer, i, mCubeUboDescriptorSet, 1, bufferUpdate);
 		}
 
@@ -261,26 +306,25 @@ public:
 		if (gIsRotating)
 			rotateTime += deltaTime;
 
-		mRoomUbo.model = glm::rotate(Matrix4(1.0f), glm::radians(145.0f)
-			, { 0.0f, 0.0f, 1.0f });
+		mRoomUbo.model = glm::rotate(Matrix4(1.0f), glm::radians(rotateTime * 90.0f + 145.0f), { 0.0f, 0.0f, 1.0f });
 		mRoomUbo.view = gCamera->GetViewMatrix();
 		mRoomUbo.projection = gCamera->GetProjMatrix();
 		mRoomUbo.cameraPos = gCamera->GetPosition();
-
-		mCubeUbo[0].model = glm::translate(Matrix4(1.0f), gDefaultLight1.position) * glm::scale(Matrix4(1.0f), { 0.05f, 0.05f, 0.05f });
-		mCubeUbo[0].view = gCamera->GetViewMatrix();
-		mCubeUbo[0].projection = gCamera->GetProjMatrix();
-		mCubeUbo[0].cameraPos = gCamera->GetPosition();
-		mCubeUbo[1].model = glm::translate(Matrix4(1.0f), gDefaultLight2.position) * glm::scale(Matrix4(1.0f), { 0.05f, 0.05f, 0.05f });
-		mCubeUbo[1].view = gCamera->GetViewMatrix();
-		mCubeUbo[1].projection = gCamera->GetProjMatrix();
-		mCubeUbo[1].cameraPos = gCamera->GetPosition();
 
 		gDefaultLight1.color = UintToVec4Color(gLightColor1) / 255.0f;
 		gDefaultLight1.range = 1.0f / eastl::max(glm::pow(gLightRange1, 2.0f), 0.000001f);
 
 		gDefaultLight2.color = UintToVec4Color(gLightColor2) / 255.0f;
 		gDefaultLight2.range = 1.0f / eastl::max(glm::pow(gLightRange2, 2.0f), 0.000001f);
+
+		mLightUbo.model[0] = glm::translate(Matrix4(1.0f), gDefaultLight1.position) * glm::scale(Matrix4(1.0f), { 0.05f, 0.05f, 0.05f });
+		mLightUbo.model[1] = glm::translate(Matrix4(1.0f), gDefaultLight2.position) * glm::scale(Matrix4(1.0f), { 0.05f, 0.05f, 0.05f });
+		mLightUbo.view = gCamera->GetViewMatrix();
+		mLightUbo.projection = gCamera->GetProjMatrix();
+		mLightUbo.lightColor[0] = { gDefaultLight1.color.r, gDefaultLight1.color.g, gDefaultLight1.color.b, 1.0 };
+		mLightUbo.lightColor[1] = { gDefaultLight2.color.r, gDefaultLight2.color.g, gDefaultLight2.color.b, 1.0 };
+
+		UpdateResoureces();
 
 		mUiMiddleware.OnUpdate(deltaTime);
 		gIsGuiFocused = mUiMiddleware.IsFocused();
@@ -305,35 +349,9 @@ public:
 
 		// reset command pool for this frame 
 		reset_command_pool(mRenderer, mCmdPools[mCurrentIndex]);
-		
-		BufferUpdateDesc uboUpdate = {};
-		uboUpdate.pBuffer = mRoomUniformBuffer[mCurrentIndex];
-		begin_update_resource(&uboUpdate);
-		*(UniformBuffer*)uboUpdate.pMappedData = mRoomUbo;
-		end_update_resource(&uboUpdate, nullptr);
 
-		uboUpdate.pBuffer = mCubeUniformBuffer[mCurrentIndex][0];
-		begin_update_resource(&uboUpdate);
-		*(UniformBuffer*)uboUpdate.pMappedData = mCubeUbo[0];
-		end_update_resource(&uboUpdate, nullptr);
-
-		uboUpdate.pBuffer = mCubeUniformBuffer[mCurrentIndex][1];
-		begin_update_resource(&uboUpdate);
-		*(UniformBuffer*)uboUpdate.pMappedData = mCubeUbo[1];
-		end_update_resource(&uboUpdate, nullptr);
-
-		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex][0];
-		begin_update_resource(&uboUpdate);
-		*(PointLight*)uboUpdate.pMappedData = gDefaultLight1;
-		end_update_resource(&uboUpdate, nullptr);
-
-		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex][1];
-		begin_update_resource(&uboUpdate);
-		*(PointLight*)uboUpdate.pMappedData = gDefaultLight2;
-		end_update_resource(&uboUpdate, nullptr);
-
-		const uint32_t stride = (uint32_t)Vertex::GetStructSize();
 		Cmd* cmd = mCmds[mCurrentIndex];
+
 		// begin command buffer
 		begin_cmd(cmd);
 
@@ -362,15 +380,18 @@ public:
 			cmd_bind_pipeline(cmd, mLightProxyGeomPipeline);
 			cmd_bind_descriptor_set(cmd, mCurrentIndex, mCubeUboDescriptorSet);
 
-			cmd_bind_index_buffer(cmd, mCubeGeo->pIndexBuffer, mCubeGeo->indexType, 0);
-			Buffer* CubeVertexBuffer[] = { mCubeGeo->pVertexBuffers[0] };
-			cmd_bind_vertex_buffer(cmd, 1, CubeVertexBuffer, mCubeGeo->vertexStrides, nullptr);
+			//Buffer* CubeVertexBuffer[] = { mCubeGeo->pVertexBuffers[0] };
+			//cmd_bind_vertex_buffer(cmd, 1, CubeVertexBuffer, mCubeGeo->vertexStrides, nullptr);
+			//cmd_bind_index_buffer(cmd, mCubeGeo->pIndexBuffer, mCubeGeo->indexType, 0);
 
-			for (uint32_t i = 0; i < mCubeGeo->drawArgCount; i++)
-			{
-				IndirectDrawIndexArguments& cmdDraw = mCubeGeo->pDrawArgs[i];
-				cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
-			}
+			//for (uint32_t i = 0; i < mCubeGeo->drawArgCount; i++)
+			//{
+			//	IndirectDrawIndexArguments& cmdDraw = mCubeGeo->pDrawArgs[i];
+			//	cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
+			//}
+			const uint32_t vertexStride = sizeof(float) * 3;
+			cmd_bind_vertex_buffer(cmd, 1, &mCubeVertexBuffer, &vertexStride, nullptr);
+			cmd_draw_instanced(cmd, 36, 0, 2, 0);
 			/// light pass end
 
 			/// geom start
@@ -523,28 +544,16 @@ private:
 	bool CreateLightpassPipeline()
 	{
 		VertexLayout vertexLayout = {};
-		vertexLayout.attribCount = 3;
+		vertexLayout.attribCount = 1;
 		vertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
 		vertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
 		vertexLayout.attribs[0].binding = 0;
 		vertexLayout.attribs[0].location = 0;
 		vertexLayout.attribs[0].offset = 0;
 
-		vertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
-		vertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
-		vertexLayout.attribs[1].binding = 0;
-		vertexLayout.attribs[1].location = 1;
-		vertexLayout.attribs[1].offset = 3 * sizeof(float);
-
-		vertexLayout.attribs[2].semantic = SG_SEMANTIC_NORMAL;
-		vertexLayout.attribs[2].format = TinyImageFormat_R32G32B32_SFLOAT;
-		vertexLayout.attribs[2].binding = 0;
-		vertexLayout.attribs[2].location = 2;
-		vertexLayout.attribs[2].offset = 5 * sizeof(float);
-
 		RasterizerStateDesc rasterizeState = {};
-		rasterizeState.cullMode = SG_CULL_MODE_NONE;
-		//rasterizeState.frontFace = SG_FRONT_FACE_CCW;
+		rasterizeState.cullMode = SG_CULL_MODE_BACK;
+		rasterizeState.frontFace = SG_FRONT_FACE_CCW;
 
 		DepthStateDesc depthStateDesc = {};
 		depthStateDesc.depthTest = true;
@@ -572,7 +581,7 @@ private:
 		graphicPipe.sampleCount = mSwapChain->ppRenderTargets[0]->sampleCount;
 		graphicPipe.sampleQuality = mSwapChain->ppRenderTargets[0]->sampleQuality;
 
-		graphicPipe.pRootSignature = mRoomRootSignature;
+		graphicPipe.pRootSignature = mCubeRootSignature;
 		graphicPipe.pShaderProgram = mLightShader;
 
 		graphicPipe.pVertexLayout = &vertexLayout;
@@ -649,36 +658,41 @@ private:
 		textureCreate.ppTexture = &mLogoTex;
 		add_resource(&textureCreate, nullptr);
 
-		mRoomGeoVertexLayout.attribCount = 3;
+		VertexLayout roomGeoVertexLayout;
+		roomGeoVertexLayout.attribCount = 3;
 
-		mRoomGeoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
-		mRoomGeoVertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
-		mRoomGeoVertexLayout.attribs[0].binding = 0;
-		mRoomGeoVertexLayout.attribs[0].location = 0;
-		mRoomGeoVertexLayout.attribs[0].offset = 0;
+		roomGeoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
+		roomGeoVertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
+		roomGeoVertexLayout.attribs[0].binding = 0;
+		roomGeoVertexLayout.attribs[0].location = 0;
+		roomGeoVertexLayout.attribs[0].offset = 0;
 
-		mRoomGeoVertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
-		mRoomGeoVertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
-		mRoomGeoVertexLayout.attribs[1].binding = 0;
-		mRoomGeoVertexLayout.attribs[1].location = 1;
-		mRoomGeoVertexLayout.attribs[1].offset = 3 * sizeof(float);
+		roomGeoVertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
+		roomGeoVertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
+		roomGeoVertexLayout.attribs[1].binding = 0;
+		roomGeoVertexLayout.attribs[1].location = 1;
+		roomGeoVertexLayout.attribs[1].offset = 3 * sizeof(float);
 
-		mRoomGeoVertexLayout.attribs[2].semantic = SG_SEMANTIC_NORMAL;
-		mRoomGeoVertexLayout.attribs[2].format = TinyImageFormat_R32G32B32_SFLOAT;
-		mRoomGeoVertexLayout.attribs[2].binding = 0;
-		mRoomGeoVertexLayout.attribs[2].location = 2;
-		mRoomGeoVertexLayout.attribs[2].offset = 5 * sizeof(float);
+		roomGeoVertexLayout.attribs[2].semantic = SG_SEMANTIC_NORMAL;
+		roomGeoVertexLayout.attribs[2].format = TinyImageFormat_R32G32B32_SFLOAT;
+		roomGeoVertexLayout.attribs[2].binding = 0;
+		roomGeoVertexLayout.attribs[2].location = 2;
+		roomGeoVertexLayout.attribs[2].offset = 5 * sizeof(float);
 
 		GeometryLoadDesc geoCreate = {};
 		geoCreate.fileName = "model.gltf";
 		geoCreate.ppGeometry = &mRoomGeo;
-		geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
+		geoCreate.pVertexLayout = &roomGeoVertexLayout;
 		add_resource(&geoCreate, nullptr);
 
-		geoCreate.fileName = "cube.gltf";
-		geoCreate.ppGeometry = &mCubeGeo;
-		geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
-		add_resource(&geoCreate, nullptr);
+		GenerateCube(pCubePoints);
+		BufferLoadDesc sphereVbDesc = {};
+		sphereVbDesc.desc.descriptors = SG_DESCRIPTOR_TYPE_VERTEX_BUFFER;
+		sphereVbDesc.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_GPU_ONLY;
+		sphereVbDesc.desc.size = 36 * sizeof(Vec3);
+		sphereVbDesc.pData = (float*)pCubePoints;
+		sphereVbDesc.ppBuffer = &mCubeVertexBuffer;
+		add_resource(&sphereVbDesc, NULL);
 
 		ShaderLoadDesc loadBasicShader = {};
 		loadBasicShader.stages[0] = { "default.vert", nullptr, 0, "main" };
@@ -698,7 +712,7 @@ private:
 		//samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
 		//add_sampler(mRenderer, &samplerCreate, &mSampler);
 
-		Shader* submitShaders[] = { mDefaultShader, mLightShader };
+		Shader* submitShaders[] = { mDefaultShader };
 		//const char* staticSamplers[] = { "Sampler" };
 		RootSignatureCreateDesc rootSignatureCreate = {};
 		//rootSignatureCreate.staticSamplerCount = 0;
@@ -707,6 +721,11 @@ private:
 		rootSignatureCreate.ppShaders = submitShaders;
 		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
 		add_root_signature(mRenderer, &rootSignatureCreate, &mRoomRootSignature);
+
+		submitShaders[0] = { mLightShader };
+		rootSignatureCreate.ppShaders = submitShaders;
+		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
+		add_root_signature(mRenderer, &rootSignatureCreate, &mCubeRootSignature);
 
 		BufferLoadDesc uboCreate;
 		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -718,20 +737,6 @@ private:
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			uboCreate.ppBuffer = &mRoomUniformBuffer[i];
-			add_resource(&uboCreate, nullptr);
-		}
-
-		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
-		uboCreate.desc.name = "CubeUniformBuffer";
-		uboCreate.desc.size = sizeof(UniformBuffer);
-		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
-		uboCreate.pData = nullptr;
-		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
-		{
-			uboCreate.ppBuffer = &mCubeUniformBuffer[i][0];
-			add_resource(&uboCreate, nullptr);
-			uboCreate.ppBuffer = &mCubeUniformBuffer[i][1];
 			add_resource(&uboCreate, nullptr);
 		}
 
@@ -749,6 +754,18 @@ private:
 			add_resource(&uboCreate, nullptr);
 		}
 
+		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
+		uboCreate.desc.name = "CubeUniformBuffer";
+		uboCreate.desc.size = sizeof(UboLight);
+		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
+		uboCreate.pData = nullptr;
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			uboCreate.ppBuffer = &mCubeUniformBuffer[i];
+			add_resource(&uboCreate, nullptr);
+		}
+
 		return true;
 	}
 
@@ -758,12 +775,11 @@ private:
 		remove_resource(mLogoTex);
 
 		remove_resource(mRoomGeo);
-		remove_resource(mCubeGeo);
+		remove_resource(mCubeVertexBuffer);
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			remove_resource(mRoomUniformBuffer[i]);
-			remove_resource(mCubeUniformBuffer[i][0]);
-			remove_resource(mCubeUniformBuffer[i][1]);
+			remove_resource(mCubeUniformBuffer[i]);
 			remove_resource(mLightUniformBuffer[i][0]);
 			remove_resource(mLightUniformBuffer[i][1]);
 		}
@@ -775,6 +791,7 @@ private:
 		exit_resource_loader_interface(mRenderer);
 
 		remove_root_signature(mRenderer, mRoomRootSignature);
+		remove_root_signature(mRenderer, mCubeRootSignature);
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; ++i)
 		{
@@ -908,6 +925,30 @@ private:
 		};
 		add_input_action(&inputAction);
 	}
+
+	void UpdateResoureces()
+	{
+		BufferUpdateDesc uboUpdate = {};
+		uboUpdate.pBuffer = mRoomUniformBuffer[mCurrentIndex];
+		begin_update_resource(&uboUpdate);
+		*(UniformBuffer*)uboUpdate.pMappedData = mRoomUbo;
+		end_update_resource(&uboUpdate, nullptr);
+
+		uboUpdate.pBuffer = mCubeUniformBuffer[mCurrentIndex];
+		begin_update_resource(&uboUpdate);
+		*(UboLight*)uboUpdate.pMappedData = mLightUbo;
+		end_update_resource(&uboUpdate, nullptr);
+
+		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex][0];
+		begin_update_resource(&uboUpdate);
+		*(PointLight*)uboUpdate.pMappedData = gDefaultLight1;
+		end_update_resource(&uboUpdate, nullptr);
+
+		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex][1];
+		begin_update_resource(&uboUpdate);
+		*(PointLight*)uboUpdate.pMappedData = gDefaultLight2;
+		end_update_resource(&uboUpdate, nullptr);
+	}
 private:
 	Renderer* mRenderer = nullptr;
 
@@ -928,6 +969,7 @@ private:
 	//Texture* mTexture = nullptr;
 	Texture* mLogoTex = nullptr;
 	RootSignature* mRoomRootSignature = nullptr;
+	RootSignature* mCubeRootSignature = nullptr;
 	//DescriptorSet* mDescriptorSet = nullptr;
 	Pipeline* mDefaultPipeline = nullptr;
 	Pipeline* mLightProxyGeomPipeline = nullptr;
@@ -935,15 +977,15 @@ private:
 	/// this texture is use for getting the current present rt in the swapchain
 	RenderTarget* mDepthBuffer = nullptr;
 
-	VertexLayout mRoomGeoVertexLayout = {};
 	Geometry* mRoomGeo = nullptr;
-	Geometry* mCubeGeo = nullptr;
 
 	Buffer* mRoomUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
-	Buffer* mCubeUniformBuffer[IMAGE_COUNT][2] = { nullptr, nullptr, nullptr, nullptr };
+	Buffer* mCubeUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 	Buffer* mLightUniformBuffer[IMAGE_COUNT][2] = { nullptr, nullptr, nullptr, nullptr };
+
+	Buffer* mCubeVertexBuffer = nullptr;
 	UniformBuffer mRoomUbo;
-	UniformBuffer mCubeUbo[2];
+	UboLight      mLightUbo;
 	DescriptorSet* mRoomUboDescriptorSet = nullptr;
 	DescriptorSet* mCubeUboDescriptorSet = nullptr;
 

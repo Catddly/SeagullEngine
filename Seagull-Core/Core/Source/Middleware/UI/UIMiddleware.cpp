@@ -382,6 +382,13 @@ namespace SG
 		return pWidget;
 	}
 
+	IWidget* SeparatorWidget::OnCopy() const
+	{
+		SeparatorWidget* pWidget = sg_placement_new<SeparatorWidget>(sg_calloc(1, sizeof(*pWidget)));
+		CopyBase(pWidget);
+		return pWidget;
+	}
+
 	IWidget* ColorPickerWidget::OnCopy() const
 	{
 		ColorPickerWidget* pWidget = sg_placement_new<ColorPickerWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->pData);

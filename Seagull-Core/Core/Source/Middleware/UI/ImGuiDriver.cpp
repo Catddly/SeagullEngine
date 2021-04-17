@@ -1235,6 +1235,12 @@ namespace SG
 		ProcessCallback();
 	}
 
+	void SeparatorWidget::OnDraw()
+	{
+		ImGui::Separator();
+		ProcessCallback();
+	}
+
 	void ColorPickerWidget::OnDraw()
 	{
 		unsigned int& colorPick = *(unsigned int*)pData;

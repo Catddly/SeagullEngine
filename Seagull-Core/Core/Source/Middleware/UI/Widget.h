@@ -392,6 +392,15 @@ namespace SG
 		size_t  mMaxProgress;
 	};
 
+	class SeparatorWidget : public IWidget
+	{
+	public:
+		SeparatorWidget() : IWidget("") {}
+
+		virtual IWidget* OnCopy() const override;
+		virtual void OnDraw() override;
+	};
+
 #pragma endregion (Utility)
 
 #pragma region (Color Relative)

@@ -25,6 +25,7 @@ layout(location = 0) out vec4 outColor;
 void main()
 {
     vec3 norm = normalize(outNormal);
+    vec3 modelColor = vec3(1.0, 1.0, 1.0);
 
     // ambient1
     float ambientStrength1 = 0.1;
@@ -46,8 +47,6 @@ void main()
     float distance2_1 = pow(length(light[0].position - outFragPos), 2);
     float attenuation1 = pow(max(1.0 - pow(distance2_1 * light[0].range, 2), 0), 2);
 
-    vec3 result1 = (diffuse1 + ambient1 + specular1) * vec3(0.74, 0.67, 0.18) * attenuation1;
-
     // ambient2
     float ambientStrength2 = 0.1;
     vec3 ambient2 = ambientStrength2 * light[1].color;
@@ -68,7 +67,8 @@ void main()
     float distance2_2 = pow(length(light[1].position - outFragPos), 2);
     float attenuation2 = pow(max(1.0 - pow(distance2_2 * light[1].range, 2), 0), 2);
 
-    vec3 result2 = (diffuse2 + ambient2 + specular2) * vec3(0.74, 0.67, 0.18) * attenuation2;
+    vec3 result1 = (diffuse1 + ambient1 + specular1) * modelColor * attenuation1 * light[0].intensity;
+    vec3 result2 = (diffuse2 + ambient2 + specular2) * modelColor * attenuation2 * light[1].intensity;
 
     outColor = vec4(result1 + result2, 1.0);
 }
