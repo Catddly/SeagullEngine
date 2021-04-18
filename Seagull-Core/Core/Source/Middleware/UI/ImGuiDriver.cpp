@@ -175,6 +175,9 @@ namespace SG
 			isDeactivatedAfterEdit = ImGui::IsItemDeactivatedAfterEdit();
 		}
 
+		if (forceEdited && pOnEdited)
+			pOnEdited();
+
 		if (this->useDeferred != deferred)
 			return;
 
@@ -1102,8 +1105,8 @@ namespace SG
 
 	void ButtonWidget::OnDraw()
 	{
-		*isPressed = ImGui::Button(mLabel.c_str());
-		ProcessCallback();
+		forceEdited = ImGui::Button(mLabel.c_str());
+		//ProcessCallback();
 	}
 
 	void RadioButtonWidget::OnDraw()

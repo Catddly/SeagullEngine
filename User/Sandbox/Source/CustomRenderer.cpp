@@ -10,17 +10,19 @@ using namespace SG;
 struct UniformBuffer
 {
 	alignas(16) Matrix4 model;
+};
+
+struct CameraUbo
+{
 	alignas(16) Matrix4 view;
-	alignas(16) Matrix4 projection;
+	alignas(16) Matrix4 proj;
 	Vec3 cameraPos;
 };
 
-struct UboLight
+struct LightProxyData 
 {
 	alignas(16) Matrix4 model[2]; // 2 instances of lights
-	alignas(16) Matrix4 view;
-	alignas(16) Matrix4 projection;
-	alignas(16) Vec4 lightColor[2];
+	alignas(16) Vec4    lightColor[2]; // w is for the intensity
 };
 
 Vec2  gSliderData = {};
@@ -38,8 +40,17 @@ PointLight gDefaultLight2;
 uint32_t gLightColor2 = 0xffffffff;
 float    gLightRange2 = 1.0f;
 
-bool  gToggleRotate = false;
 bool  gIsRotating = false;
+void ToggleRotate()
+{
+	gIsRotating = !gIsRotating;
+}
+
+bool  gDrawLightProxyGeom = false;
+void ToggleDrawLightProxyGeom()
+{
+	gDrawLightProxyGeom = !gDrawLightProxyGeom;
+}
 
 Vec3 pCubePoints[36];
 static void GenerateCube(Vec3* pPoints)
@@ -137,7 +148,12 @@ public:
 
 		mSecondGui = mUiMiddleware.AddGuiComponent("Settings", &guiDesc);
 		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
-		mSecondGui->AddWidget(ButtonWidget("Toggle Rotate", &gToggleRotate));
+		ButtonWidget buttonRotate("Toggle Rotate");
+		buttonRotate.pOnEdited = ToggleRotate;
+		mSecondGui->AddWidget(buttonRotate);
+		ButtonWidget buttonLight("Toggle Light Proxy Geom");
+		buttonLight.pOnEdited = ToggleDrawLightProxyGeom;
+		mSecondGui->AddWidget(buttonLight);
 
 		mSecondGui->AddWidget(SeparatorWidget());
 		mSecondGui->AddWidget(ColorSliderWidget("Light1 Color", &gLightColor1));
@@ -224,7 +240,7 @@ public:
 		//add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
 		DescriptorSetCreateDesc descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mRoomUboDescriptorSet);
-		descriptorSetCreate = { mCubeRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
+		descriptorSetCreate = { mCubeRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mCubeUboDescriptorSet);
 
 		if (!CreateSwapChain())
@@ -251,21 +267,25 @@ public:
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			DescriptorData bufferUpdate[2] = {};
+			DescriptorData bufferUpdate[3] = {};
 			bufferUpdate[0].name = "ubo";
 			bufferUpdate[0].ppBuffers = &mRoomUniformBuffer[i];
-			bufferUpdate[1].name = "light";
-			bufferUpdate[1].ppBuffers = mLightUniformBuffer[i];
-			bufferUpdate[1].count = 2;
-			update_descriptor_set(mRenderer, i, mRoomUboDescriptorSet, 2, bufferUpdate);
+			bufferUpdate[1].name = "camera";
+			bufferUpdate[1].ppBuffers = &mCameraUniformBuffer[i];
+			bufferUpdate[2].name = "light";
+			bufferUpdate[2].ppBuffers = mLightUniformBuffer[i];
+			bufferUpdate[2].count = 2;
+			update_descriptor_set(mRenderer, i, mRoomUboDescriptorSet, 3, bufferUpdate);
 		}
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			DescriptorData bufferUpdate[1] = {};
-			bufferUpdate[0].name = "ubo";
+			DescriptorData bufferUpdate[2] = {};
+			bufferUpdate[0].name = "lightUbo";
 			bufferUpdate[0].ppBuffers = &mCubeUniformBuffer[i];
-			update_descriptor_set(mRenderer, i, mCubeUboDescriptorSet, 1, bufferUpdate);
+			bufferUpdate[1].name = "camera";
+			bufferUpdate[1].ppBuffers = &mCameraUniformBuffer[i];
+			update_descriptor_set(mRenderer, i, mCubeUboDescriptorSet, 2, bufferUpdate);
 		}
 
 		return true;
@@ -298,31 +318,27 @@ public:
 		gLastMousePos = get_mouse_pos_relative(mWindow);
 
 		static float time = 0.0f;
+		static float rotateTime = 0.0f;
 		time += deltaTime;
 
-		if (gToggleRotate)
-			gIsRotating = !gIsRotating;
-		static float rotateTime = 0.0f;
 		if (gIsRotating)
 			rotateTime += deltaTime;
 
-		mRoomUbo.model = glm::rotate(Matrix4(1.0f), glm::radians(rotateTime * 90.0f + 145.0f), { 0.0f, 0.0f, 1.0f });
-		mRoomUbo.view = gCamera->GetViewMatrix();
-		mRoomUbo.projection = gCamera->GetProjMatrix();
-		mRoomUbo.cameraPos = gCamera->GetPosition();
+		mModelData.model = glm::rotate(Matrix4(1.0f), glm::radians(rotateTime * 90.0f + 145.0f), { 0.0f, 0.0f, 1.0f });
 
 		gDefaultLight1.color = UintToVec4Color(gLightColor1) / 255.0f;
 		gDefaultLight1.range = 1.0f / eastl::max(glm::pow(gLightRange1, 2.0f), 0.000001f);
-
 		gDefaultLight2.color = UintToVec4Color(gLightColor2) / 255.0f;
 		gDefaultLight2.range = 1.0f / eastl::max(glm::pow(gLightRange2, 2.0f), 0.000001f);
 
-		mLightUbo.model[0] = glm::translate(Matrix4(1.0f), gDefaultLight1.position) * glm::scale(Matrix4(1.0f), { 0.05f, 0.05f, 0.05f });
-		mLightUbo.model[1] = glm::translate(Matrix4(1.0f), gDefaultLight2.position) * glm::scale(Matrix4(1.0f), { 0.05f, 0.05f, 0.05f });
-		mLightUbo.view = gCamera->GetViewMatrix();
-		mLightUbo.projection = gCamera->GetProjMatrix();
-		mLightUbo.lightColor[0] = { gDefaultLight1.color.r, gDefaultLight1.color.g, gDefaultLight1.color.b, 1.0 };
-		mLightUbo.lightColor[1] = { gDefaultLight2.color.r, gDefaultLight2.color.g, gDefaultLight2.color.b, 1.0 };
+		mLightData.model[0] = glm::translate(Matrix4(1.0f), gDefaultLight1.position) * glm::scale(Matrix4(1.0f), { 0.03f, 0.03f, 0.03f });
+		mLightData.model[1] = glm::translate(Matrix4(1.0f), gDefaultLight2.position) * glm::scale(Matrix4(1.0f), { 0.03f, 0.03f, 0.03f });
+		mLightData.lightColor[0] = { gDefaultLight1.color.r, gDefaultLight1.color.g, gDefaultLight1.color.b, gDefaultLight1.intensity };
+		mLightData.lightColor[1] = { gDefaultLight2.color.r, gDefaultLight2.color.g, gDefaultLight2.color.b, gDefaultLight2.intensity };
+
+		mCameraData.view = gCamera->GetViewMatrix();
+		mCameraData.proj = gCamera->GetProjMatrix();
+		mCameraData.cameraPos = gCamera->GetPosition();
 
 		UpdateResoureces();
 
@@ -376,23 +392,17 @@ public:
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
-			/// light pass start
-			cmd_bind_pipeline(cmd, mLightProxyGeomPipeline);
-			cmd_bind_descriptor_set(cmd, mCurrentIndex, mCubeUboDescriptorSet);
+			if (gDrawLightProxyGeom)
+			{
+				/// light pass start
+				cmd_bind_pipeline(cmd, mLightProxyGeomPipeline);
+				cmd_bind_descriptor_set(cmd, mCurrentIndex, mCubeUboDescriptorSet);
 
-			//Buffer* CubeVertexBuffer[] = { mCubeGeo->pVertexBuffers[0] };
-			//cmd_bind_vertex_buffer(cmd, 1, CubeVertexBuffer, mCubeGeo->vertexStrides, nullptr);
-			//cmd_bind_index_buffer(cmd, mCubeGeo->pIndexBuffer, mCubeGeo->indexType, 0);
-
-			//for (uint32_t i = 0; i < mCubeGeo->drawArgCount; i++)
-			//{
-			//	IndirectDrawIndexArguments& cmdDraw = mCubeGeo->pDrawArgs[i];
-			//	cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
-			//}
-			const uint32_t vertexStride = sizeof(float) * 3;
-			cmd_bind_vertex_buffer(cmd, 1, &mCubeVertexBuffer, &vertexStride, nullptr);
-			cmd_draw_instanced(cmd, 36, 0, 2, 0);
-			/// light pass end
+				const uint32_t vertexStride = sizeof(float) * 3;
+				cmd_bind_vertex_buffer(cmd, 1, &mCubeVertexBuffer, &vertexStride, nullptr);
+				cmd_draw_instanced(cmd, 36, 0, 2, 0);
+				/// light pass end
+			}
 
 			/// geom start
 			cmd_bind_pipeline(cmd, mDefaultPipeline);
@@ -757,12 +767,24 @@ private:
 		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
 		uboCreate.desc.name = "CubeUniformBuffer";
-		uboCreate.desc.size = sizeof(UboLight);
+		uboCreate.desc.size = sizeof(LightProxyData);
 		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
 		uboCreate.pData = nullptr;
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			uboCreate.ppBuffer = &mCubeUniformBuffer[i];
+			add_resource(&uboCreate, nullptr);
+		}
+
+		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
+		uboCreate.desc.name = "CubeUniformBuffer";
+		uboCreate.desc.size = sizeof(CameraUbo);
+		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
+		uboCreate.pData = nullptr;
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			uboCreate.ppBuffer = &mCameraUniformBuffer[i];
 			add_resource(&uboCreate, nullptr);
 		}
 
@@ -780,6 +802,7 @@ private:
 		{
 			remove_resource(mRoomUniformBuffer[i]);
 			remove_resource(mCubeUniformBuffer[i]);
+			remove_resource(mCameraUniformBuffer[i]);
 			remove_resource(mLightUniformBuffer[i][0]);
 			remove_resource(mLightUniformBuffer[i][1]);
 		}
@@ -931,12 +954,12 @@ private:
 		BufferUpdateDesc uboUpdate = {};
 		uboUpdate.pBuffer = mRoomUniformBuffer[mCurrentIndex];
 		begin_update_resource(&uboUpdate);
-		*(UniformBuffer*)uboUpdate.pMappedData = mRoomUbo;
+		*(UniformBuffer*)uboUpdate.pMappedData = mModelData;
 		end_update_resource(&uboUpdate, nullptr);
 
 		uboUpdate.pBuffer = mCubeUniformBuffer[mCurrentIndex];
 		begin_update_resource(&uboUpdate);
-		*(UboLight*)uboUpdate.pMappedData = mLightUbo;
+		*(LightProxyData*)uboUpdate.pMappedData = mLightData;
 		end_update_resource(&uboUpdate, nullptr);
 
 		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex][0];
@@ -948,46 +971,50 @@ private:
 		begin_update_resource(&uboUpdate);
 		*(PointLight*)uboUpdate.pMappedData = gDefaultLight2;
 		end_update_resource(&uboUpdate, nullptr);
+
+		uboUpdate.pBuffer = mCameraUniformBuffer[mCurrentIndex];
+		begin_update_resource(&uboUpdate);
+		*(CameraUbo*)uboUpdate.pMappedData = mCameraData;
+		end_update_resource(&uboUpdate, nullptr);
 	}
 private:
 	Renderer* mRenderer = nullptr;
-
 	Queue* mGraphicQueue = nullptr;
 
 	CmdPool* mCmdPools[IMAGE_COUNT] = { 0 };
 	Cmd* mCmds[IMAGE_COUNT] = { 0 };
 
 	SwapChain* mSwapChain = nullptr;
+	/// this texture is use for getting the current present rt in the swapchain
+	RenderTarget* mDepthBuffer = nullptr;
+
 	Fence* mRenderCompleteFences[IMAGE_COUNT] = { 0 };
 	Semaphore* mRenderCompleteSemaphores[IMAGE_COUNT] = { 0 };
 	Semaphore* mImageAcquiredSemaphore = { 0 };
 
 	Shader* mDefaultShader = nullptr;
 	Shader* mLightShader = nullptr;
-	//Sampler* mSampler = nullptr;
-
-	//Texture* mTexture = nullptr;
 	Texture* mLogoTex = nullptr;
-	RootSignature* mRoomRootSignature = nullptr;
-	RootSignature* mCubeRootSignature = nullptr;
-	//DescriptorSet* mDescriptorSet = nullptr;
-	Pipeline* mDefaultPipeline = nullptr;
-	Pipeline* mLightProxyGeomPipeline = nullptr;
 
-	/// this texture is use for getting the current present rt in the swapchain
-	RenderTarget* mDepthBuffer = nullptr;
+	RootSignature* mRoomRootSignature = nullptr;
+	DescriptorSet* mRoomUboDescriptorSet = nullptr;
+	Pipeline* mDefaultPipeline = nullptr;
+
+	RootSignature* mCubeRootSignature = nullptr;
+	DescriptorSet* mCubeUboDescriptorSet = nullptr;
+	Pipeline* mLightProxyGeomPipeline = nullptr;
 
 	Geometry* mRoomGeo = nullptr;
 
+	Buffer* mCameraUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 	Buffer* mRoomUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 	Buffer* mCubeUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 	Buffer* mLightUniformBuffer[IMAGE_COUNT][2] = { nullptr, nullptr, nullptr, nullptr };
 
 	Buffer* mCubeVertexBuffer = nullptr;
-	UniformBuffer mRoomUbo;
-	UboLight      mLightUbo;
-	DescriptorSet* mRoomUboDescriptorSet = nullptr;
-	DescriptorSet* mCubeUboDescriptorSet = nullptr;
+	CameraUbo      mCameraData;
+	UniformBuffer  mModelData;
+	LightProxyData mLightData;
 
 	uint32_t mCurrentIndex = 0;
 

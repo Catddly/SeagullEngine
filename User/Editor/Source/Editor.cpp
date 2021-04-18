@@ -296,9 +296,9 @@ public:
 			time = 0.0f;
 		}
 		
-		mRoomUbo.model = glm::rotate(Matrix4(1.0f), rotateTime * 0.03f * 60.0f, { 0, 0, 1 });
-		mRoomUbo.view = gCamera->GetViewMatrix();
-		mRoomUbo.projection = gCamera->GetProjMatrix();
+		mModelData.model = glm::rotate(Matrix4(1.0f), rotateTime * 0.03f * 60.0f, { 0, 0, 1 });
+		mModelData.view = gCamera->GetViewMatrix();
+		mModelData.projection = gCamera->GetProjMatrix();
 
 		mUiMiddleware.OnUpdate(deltaTime);
 
@@ -347,7 +347,7 @@ public:
 		BufferUpdateDesc uboUpdate = {};
 		uboUpdate.pBuffer = mRoomUniformBuffer[mCurrentIndex];
 		begin_update_resource(&uboUpdate);
-		*(UniformBuffer*)uboUpdate.pMappedData = mRoomUbo;
+		*(UniformBuffer*)uboUpdate.pMappedData = mModelData;
 		end_update_resource(&uboUpdate, nullptr);
 
 		const uint32_t stride = (uint32_t)Vertex::GetStructSize();
@@ -861,7 +861,7 @@ private:
 	Geometry* mRoomGeo = nullptr;
 
 	Buffer* mRoomUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
-	UniformBuffer mRoomUbo;
+	UniformBuffer mModelData;
 	DescriptorSet* mRoomUboDescriptorSet = nullptr;
 
 	uint32_t mCurrentIndex = 0;

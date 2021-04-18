@@ -276,7 +276,7 @@ namespace SG
 
 	IWidget* ButtonWidget::OnCopy() const
 	{
-		ButtonWidget* pWidget = sg_placement_new<ButtonWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->isPressed);
+		ButtonWidget* pWidget = sg_placement_new<ButtonWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel);
 		CopyBase(pWidget);
 		return pWidget;
 	}

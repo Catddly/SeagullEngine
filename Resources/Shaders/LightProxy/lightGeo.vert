@@ -2,13 +2,18 @@
 
 #define MAX_LIGHT_COUNT 2
 
-layout(SG_UPDATE_FREQ_PER_FRAME, binding = 0) uniform UniformBuffer
+layout(set = 1, binding = 0) uniform LightUbo
 {
     mat4 model[MAX_LIGHT_COUNT];
-	mat4 view;
-	mat4 proj;
     vec4 lightColor[MAX_LIGHT_COUNT];
-} ubo;
+} lightUbo;
+
+layout(set = 1, binding = 1) uniform CameraUbo
+{
+    mat4 view;
+    mat4 proj;
+    vec3 positionW;
+} camera;
     
 layout(location = 0) in vec3 Position;
 
@@ -16,6 +21,6 @@ layout(location = 0) out vec4 outLightColor;
 
 void main()
 {
-    gl_Position = ubo.proj * ubo.view * ubo.model[gl_InstanceIndex] * vec4(Position, 1.0);
-    outLightColor = ubo.lightColor[gl_InstanceIndex];
+    gl_Position = camera.proj * camera.view * lightUbo.model[gl_InstanceIndex] * vec4(Position, 1.0);
+    outLightColor = lightUbo.lightColor[gl_InstanceIndex];
 }

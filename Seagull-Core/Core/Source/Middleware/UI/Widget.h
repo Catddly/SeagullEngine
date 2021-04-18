@@ -22,7 +22,8 @@ namespace SG
 		IWidget(const eastl::string& label)
 			:mLabel(label),
 			pOnHover(nullptr), pOnActive(nullptr), pOnFocus(nullptr), pOnEdited(nullptr), pOnDeactivated(nullptr), pOnDeactivatedAfterEdit(nullptr),
-			useDeferred(false), isHovered(false), isActive(false), isFocused(false), isEdited(false), isDeactivated(false), isDeactivatedAfterEdit(false){}
+			useDeferred(false), isHovered(false), isActive(false), isFocused(false), isEdited(false), isDeactivated(false), isDeactivatedAfterEdit(false), forceEdited(false)
+		{}
 		virtual ~IWidget() = default;
 
 		virtual IWidget* OnCopy() const = 0;
@@ -46,6 +47,7 @@ namespace SG
 		bool isEdited;
 		bool isDeactivated;
 		bool isDeactivatedAfterEdit;
+		bool forceEdited;
 
 		eastl::string mLabel;
 	protected:
@@ -153,13 +155,12 @@ namespace SG
 	class ButtonWidget : public IWidget
 	{
 	public:
-		ButtonWidget(const eastl::string& label, bool* b)
-			:IWidget(label), isPressed(b) {}
+		ButtonWidget(const eastl::string& label)
+			:IWidget(label) {}
 
 		virtual IWidget* OnCopy() const override;
 		virtual void OnDraw() override;
 	protected:
-		bool* isPressed;
 	};
 
 	class RadioButtonWidget : public IWidget
