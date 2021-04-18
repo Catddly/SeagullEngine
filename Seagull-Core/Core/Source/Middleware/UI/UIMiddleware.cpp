@@ -336,6 +336,22 @@ namespace SG
 		return pWidget;
 	}
 
+	IWidget* ControlFloat3Widget::OnCopy() const
+	{
+		ControlFloat3Widget* pWidget = sg_placement_new<ControlFloat3Widget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->pData, 
+			this->mStep);
+		CopyBase(pWidget);
+		return pWidget;
+	}
+
+	IWidget* PropertyWidget::OnCopy() const
+	{
+		PropertyWidget* pWidget = sg_placement_new<PropertyWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->mIsDefaultOpen);
+		CopyBase(pWidget);
+		pWidget->mDrawItems = this->mDrawItems;
+		return pWidget;
+	}
+
 	IWidget* CheckboxWidget::OnCopy() const
 	{
 		CheckboxWidget* pWidget = sg_placement_new<CheckboxWidget>(sg_calloc(1, sizeof(*pWidget)), this->mLabel, this->pData);

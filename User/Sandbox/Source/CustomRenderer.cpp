@@ -100,6 +100,16 @@ static void GenerateCube(Vec3* pPoints)
 	pPoints[counter++] = {  0.5f,  0.5f, -0.5f };
 }
 
+ColorSliderWidget   gSliderW_1("Color", &gLightColor1);
+ControlFloat3Widget gControlFloat3_1("Position", &gDefaultLight1.position);
+SliderFloatWidget   gFloat1_1("Intensity", &gDefaultLight1.intensity, 0.0f, 1.0f);
+SliderFloatWidget   gFloat2_1("Range", &gLightRange1, 0.0f, 3.0f);
+
+ColorSliderWidget   gSliderW_2("Color", &gLightColor2);
+ControlFloat3Widget gControlFloat3_2("Position", &gDefaultLight2.position);
+SliderFloatWidget   gFloat1_2("Intensity", &gDefaultLight2.intensity, 0.0f, 1.0f);
+SliderFloatWidget   gFloat2_2("Range", &gLightRange2, 0.0f, 3.0f);
+
 class CustomRenderer : public IApp
 {
 public:
@@ -156,21 +166,21 @@ public:
 		mSecondGui->AddWidget(buttonLight);
 
 		mSecondGui->AddWidget(SeparatorWidget());
-		mSecondGui->AddWidget(ColorSliderWidget("Light1 Color", &gLightColor1));
-		mSecondGui->AddWidget(SliderFloat3Widget("Light1 Position", &gDefaultLight1.position, { -4.0f, -4.0f, -4.0f }, { 4.0f, 4.0f, 4.0f }));
-		mSecondGui->AddWidget(SliderFloatWidget("Light1 Intensity", &gDefaultLight1.intensity, 0.0f, 1.0f));
-		mSecondGui->AddWidget(SliderFloatWidget("Light1 Range", &gLightRange1, 0.0f, 3.0f));
+		PropertyWidget propWidget_1("Light1", true);
+		propWidget_1.AddItem(&gSliderW_1);
+		propWidget_1.AddItem(&gControlFloat3_1);
+		propWidget_1.AddItem(&gFloat1_1);
+		propWidget_1.AddItem(&gFloat2_1);
+		mSecondGui->AddWidget(propWidget_1);
 
-		mSecondGui->AddWidget(SeparatorWidget());
-		mSecondGui->AddWidget(ColorSliderWidget("Light2 Color", &gLightColor2));
-		mSecondGui->AddWidget(SliderFloat3Widget("Light2 Position", &gDefaultLight2.position, { -4.0f, -4.0f, -4.0f }, { 4.0f, 4.0f, 4.0f }));
-		mSecondGui->AddWidget(SliderFloatWidget("Light2 Intensity", &gDefaultLight2.intensity, 0.0f, 1.0f));
-		mSecondGui->AddWidget(SliderFloatWidget("Light2 Range", &gLightRange2, 0.0f, 3.0f));
-		//mSecondGui->AddWidget(SliderFloat2Widget("Slider", &gSliderData, { 0 , 0 }, { 5 , 5 }))->pOnEdited = []
-		//{
-		//	SG_LOG_DEBUG("Value: (%f, %f))", gSliderData.x, gSliderData.y);
-		//};
-		//mUiMiddleware.mShowDemoUiWindow = true;
+		PropertyWidget propWidget_2("Light2", true);
+		propWidget_2.AddItem(&gSliderW_2);
+		propWidget_2.AddItem(&gControlFloat3_2);
+		propWidget_2.AddItem(&gFloat1_2);
+		propWidget_2.AddItem(&gFloat2_2);
+		mSecondGui->AddWidget(propWidget_2);
+
+		mUiMiddleware.mShowDemoUiWindow = true;
 
 		gCamera = create_perspective_camera({ -3.0f, 0.0f, 0.4f }, { 1.0f, 0.0f, 0.0f });
 

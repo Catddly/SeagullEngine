@@ -297,6 +297,43 @@ namespace SG
 
 #pragma endregion (Slider)
 
+#pragma region (Controls)
+
+	class ControlFloat3Widget : public IWidget
+	{
+	public:
+		ControlFloat3Widget(
+			const eastl::string& label, Vec3* data, float step = 0.01f) :
+			IWidget(label), pData(data), mDefault(*data), mStep(step) 
+		{}
+
+		virtual IWidget* OnCopy() const override;
+		virtual void OnDraw() override;
+	protected:
+		eastl::string mFormat;
+		Vec3*  pData;
+		Vec3   mDefault;
+		float  mStep;
+	};
+
+	class PropertyWidget : public IWidget
+	{
+	public:
+		PropertyWidget(const eastl::string& label, bool defaultOpen = false) :
+			IWidget(label), mIsDefaultOpen(defaultOpen)
+		{}
+
+		virtual IWidget* OnCopy() const override;
+		virtual void OnDraw() override;
+
+		void AddItem(IWidget* pWidget) { mDrawItems.push_back(pWidget); }
+	protected:
+		eastl::vector<IWidget*> mDrawItems;
+		bool mIsDefaultOpen;
+	};
+
+#pragma region
+
 #pragma region (Checkbox)
 
 	class CheckboxWidget : public IWidget

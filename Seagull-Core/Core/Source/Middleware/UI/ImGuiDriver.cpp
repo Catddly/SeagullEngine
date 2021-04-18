@@ -488,6 +488,9 @@ namespace SG
 
 		ImGui::NewFrame();
 
+		ImGuiStyle& style = ImGui::GetStyle();
+		style.WindowMinSize.x = 370.0f;
+
 		bool ret = false;
 		if (mIsActive)
 		{
@@ -1008,8 +1011,8 @@ namespace SG
 
 		// Buttons
 		colors[ImGuiCol_Button] = ImVec4{ 0.796f, 0.952f, 0.941f, 1.0f };
-		colors[ImGuiCol_ButtonHovered] = ImVec4{ 0.745f, 0.953f, 0.941f, 1.0f };
-		colors[ImGuiCol_ButtonActive] = ImVec4{ 0.745f, 0.953f, 0.941f, 1.0f };
+		colors[ImGuiCol_ButtonHovered] = ImVec4{ 0.585f, 0.953f, 0.941f, 1.0f };
+		colors[ImGuiCol_ButtonActive] = ImVec4{ 0.145f, 0.853f, 0.941f, 1.0f };
 
 		// Frame BG
 		colors[ImGuiCol_FrameBg] = ImVec4{ 0.973f, 0.986f, 0.992f, 1.0f };
@@ -1117,8 +1120,25 @@ namespace SG
 
 	void SliderFloatWidget::OnDraw()
 	{
+		// unique ID
+		//ImGui::PushID(mLabel.c_str());
+
+		// first column for label
+		//ImGui::Columns(2);
+		//ImGui::SetColumnWidth(0, 80.0f);
 		//ImGui::Text("%s", mLabel.c_str());
+		//ImGui::NextColumn();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 0.0f, 0.0f });
+		ImGui::PushItemWidth(ImGui::CalcItemWidth());
+
 		ImGui::SliderFloatWithSteps(mLabel.c_str(), pData, mMin, mMax, mStep, mFormat.c_str());
+
+		ImGui::PopItemWidth();
+		ImGui::PopStyleVar();
+
+		//ImGui::Columns(1);
+		//ImGui::PopID();
 		ProcessCallback();
 	}
 
@@ -1164,6 +1184,99 @@ namespace SG
 		ImGui::Text("%s", mLabel.c_str());
 		ImGui::SliderIntWithSteps(LABELID1(pData), (int32_t*)pData, (int32_t)mMin, (int32_t)mMax, (int32_t)mStep, mFormat.c_str());
 		ProcessCallback();
+	}
+
+	void ControlFloat3Widget::OnDraw()
+	{
+		ImGuiIO io = ImGui::GetIO();
+		auto boldFont = io.Fonts->Fonts[0];
+
+		// unique ID
+		ImGui::PushID(mLabel.c_str());
+
+		// first column for label
+		ImGui::Columns(2);
+		ImGui::SetColumnWidth(0, 80.0f);
+		ImGui::Text("%s", mLabel.c_str());
+		ImGui::NextColumn();
+
+		ImGui::PushMultiItemsWidths(3, ImGui::CalcItemWidth());
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 0.0f, 0.0f });
+
+		float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
+		ImVec2 buttonSize = { lineHeight + 3.0f, lineHeight };
+
+		// Button X begin
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.71f, 0.75f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.41f, 0.71f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 0.71f, 0.75f, 1.0f));
+
+		ImGui::PushFont(boldFont);
+		if (ImGui::Button("X", buttonSize))
+			pData->x = mDefault.x;
+		ImGui::SameLine();
+		ImGui::DragFloat("##X", &pData->x, mStep, 0.0f, 0.0f, "%.2f");
+		ImGui::PopItemWidth();
+		ImGui::SameLine();
+		ImGui::PopFont();
+
+		ImGui::PopStyleColor(3);
+		// Button X end
+
+		// Button Y begin
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.596f, 0.984f, 0.596f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.0f, 1.0f, 0.5f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.596f, 0.984f, 0.596f, 1.0f));
+
+		ImGui::PushFont(boldFont);
+		if (ImGui::Button("Y", buttonSize))
+			pData->y = mDefault.y;
+		ImGui::SameLine();
+		ImGui::DragFloat("##Y", &pData->y, mStep, 0.0f, 0.0f, "%.2f");
+		ImGui::PopItemWidth();
+		ImGui::SameLine();
+		ImGui::PopFont();
+
+		ImGui::PopStyleColor(3);
+		// Button Y end
+
+		// Button Z begin
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.529f, 0.808f, 0.98f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.0f, 0.749f, 1.0f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.529f, 0.808f, 0.98f, 1.0f));
+
+		ImGui::PushFont(boldFont);
+		if (ImGui::Button("Z", buttonSize))
+			pData->z = mDefault.z;
+		ImGui::SameLine();
+		ImGui::DragFloat("##Z", &pData->z, mStep, 0.0f, 0.0f, "%.2f");
+		ImGui::PopItemWidth();
+		ImGui::PopFont();
+
+		ImGui::PopStyleColor(3);
+		// Button Z end
+
+		ImGui::PopStyleVar();
+
+		ImGui::Columns(1);
+		ImGui::PopID();
+
+		ProcessCallback();
+	}
+
+	void PropertyWidget::OnDraw()
+	{
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAvailWidth;
+		if (mIsDefaultOpen)
+			flags |= ImGuiTreeNodeFlags_DefaultOpen;
+
+		if (ImGui::TreeNodeEx(mLabel.c_str(), flags, "%s", mLabel.c_str()))
+		{
+			for (auto* widget : mDrawItems)
+				widget->OnDraw();
+
+			ImGui::TreePop();
+		}
 	}
 
 	void CheckboxWidget::OnDraw()
@@ -1268,7 +1381,19 @@ namespace SG
 		Vec4 comboColor = ToVec4Color(colorPick) / 255.0f;
 
 		float col[4] = { comboColor.x, comboColor.y, comboColor.z, comboColor.w };
+
+		// unique ID
+		ImGui::PushID(mLabel.c_str());
+
+		// first column for label
+		ImGui::Columns(2);
+		ImGui::SetColumnWidth(0, 80.0f);
 		ImGui::Text("%s", mLabel.c_str());
+		ImGui::NextColumn();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 0.0f, 0.0f });
+		ImGui::PushItemWidth(-5);
+
 		if (ImGui::ColorEdit4(LABELID1(pData), col, ImGuiColorEditFlags_AlphaPreview))
 		{
 			if (col[0] != comboColor.x || col[1] != comboColor.y || col[2] != comboColor.z || col[3] != comboColor.w)
@@ -1277,6 +1402,12 @@ namespace SG
 				colorPick = ToUintColor(comboColor * 255.0f);
 			}
 		}
+
+		ImGui::PopItemWidth();
+		ImGui::PopStyleVar();
+
+		ImGui::Columns(1);
+		ImGui::PopID();
 		ProcessCallback();
 	}
 
