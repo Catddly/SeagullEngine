@@ -2,6 +2,7 @@
 using namespace SG;
 
 #include "CustomLighting/Light.h"
+#include "CustomLighting/Material.h"
 
 #define IMAGE_COUNT 2
 
@@ -21,7 +22,7 @@ struct CameraUbo
 
 struct LightProxyData 
 {
-	alignas(16) Matrix4 model[2]; // 2 instances of lights
+	alignas(16) Matrix4 model[2];      // 2 instances of lights
 	alignas(16) Vec4    lightColor[2]; // w is for the intensity
 };
 
@@ -34,11 +35,11 @@ Vec2			   gLastMousePos;
 
 PointLight gDefaultLight1;
 uint32_t gLightColor1 = 0xffffffff;
-float    gLightRange1 = 0.6f;
+float    gLightRange1 = 2.0f;
 
 PointLight gDefaultLight2;
 uint32_t gLightColor2 = 0xffffffff;
-float    gLightRange2 = 1.0f;
+float    gLightRange2 = 2.2f;
 
 bool  gIsRotating = false;
 void ToggleRotate()
@@ -110,6 +111,12 @@ ControlFloat3Widget gControlFloat3_2("Position", &gDefaultLight2.position);
 SliderFloatWidget   gFloat1_2("Intensity", &gDefaultLight2.intensity, 0.0f, 1.0f);
 SliderFloatWidget   gFloat2_2("Range", &gLightRange2, 0.0f, 3.0f);
 
+MaterialData        gMaterialData;
+uint32_t            gMaterialColor = 0xffffffff;
+ColorSliderWidget   gColorSliderMat("Color", &gMaterialColor);
+SliderFloatWidget   gSliderMat("Metallic", &gMaterialData.metallic, 0.0f, 1.0f);
+SliderFloatWidget   gSliderSmoo("Smoothness", &gMaterialData.smoothness, 0.0f, 1.0f);
+
 class CustomRenderer : public IApp
 {
 public:
@@ -126,14 +133,14 @@ public:
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SCRIPTS, "Scripts");
 
 		gDefaultLight1.color = { 1.0f, 1.0f, 1.0f };
-		gDefaultLight1.intensity = 1.0f;
+		gDefaultLight1.intensity = 0.75f;
 		gDefaultLight1.position = { 0.0f, 0.0f, 1.0f };
-		gDefaultLight1.range = 0.6f;
+		gDefaultLight1.range = 2.0f;
 
 		gDefaultLight2.color = { 1.0f, 1.0f, 1.0f };
-		gDefaultLight2.intensity = 1.0f;
+		gDefaultLight2.intensity = 0.45f;
 		gDefaultLight2.position = { -0.8f, 0.0f, 0.1f };
-		gDefaultLight2.range = 1.0f;
+		gDefaultLight2.range = 2.2f;
 
 		if (!CreateRenderResource())
 			return false;
@@ -180,7 +187,14 @@ public:
 		propWidget_2.AddItem(&gFloat2_2);
 		mSecondGui->AddWidget(propWidget_2);
 
-		mUiMiddleware.mShowDemoUiWindow = true;
+		mSecondGui->AddWidget(SeparatorWidget());
+		PropertyWidget materialWidget("Material", true);
+		materialWidget.AddItem(&gColorSliderMat);
+		materialWidget.AddItem(&gSliderMat);
+		materialWidget.AddItem(&gSliderSmoo);
+		mSecondGui->AddWidget(materialWidget);
+
+		//mUiMiddleware.mShowDemoUiWindow = true;
 
 		gCamera = create_perspective_camera({ -3.0f, 0.0f, 0.4f }, { 1.0f, 0.0f, 0.0f });
 
@@ -250,7 +264,7 @@ public:
 		//add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
 		DescriptorSetCreateDesc descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mRoomUboDescriptorSet);
-		descriptorSetCreate = { mCubeRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
+		descriptorSetCreate = { mCubeRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 3 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mCubeUboDescriptorSet);
 
 		if (!CreateSwapChain())
@@ -277,7 +291,7 @@ public:
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			DescriptorData bufferUpdate[3] = {};
+			DescriptorData bufferUpdate[4] = {};
 			bufferUpdate[0].name = "ubo";
 			bufferUpdate[0].ppBuffers = &mRoomUniformBuffer[i];
 			bufferUpdate[1].name = "camera";
@@ -285,7 +299,9 @@ public:
 			bufferUpdate[2].name = "light";
 			bufferUpdate[2].ppBuffers = mLightUniformBuffer[i];
 			bufferUpdate[2].count = 2;
-			update_descriptor_set(mRenderer, i, mRoomUboDescriptorSet, 3, bufferUpdate);
+			bufferUpdate[3].name = "mat";
+			bufferUpdate[3].ppBuffers = &mMaterialUniformBuffer[i];
+			update_descriptor_set(mRenderer, i, mRoomUboDescriptorSet, 4, bufferUpdate);
 		}
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
@@ -334,7 +350,8 @@ public:
 		if (gIsRotating)
 			rotateTime += deltaTime;
 
-		mModelData.model = glm::rotate(Matrix4(1.0f), glm::radians(rotateTime * 90.0f + 145.0f), { 0.0f, 0.0f, 1.0f });
+		mModelData.model = glm::rotate(Matrix4(1.0f), glm::radians(rotateTime * 90.0f + 145.0f), { 0.0f, 0.0f, 1.0f }) *
+			glm::scale(Matrix4(1.0f), { 0.3f, 0.3f, 0.3f });
 
 		gDefaultLight1.color = UintToVec4Color(gLightColor1) / 255.0f;
 		gDefaultLight1.range = 1.0f / eastl::max(glm::pow(gLightRange1, 2.0f), 0.000001f);
@@ -349,6 +366,9 @@ public:
 		mCameraData.view = gCamera->GetViewMatrix();
 		mCameraData.proj = gCamera->GetProjMatrix();
 		mCameraData.cameraPos = gCamera->GetPosition();
+
+		Vec4 matColor = UintToVec4Color(gMaterialColor) / 255.0f;
+		gMaterialData.color = { matColor.x, matColor.y, matColor.z };
 
 		UpdateResoureces();
 
@@ -524,7 +544,7 @@ private:
 		DepthStateDesc depthStateDesc = {};
 		depthStateDesc.depthTest = true;
 		depthStateDesc.depthWrite = true;
-		depthStateDesc.depthFunc = SG_COMPARE_MODE_LESS;
+		depthStateDesc.depthFunc = SG_COMPARE_MODE_LEQUAL;
 
 		BlendStateDesc blendStateDesc = {};
 		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_ONE;
@@ -578,13 +598,13 @@ private:
 		DepthStateDesc depthStateDesc = {};
 		depthStateDesc.depthTest = true;
 		depthStateDesc.depthWrite = true;
-		depthStateDesc.depthFunc = SG_COMPARE_MODE_LESS;
+		depthStateDesc.depthFunc = SG_COMPARE_MODE_LEQUAL;
 
 		BlendStateDesc blendStateDesc = {};
-		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_ONE;
-		blendStateDesc.srcFactors[1] = SG_BLEND_CONST_ONE;
-		blendStateDesc.srcAlphaFactors[0] = SG_BLEND_CONST_ONE;
-		blendStateDesc.srcAlphaFactors[1] = SG_BLEND_CONST_ONE;
+		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_SRC_ALPHA;
+		blendStateDesc.srcFactors[1] = SG_BLEND_CONST_SRC_ALPHA;
+		blendStateDesc.dstFactors[0] = SG_BLEND_CONST_ONE_MINUS_SRC_ALPHA;
+		blendStateDesc.dstFactors[1] = SG_BLEND_CONST_ONE_MINUS_SRC_ALPHA;
 		blendStateDesc.renderTargetMask = SG_BLEND_STATE_TARGET_0;
 		blendStateDesc.masks[0] = SG_BLEND_COLOR_MASK_ALL;
 		blendStateDesc.masks[1] = SG_BLEND_COLOR_MASK_ALL;
@@ -700,7 +720,7 @@ private:
 		roomGeoVertexLayout.attribs[2].offset = 5 * sizeof(float);
 
 		GeometryLoadDesc geoCreate = {};
-		geoCreate.fileName = "model.gltf";
+		geoCreate.fileName = "sphere.gltf";
 		geoCreate.ppGeometry = &mRoomGeo;
 		geoCreate.pVertexLayout = &roomGeoVertexLayout;
 		add_resource(&geoCreate, nullptr);
@@ -716,7 +736,7 @@ private:
 
 		ShaderLoadDesc loadBasicShader = {};
 		loadBasicShader.stages[0] = { "default.vert", nullptr, 0, "main" };
-		loadBasicShader.stages[1] = { "default.frag", nullptr, 0, "main" };
+		loadBasicShader.stages[1] = { "brdf.frag", nullptr, 0, "main" };
 		add_shader(mRenderer, &loadBasicShader, &mDefaultShader);
 
 		loadBasicShader.stages[0] = { "LightProxy/lightGeo.vert", nullptr, 0, "main" };
@@ -788,13 +808,25 @@ private:
 
 		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
-		uboCreate.desc.name = "CubeUniformBuffer";
+		uboCreate.desc.name = "CameraUniformBuffer";
 		uboCreate.desc.size = sizeof(CameraUbo);
 		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
 		uboCreate.pData = nullptr;
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			uboCreate.ppBuffer = &mCameraUniformBuffer[i];
+			add_resource(&uboCreate, nullptr);
+		}
+
+		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboCreate.desc.memoryUsage = SG_RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
+		uboCreate.desc.name = "MaterialUniformBuffer";
+		uboCreate.desc.size = sizeof(MaterialData);
+		uboCreate.desc.flags = SG_BUFFER_CREATION_FLAG_PERSISTENT_MAP_BIT; // we need to update it every frame
+		uboCreate.pData = nullptr;
+		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
+		{
+			uboCreate.ppBuffer = &mMaterialUniformBuffer[i];
 			add_resource(&uboCreate, nullptr);
 		}
 
@@ -813,6 +845,7 @@ private:
 			remove_resource(mRoomUniformBuffer[i]);
 			remove_resource(mCubeUniformBuffer[i]);
 			remove_resource(mCameraUniformBuffer[i]);
+			remove_resource(mMaterialUniformBuffer[i]);
 			remove_resource(mLightUniformBuffer[i][0]);
 			remove_resource(mLightUniformBuffer[i][1]);
 		}
@@ -986,6 +1019,11 @@ private:
 		begin_update_resource(&uboUpdate);
 		*(CameraUbo*)uboUpdate.pMappedData = mCameraData;
 		end_update_resource(&uboUpdate, nullptr);
+
+		uboUpdate.pBuffer = mMaterialUniformBuffer[mCurrentIndex];
+		begin_update_resource(&uboUpdate);
+		*(MaterialData*)uboUpdate.pMappedData = gMaterialData;
+		end_update_resource(&uboUpdate, nullptr);
 	}
 private:
 	Renderer* mRenderer = nullptr;
@@ -1017,6 +1055,7 @@ private:
 	Geometry* mRoomGeo = nullptr;
 
 	Buffer* mCameraUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
+	Buffer* mMaterialUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 	Buffer* mRoomUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 	Buffer* mCubeUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 	Buffer* mLightUniformBuffer[IMAGE_COUNT][2] = { nullptr, nullptr, nullptr, nullptr };

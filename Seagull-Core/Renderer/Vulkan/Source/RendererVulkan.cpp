@@ -955,13 +955,13 @@ namespace SG
 		{
 			if (pDesc->renderTargetMask & (1 << i))
 			{
-				//VkBool32 blendEnable =
-				//	(gVkBlendConstantTranslator[pDesc->srcFactors[blendDescIndex]] != VK_BLEND_FACTOR_ONE ||
-				//		gVkBlendConstantTranslator[pDesc->dstFactors[blendDescIndex]] != VK_BLEND_FACTOR_ZERO ||
-				//		gVkBlendConstantTranslator[pDesc->srcAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ONE ||
-				//		gVkBlendConstantTranslator[pDesc->dstAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ZERO);
+				VkBool32 blendEnable =
+					(gVkBlendConstantTranslator[pDesc->srcFactors[blendDescIndex]] != VK_BLEND_FACTOR_ONE ||
+						gVkBlendConstantTranslator[pDesc->dstFactors[blendDescIndex]] != VK_BLEND_FACTOR_ZERO ||
+						gVkBlendConstantTranslator[pDesc->srcAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ONE ||
+						gVkBlendConstantTranslator[pDesc->dstAlphaFactors[blendDescIndex]] != VK_BLEND_FACTOR_ZERO);
 
-				VkBool32 blendEnable = 1;
+				//VkBool32 blendEnable = 1;
 
 				pAttachments[i].blendEnable = blendEnable;
 				pAttachments[i].colorWriteMask = pDesc->masks[blendDescIndex];
@@ -6581,7 +6581,6 @@ void cmd_resource_barrier(Cmd* pCmd,
 
 			SG_DECLARE_ZERO(VkPipelineColorBlendStateCreateInfo, cb);
 			SG_DECLARE_ZERO(VkPipelineColorBlendAttachmentState, cbAtt[SG_MAX_RENDER_TARGET_ATTACHMENTS]);
-			auto test = util_to_blend_desc(pDesc->pBlendState, cbAtt);
 			cb = pDesc->pBlendState ? util_to_blend_desc(pDesc->pBlendState, cbAtt) : gDefaultBlendDesc;
 			cb.attachmentCount = pDesc->renderTargetCount;
 

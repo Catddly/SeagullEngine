@@ -68,4 +68,5 @@ void main()
     //vec3 light = GetLighting(outPosW, outCameraPosW, norm);
     vec3 light = result1 + result2;
     outColor = vec4(light, 1.0);
+    //outColor = vec4(norm.z, norm.z, norm.z, 1.0);
 }
