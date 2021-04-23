@@ -49,7 +49,7 @@ void main()
         vec3 lightDir = normalize(light[0].position - outPosW);
 
         float lightAlbedo = max(dot(norm, lightDir), 0.0);
-        vec3  lighting = lightAlbedo * mat.color * light[0].intensity;
+        vec3  lighting = lightAlbedo * mat.color * light[0].intensity * light[0].color;
 
         // brdf specular
         float specularStrength;
@@ -74,7 +74,7 @@ void main()
         vec3 lightDir = normalize(light[1].position - outPosW);
 
         float lightAlbedo = max(dot(norm, lightDir), 0.0);
-        vec3  lighting = lightAlbedo * mat.color * light[1].intensity;
+        vec3  lighting = lightAlbedo * mat.color * light[1].intensity * light[1].color;
 
         // brdf specular
         float specularStrength;
