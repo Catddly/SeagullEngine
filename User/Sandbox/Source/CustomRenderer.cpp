@@ -296,7 +296,7 @@ public:
 
 	virtual bool OnLoad() override
 	{
-		DescriptorSetCreateDesc descriptorSetCreate = { mSkyboxRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
+		DescriptorSetCreateDesc descriptorSetCreate = { mSkyboxRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 4 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mSkyboxDescriptorTexSet);
 		descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mRoomUboDescriptorSet);
@@ -325,20 +325,16 @@ public:
 		if (!CreateLightpassPipeline())
 			return false;
 
-		DescriptorData updateData[2] = {};
-		updateData[0].name = "skyboxCubeMap";
-		updateData[0].ppTextures = &mSkyboxCubeMap[0];
-		//updateData[1].name = "skyboxCubeMapL";
-		//updateData[1].ppTextures = &mSkyboxCubeMap[1];
-		//updateData[2].name = "skyboxCubeMapU";
-		//updateData[2].ppTextures = &mSkyboxCubeMap[2];
-		//updateData[3].name = "skyboxCubeMapD";
-		//updateData[3].ppTextures = &mSkyboxCubeMap[3];
-		//updateData[4].name = "skyboxCubeMapF";
-		//updateData[4].ppTextures = &mSkyboxCubeMap[4];
-		//updateData[5].name = "skyboxCubeMapB";
-		//updateData[5].ppTextures = &mSkyboxCubeMap[5];
-		update_descriptor_set(mRenderer, 0, mSkyboxDescriptorTexSet, 1, updateData); // update the descriptor sets use
+		DescriptorData updateData[5] = {};
+		updateData[0].name = "skyboxCubeMapL";
+		updateData[0].ppTextures = &mSkyboxCubeMapL;
+		updateData[1].name = "skyboxCubeMapD";
+		updateData[1].ppTextures = &mSkyboxCubeMapD;
+		updateData[2].name = "skyboxCubeMapR";
+		updateData[2].ppTextures = &mSkyboxCubeMapR;
+		updateData[3].name = "skyboxCubeMapF";
+		updateData[3].ppTextures = &mSkyboxCubeMapF;
+		update_descriptor_set(mRenderer, 0, mSkyboxDescriptorTexSet, 4, updateData); // update the descriptor sets use
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
@@ -841,13 +837,24 @@ private:
 		add_resource(&textureCreate, nullptr);
 
 		// cube map sequence -- r, l, u, d, f, b
-		for (int i = 0; i < 6; i++)
-		{
-			eastl::string name = "sahara_" + eastl::to_string(i + 1);
-			textureCreate.fileName = name.c_str();
-			textureCreate.ppTexture = &mSkyboxCubeMap[i];
-			add_resource(&textureCreate, nullptr);
-		}
+		textureCreate.fileName = "sahara_1";
+		textureCreate.ppTexture = &mSkyboxCubeMapR;
+		add_resource(&textureCreate, nullptr);
+		textureCreate.fileName = "sahara_2";
+		textureCreate.ppTexture = &mSkyboxCubeMapL;
+		add_resource(&textureCreate, nullptr);
+		textureCreate.fileName = "sahara_3";
+		textureCreate.ppTexture = &mSkyboxCubeMapU;
+		add_resource(&textureCreate, nullptr);
+		textureCreate.fileName = "sahara_4";
+		textureCreate.ppTexture = &mSkyboxCubeMapD;
+		add_resource(&textureCreate, nullptr);
+		textureCreate.fileName = "sahara_5";
+		textureCreate.ppTexture = &mSkyboxCubeMapF;
+		add_resource(&textureCreate, nullptr);
+		textureCreate.fileName = "sahara_6";
+		textureCreate.ppTexture = &mSkyboxCubeMapB;
+		add_resource(&textureCreate, nullptr);
 
 		VertexLayout roomGeoVertexLayout;
 		roomGeoVertexLayout.attribCount = 3;
@@ -996,10 +1003,13 @@ private:
 
 	void RemoveRenderResource()
 	{
-		for (int i = 0; i < 6; i++)
-		{
-			remove_resource(mSkyboxCubeMap[i]);
-		}
+		remove_resource(mSkyboxCubeMapR);
+		remove_resource(mSkyboxCubeMapL);
+		remove_resource(mSkyboxCubeMapU);
+		remove_resource(mSkyboxCubeMapD);
+		remove_resource(mSkyboxCubeMapF);
+		remove_resource(mSkyboxCubeMapB);
+
 		remove_resource(mLogoTex);
 
 		remove_resource(mRoomGeo);
@@ -1210,8 +1220,14 @@ private:
 	Shader* mDefaultShader = nullptr;
 	Shader* mLightShader = nullptr;
 	Texture* mLogoTex = nullptr;
-	Texture* mSkyboxCubeMap[6] = { nullptr };
 	Sampler* mSampler = nullptr;
+
+	Texture* mSkyboxCubeMapR = nullptr;
+	Texture* mSkyboxCubeMapL = nullptr;
+	Texture* mSkyboxCubeMapU = nullptr;
+	Texture* mSkyboxCubeMapD = nullptr;
+	Texture* mSkyboxCubeMapF = nullptr;
+	Texture* mSkyboxCubeMapB = nullptr;
 
 	RootSignature* mSkyboxRootSignature = nullptr;
 	DescriptorSet* mSkyboxDescriptorTexSet = nullptr;

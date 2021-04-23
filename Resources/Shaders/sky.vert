@@ -22,6 +22,6 @@ void main()
 {
     vec3 pos = Position * 2;
 	gl_Position = camera.proj * camera.view * ubo.model * vec4(pos, 1.0);
-	outTexCoord = Position;
+	outTexCoord = pos;
     outNormalW = Normal;
 }
