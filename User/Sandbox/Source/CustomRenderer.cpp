@@ -296,13 +296,13 @@ public:
 
 	virtual bool OnLoad() override
 	{
-		DescriptorSetCreateDesc descriptorSetCreate = { mSkyboxRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 4 };
+		DescriptorSetCreateDesc descriptorSetCreate = { mSkyboxRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 6 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mSkyboxDescriptorTexSet);
 		descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mRoomUboDescriptorSet);
 		descriptorSetCreate = { mCubeRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 3 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mCubeUboDescriptorSet);
-		descriptorSetCreate = { mSkyboxRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
+		descriptorSetCreate = { mSkyboxRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mSkyboxDescriptorUboSet);
 
 		if (!CreateSwapChain())
@@ -325,7 +325,7 @@ public:
 		if (!CreateLightpassPipeline())
 			return false;
 
-		DescriptorData updateData[5] = {};
+		DescriptorData updateData[7] = {};
 		updateData[0].name = "skyboxCubeMapL";
 		updateData[0].ppTextures = &mSkyboxCubeMapL;
 		updateData[1].name = "skyboxCubeMapD";
@@ -334,25 +334,27 @@ public:
 		updateData[2].ppTextures = &mSkyboxCubeMapR;
 		updateData[3].name = "skyboxCubeMapF";
 		updateData[3].ppTextures = &mSkyboxCubeMapF;
-		update_descriptor_set(mRenderer, 0, mSkyboxDescriptorTexSet, 4, updateData); // update the descriptor sets use
+		updateData[4].name = "skyboxCubeMapU";
+		updateData[4].ppTextures = &mSkyboxCubeMapU;
+		updateData[5].name = "skyboxCubeMapB";
+		updateData[5].ppTextures = &mSkyboxCubeMapB;
+		update_descriptor_set(mRenderer, 0, mSkyboxDescriptorTexSet, 6, updateData); // update the descriptor sets use
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
-			DescriptorData bufferUpdate[4] = {};
-			bufferUpdate[0].name = "ubo";
-			bufferUpdate[0].ppBuffers = &mRoomUniformBuffer[i];
-			bufferUpdate[1].name = "camera";
-			bufferUpdate[1].ppBuffers = &mCameraUniformBuffer[i];
-			update_descriptor_set(mRenderer, i, mSkyboxDescriptorUboSet, 2, bufferUpdate);
+			DescriptorData bufferUpdate[1] = {};
+			bufferUpdate[0].name = "camera";
+			bufferUpdate[0].ppBuffers = &mCameraUniformBuffer[i];
+			update_descriptor_set(mRenderer, i, mSkyboxDescriptorUboSet, 1, bufferUpdate);
 		}
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			DescriptorData bufferUpdate[4] = {};
-			bufferUpdate[0].name = "ubo";
-			bufferUpdate[0].ppBuffers = &mRoomUniformBuffer[i];
-			bufferUpdate[1].name = "camera";
-			bufferUpdate[1].ppBuffers = &mCameraUniformBuffer[i];
+			bufferUpdate[0].name = "camera";
+			bufferUpdate[0].ppBuffers = &mCameraUniformBuffer[i];
+			bufferUpdate[1].name = "ubo";
+			bufferUpdate[1].ppBuffers = &mRoomUniformBuffer[i];
 			bufferUpdate[2].name = "light";
 			bufferUpdate[2].ppBuffers = mLightUniformBuffer[i];
 			bufferUpdate[2].count = 2;
@@ -364,10 +366,10 @@ public:
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			DescriptorData bufferUpdate[2] = {};
-			bufferUpdate[0].name = "lightUbo";
-			bufferUpdate[0].ppBuffers = &mCubeUniformBuffer[i];
-			bufferUpdate[1].name = "camera";
-			bufferUpdate[1].ppBuffers = &mCameraUniformBuffer[i];
+			bufferUpdate[0].name = "camera";
+			bufferUpdate[0].ppBuffers = &mCameraUniformBuffer[i];
+			bufferUpdate[1].name = "lightUbo";
+			bufferUpdate[1].ppBuffers = &mCubeUniformBuffer[i];
 			update_descriptor_set(mRenderer, i, mCubeUboDescriptorSet, 2, bufferUpdate);
 		}
 
@@ -411,8 +413,6 @@ public:
 
 		mModelData.model = glm::rotate(Matrix4(1.0f), glm::radians(rotateTime * 90.0f + 145.0f), { 0.0f, 0.0f, 1.0f }) *
 			glm::scale(Matrix4(1.0f), { 0.3f, 0.3f, 0.3f });
-
-		//mModelData.model = glm::translate(Matrix4(1.0f), gCamera->GetPosition());
 
 		gDefaultLight1.color = UintToVec4Color(gLightColor1) / 255.0f;
 		gDefaultLight1.range = 1.0f / eastl::max(glm::pow(gLightRange1, 2.0f), 0.000001f);
@@ -484,39 +484,37 @@ public:
 		cmd_bind_render_targets(cmd, 1, &renderTarget, mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
-
 			if (gDrawLightProxyGeom)
 			{
-				/// light pass start
+				/// light proxy start
 				cmd_bind_pipeline(cmd, mLightProxyGeomPipeline);
 				cmd_bind_descriptor_set(cmd, mCurrentIndex, mCubeUboDescriptorSet);
 
 				cmd_bind_vertex_buffer(cmd, 1, &mCubeVertexBuffer, &vertexStride, nullptr);
 				cmd_draw_instanced(cmd, 36, 0, 2, 0);
-				/// light pass end
+				/// light proxy end
 			}
 
 			/// geom start
-			//cmd_bind_pipeline(cmd, mDefaultPipeline);
-			//cmd_bind_descriptor_set(cmd, mCurrentIndex, mRoomUboDescriptorSet);
+			cmd_bind_pipeline(cmd, mDefaultPipeline);
+			cmd_bind_descriptor_set(cmd, mCurrentIndex, mRoomUboDescriptorSet);
 
-			//cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
-			//Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
-			//cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mRoomGeo->vertexStrides, nullptr);
+			cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
+			Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
+			cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mRoomGeo->vertexStrides, nullptr);
 
-			//for (uint32_t i = 0; i < mRoomGeo->drawArgCount; i++)
-			//{
-			//	IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
-			//	cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
-			//}
+			for (uint32_t i = 0; i < mRoomGeo->drawArgCount; i++)
+			{
+				IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
+				cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
+			}
 			/// geom end
-
+			
 			/// skybox start
-			//cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 1.0f, 1.0f);
-
+			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 1.0f, 1.0f);
 			cmd_bind_pipeline(cmd, mSkyboxPipeline);
 			cmd_bind_descriptor_set(cmd, 0, mSkyboxDescriptorTexSet); // just the skybox texture
-			cmd_bind_descriptor_set(cmd, mCurrentIndex, mSkyboxDescriptorUboSet); // just the skybox texture
+			cmd_bind_descriptor_set(cmd, mCurrentIndex, mSkyboxDescriptorUboSet);
 
 			cmd_bind_vertex_buffer(cmd, 1, &mCubeVertexBuffer, &vertexStride, nullptr);
 			cmd_draw(cmd, 36, 0);
@@ -734,12 +732,12 @@ private:
 		vertexLayout.attribs[1].offset = 3 * sizeof(float);
 
 		RasterizerStateDesc rasterizeState = {};
-		rasterizeState.cullMode = SG_CULL_MODE_NONE;
+		rasterizeState.cullMode = SG_CULL_MODE_FRONT;
 		rasterizeState.frontFace = SG_FRONT_FACE_CCW;
 
 		DepthStateDesc depthStateDesc = {};
-		depthStateDesc.depthTest = false;
-		depthStateDesc.depthWrite = false;
+		depthStateDesc.depthTest = true;
+		depthStateDesc.depthWrite = true;
 		depthStateDesc.depthFunc = SG_COMPARE_MODE_LEQUAL;
 
 		BlendStateDesc blendStateDesc = {};
@@ -878,7 +876,7 @@ private:
 		roomGeoVertexLayout.attribs[2].offset = 5 * sizeof(float);
 
 		GeometryLoadDesc geoCreate = {};
-		geoCreate.fileName = "sphere.gltf";
+		geoCreate.fileName = "model.gltf";
 		geoCreate.ppGeometry = &mRoomGeo;
 		geoCreate.pVertexLayout = &roomGeoVertexLayout;
 		add_resource(&geoCreate, nullptr);
@@ -1230,8 +1228,8 @@ private:
 	Texture* mSkyboxCubeMapB = nullptr;
 
 	RootSignature* mSkyboxRootSignature = nullptr;
-	DescriptorSet* mSkyboxDescriptorTexSet = nullptr;
 	DescriptorSet* mSkyboxDescriptorUboSet = nullptr;
+	DescriptorSet* mSkyboxDescriptorTexSet = nullptr;
 	Pipeline* mSkyboxPipeline = nullptr;
 
 	RootSignature* mRoomRootSignature = nullptr;

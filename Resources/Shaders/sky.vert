@@ -1,11 +1,6 @@
 #version 450 core
 
-layout(set = 1, binding = 0) uniform UniformBuffer
-{
-    mat4 model;
-} ubo;
-
-layout(set = 1, binding = 1) uniform CameraUbo
+layout(set = 1, binding = 0) uniform CameraUbo
 {
     mat4 view;
     mat4 proj;
@@ -21,7 +16,9 @@ layout(location = 1) out vec3 outNormalW;
 void main()
 {
     vec3 pos = Position * 2;
-	gl_Position = camera.proj * camera.view * ubo.model * vec4(pos, 1.0);
+    mat3 v = mat3(camera.view);
+    mat4 view = mat4(v);
+	gl_Position = camera.proj * view * vec4(pos, 1.0);
 	outTexCoord = pos;
     outNormalW = Normal;
 }
