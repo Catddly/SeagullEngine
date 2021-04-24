@@ -296,7 +296,7 @@ public:
 
 	virtual bool OnLoad() override
 	{
-		DescriptorSetCreateDesc descriptorSetCreate = { mSkyboxRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 6 };
+		DescriptorSetCreateDesc descriptorSetCreate = { mSkyboxRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mSkyboxDescriptorTexSet);
 		descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mRoomUboDescriptorSet);
@@ -325,20 +325,25 @@ public:
 		if (!CreateLightpassPipeline())
 			return false;
 
-		DescriptorData updateData[7] = {};
-		updateData[0].name = "skyboxCubeMapL";
-		updateData[0].ppTextures = &mSkyboxCubeMapL;
-		updateData[1].name = "skyboxCubeMapD";
-		updateData[1].ppTextures = &mSkyboxCubeMapD;
-		updateData[2].name = "skyboxCubeMapR";
-		updateData[2].ppTextures = &mSkyboxCubeMapR;
-		updateData[3].name = "skyboxCubeMapF";
-		updateData[3].ppTextures = &mSkyboxCubeMapF;
-		updateData[4].name = "skyboxCubeMapU";
-		updateData[4].ppTextures = &mSkyboxCubeMapU;
-		updateData[5].name = "skyboxCubeMapB";
-		updateData[5].ppTextures = &mSkyboxCubeMapB;
-		update_descriptor_set(mRenderer, 0, mSkyboxDescriptorTexSet, 6, updateData); // update the descriptor sets use
+		//DescriptorData updateData[7] = {};
+		//updateData[0].name = "skyboxCubeMapL";
+		//updateData[0].ppTextures = &mSkyboxCubeMapL;
+		//updateData[1].name = "skyboxCubeMapD";
+		//updateData[1].ppTextures = &mSkyboxCubeMapD;
+		//updateData[2].name = "skyboxCubeMapR";
+		//updateData[2].ppTextures = &mSkyboxCubeMapR;
+		//updateData[3].name = "skyboxCubeMapF";
+		//updateData[3].ppTextures = &mSkyboxCubeMapF;
+		//updateData[4].name = "skyboxCubeMapU";
+		//updateData[4].ppTextures = &mSkyboxCubeMapU;
+		//updateData[5].name = "skyboxCubeMapB";
+		//updateData[5].ppTextures = &mSkyboxCubeMapB;
+		//update_descriptor_set(mRenderer, 0, mSkyboxDescriptorTexSet, 6, updateData); // update the descriptor sets use
+
+		DescriptorData updateData[2] = {};
+		updateData[0].name = "skyboxCubeMap";
+		updateData[0].ppTextures = &mSkyboxCubeMap;
+		update_descriptor_set(mRenderer, 0, mSkyboxDescriptorTexSet, 1, updateData); // update the cubemap
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
@@ -516,9 +521,15 @@ public:
 			cmd_bind_descriptor_set(cmd, 0, mSkyboxDescriptorTexSet); // just the skybox texture
 			cmd_bind_descriptor_set(cmd, mCurrentIndex, mSkyboxDescriptorUboSet);
 
-			cmd_bind_vertex_buffer(cmd, 1, &mCubeVertexBuffer, &vertexStride, nullptr);
-			cmd_draw(cmd, 36, 0);
+			cmd_bind_index_buffer(cmd, mSkyboxGeo->pIndexBuffer, mSkyboxGeo->indexType, 0);
+			Buffer* skyboxVertexBuffer[] = { mSkyboxGeo->pVertexBuffers[0] };
+			cmd_bind_vertex_buffer(cmd, 1, skyboxVertexBuffer, mSkyboxGeo->vertexStrides, nullptr);
 
+			for (uint32_t i = 0; i < mSkyboxGeo->drawArgCount; i++)
+			{
+				IndirectDrawIndexArguments& cmdDraw = mSkyboxGeo->pDrawArgs[i];
+				cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
+			}
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			/// skybox end
 		cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
@@ -717,7 +728,7 @@ private:
 	bool CreateSkyboxPipeline()
 	{
 		VertexLayout vertexLayout = {};
-		vertexLayout.attribCount = 2;
+		vertexLayout.attribCount = 3;
 
 		vertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
 		vertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
@@ -725,15 +736,21 @@ private:
 		vertexLayout.attribs[0].location = 0;
 		vertexLayout.attribs[0].offset = 0;
 
-		vertexLayout.attribs[1].semantic = SG_SEMANTIC_NORMAL;
-		vertexLayout.attribs[1].format = TinyImageFormat_R32G32B32_SFLOAT;
+		vertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
+		vertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
 		vertexLayout.attribs[1].binding = 0;
 		vertexLayout.attribs[1].location = 1;
 		vertexLayout.attribs[1].offset = 3 * sizeof(float);
 
+		vertexLayout.attribs[2].semantic = SG_SEMANTIC_NORMAL;
+		vertexLayout.attribs[2].format = TinyImageFormat_R32G32B32_SFLOAT;
+		vertexLayout.attribs[2].binding = 0;
+		vertexLayout.attribs[2].location = 2;
+		vertexLayout.attribs[2].offset = 5 * sizeof(float);
+
 		RasterizerStateDesc rasterizeState = {};
-		rasterizeState.cullMode = SG_CULL_MODE_FRONT;
-		rasterizeState.frontFace = SG_FRONT_FACE_CCW;
+		rasterizeState.cullMode = SG_CULL_MODE_NONE;
+		//rasterizeState.frontFace = SG_FRONT_FACE_CCW;
 
 		DepthStateDesc depthStateDesc = {};
 		depthStateDesc.depthTest = true;
@@ -827,6 +844,10 @@ private:
 		}
 		add_semaphore(mRenderer, &mImageAcquiredSemaphore);
 
+		//ResourceLoaderDesc loaderDesc;
+		//loaderDesc.singleThreaded = true;
+		//loaderDesc.bufferCount = 1;
+		//loaderDesc.bufferSize = 1024 * 64;
 		init_resource_loader_interface(mRenderer);
 
 		TextureLoadDesc textureCreate = {};
@@ -834,25 +855,11 @@ private:
 		textureCreate.ppTexture = &mLogoTex;
 		add_resource(&textureCreate, nullptr);
 
-		// cube map sequence -- r, l, u, d, f, b
-		textureCreate.fileName = "sahara_1";
-		textureCreate.ppTexture = &mSkyboxCubeMapR;
-		add_resource(&textureCreate, nullptr);
-		textureCreate.fileName = "sahara_2";
-		textureCreate.ppTexture = &mSkyboxCubeMapL;
-		add_resource(&textureCreate, nullptr);
-		textureCreate.fileName = "sahara_3";
-		textureCreate.ppTexture = &mSkyboxCubeMapU;
-		add_resource(&textureCreate, nullptr);
-		textureCreate.fileName = "sahara_4";
-		textureCreate.ppTexture = &mSkyboxCubeMapD;
-		add_resource(&textureCreate, nullptr);
-		textureCreate.fileName = "sahara_5";
-		textureCreate.ppTexture = &mSkyboxCubeMapF;
-		add_resource(&textureCreate, nullptr);
-		textureCreate.fileName = "sahara_6";
-		textureCreate.ppTexture = &mSkyboxCubeMapB;
-		add_resource(&textureCreate, nullptr);
+		TextureLoadDesc texCubeMapLoad = {};
+		texCubeMapLoad.fileName = "cubemap_yokohama_rgba";
+		texCubeMapLoad.container = SG_TEXTURE_CONTAINER_KTX;
+		texCubeMapLoad.ppTexture = &mSkyboxCubeMap;
+		add_resource(&texCubeMapLoad, nullptr);
 
 		VertexLayout roomGeoVertexLayout;
 		roomGeoVertexLayout.attribCount = 3;
@@ -876,8 +883,14 @@ private:
 		roomGeoVertexLayout.attribs[2].offset = 5 * sizeof(float);
 
 		GeometryLoadDesc geoCreate = {};
-		geoCreate.fileName = "model.gltf";
+		geoCreate.fileName = "sphere.gltf";
 		geoCreate.ppGeometry = &mRoomGeo;
+		geoCreate.pVertexLayout = &roomGeoVertexLayout;
+		add_resource(&geoCreate, nullptr);
+
+		geoCreate = {};
+		geoCreate.fileName = "cube.gltf";
+		geoCreate.ppGeometry = &mSkyboxGeo;
 		geoCreate.pVertexLayout = &roomGeoVertexLayout;
 		add_resource(&geoCreate, nullptr);
 
@@ -891,29 +904,29 @@ private:
 		add_resource(&sphereVbDesc, NULL);
 
 		ShaderLoadDesc loadBasicShader = {};
-		loadBasicShader.stages[0] = { "default.vert", nullptr, 0, "main" };
-		loadBasicShader.stages[1] = { "brdf.frag", nullptr, 0, "main" };
+		loadBasicShader.stages[0] = { "pbr.vert", nullptr, 0, "main" };
+		loadBasicShader.stages[1] = { "pbr.frag", nullptr, 0, "main" };
 		add_shader(mRenderer, &loadBasicShader, &mDefaultShader);
 
 		loadBasicShader.stages[0] = { "LightProxy/lightGeo.vert", nullptr, 0, "main" };
 		loadBasicShader.stages[1] = { "LightProxy/lightGeo.frag", nullptr, 0, "main" };
 		add_shader(mRenderer, &loadBasicShader, &mLightShader);
 
-		loadBasicShader.stages[0] = { "sky.vert", nullptr, 0, "main" };
-		loadBasicShader.stages[1] = { "sky.frag", nullptr, 0, "main" };
+		loadBasicShader.stages[0] = { "skybox.vert", nullptr, 0, "main" };
+		loadBasicShader.stages[1] = { "skybox.frag", nullptr, 0, "main" };
 		add_shader(mRenderer, &loadBasicShader, &mSkyboxShader);
 
 		SamplerCreateDesc samplerCreate = {};
-		samplerCreate.addressU = SG_ADDRESS_MODE_REPEAT;
-		samplerCreate.addressV = SG_ADDRESS_MODE_REPEAT;
-		samplerCreate.addressW = SG_ADDRESS_MODE_REPEAT;
+		samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerCreate.addressV = SG_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerCreate.addressW = SG_ADDRESS_MODE_CLAMP_TO_EDGE;
 		samplerCreate.minFilter = SG_FILTER_LINEAR;
 		samplerCreate.magFilter = SG_FILTER_LINEAR;
 		samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
 		add_sampler(mRenderer, &samplerCreate, &mSampler);
 
 		Shader* submitSkyboxShader[] = { mSkyboxShader };
-		const char* staticSamplers[] = { "Sampler" };
+		const char* staticSamplers[] = { "skyboxCubeMap" };
 		RootSignatureCreateDesc rootSignatureCreate = {};
 		rootSignatureCreate.staticSamplerCount = 1;
 		rootSignatureCreate.ppStaticSamplers = &mSampler;
@@ -1001,15 +1014,11 @@ private:
 
 	void RemoveRenderResource()
 	{
-		remove_resource(mSkyboxCubeMapR);
-		remove_resource(mSkyboxCubeMapL);
-		remove_resource(mSkyboxCubeMapU);
-		remove_resource(mSkyboxCubeMapD);
-		remove_resource(mSkyboxCubeMapF);
-		remove_resource(mSkyboxCubeMapB);
+		remove_resource(mSkyboxCubeMap);
 
 		remove_resource(mLogoTex);
 
+		remove_resource(mSkyboxGeo);
 		remove_resource(mRoomGeo);
 		remove_resource(mCubeVertexBuffer);
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
@@ -1218,14 +1227,10 @@ private:
 	Shader* mDefaultShader = nullptr;
 	Shader* mLightShader = nullptr;
 	Texture* mLogoTex = nullptr;
-	Sampler* mSampler = nullptr;
 
-	Texture* mSkyboxCubeMapR = nullptr;
-	Texture* mSkyboxCubeMapL = nullptr;
-	Texture* mSkyboxCubeMapU = nullptr;
-	Texture* mSkyboxCubeMapD = nullptr;
-	Texture* mSkyboxCubeMapF = nullptr;
-	Texture* mSkyboxCubeMapB = nullptr;
+	// combined image sampler
+	Sampler* mSampler = nullptr;
+	Texture* mSkyboxCubeMap = nullptr;
 
 	RootSignature* mSkyboxRootSignature = nullptr;
 	DescriptorSet* mSkyboxDescriptorUboSet = nullptr;
@@ -1241,6 +1246,7 @@ private:
 	Pipeline* mLightProxyGeomPipeline = nullptr;
 
 	Geometry* mRoomGeo = nullptr;
+	Geometry* mSkyboxGeo = nullptr;
 
 	Buffer* mCameraUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 	Buffer* mMaterialUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };

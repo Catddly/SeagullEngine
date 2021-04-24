@@ -3,8 +3,8 @@
 #include <include/tinyimageformat_bits.h>
 #include <include/tinyimageformat_apis.h>
 
-//#define TINYKTX_IMPLEMENTATION
-//#include "../ThirdParty/OpenSource/tinyktx/tinyktx.h"
+#define TINYKTX_IMPLEMENTATION
+#include <tinyktx.h>
 //#include "../ThirdParty/OpenSource/basis_universal/transcoder/basisu_transcoder.h"
 
 #define CGLTF_IMPLEMENTATION
@@ -890,23 +890,23 @@ namespace SG
 	#endif
 				break;
 			}
-			//case SG_TEXTURE_CONTAINER_KTX:
-			//{
-			//	success = sgfs_open_stream_from_path(SG_RD_TEXTURES, fileName, SG_FM_READ_BINARY, &stream);
-			//	if (success)
-			//	{
-			//		//success = load_ktx_texture(&stream, &textureDesc);
-			//		updateDesc.mipsAfterSlice = true;
-			//		// KTX stores mip size before the mip data
-			//		// This function gets called to skip the mip size so we read the mip data
-			//		updateDesc.preMipFunc = [](FileStream* pStream, uint32_t)
-			//		{
-			//			uint32_t mipSize = 0;
-			//			sgfs_read_from_stream(pStream, &mipSize, sizeof(mipSize));
-			//		};
-			//	}
-			//	break;
-			//}
+			case SG_TEXTURE_CONTAINER_KTX:
+			{
+				success = sgfs_open_stream_from_path(SG_RD_TEXTURES, fileName, SG_FM_READ_BINARY, &stream);
+				if (success)
+				{
+					success = load_ktx_texture(&stream, &textureDesc);
+					updateDesc.mipsAfterSlice = true;
+					// KTX stores mip size before the mip data
+					// This function gets called to skip the mip size so we read the mip data
+					updateDesc.preMipFunc = [](FileStream* pStream, uint32_t)
+					{
+						uint32_t mipSize = 0;
+						sgfs_read_from_stream(pStream, &mipSize, sizeof(mipSize));
+					};
+				}
+				break;
+			}
 			//case SG_TEXTURE_CONTAINER_BASIS:
 			//{
 			//	void* data = nullptr;

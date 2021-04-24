@@ -24,6 +24,7 @@ project "RendererVulkan"
 		"../../Core/Third-party/Include/spirv-cross/",
 		"../../Core/Third-party/Include/cgltf/",
 		"../../Core/Third-party/Include/tinyObjLoader/",
+		"../../Core/Third-party/Include/tinyktx"
 	}
 
 	-- link libraries

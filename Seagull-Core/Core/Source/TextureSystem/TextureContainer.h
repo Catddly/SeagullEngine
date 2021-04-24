@@ -11,9 +11,10 @@
 #include <include/tinyimageformat_bits.h>
 #include <include/tinyimageformat_apis.h>
 
-//#include "../../ThirdParty/OpenSource/tinyktx/tinyktx.h"
-
+#include <tinyktx.h>
 //#include "../../ThirdParty/OpenSource/basis_universal/transcoder/basisu_transcoder.h"
+
+#include "Interface/IMemory.h"
 
 namespace SG
 {
@@ -692,65 +693,63 @@ if (!(exp))                   \
 		return true;
 	}
 
-	/// #TODO: Supported .ktx texture loading
-	// KTX Loading
-	//	static bool loadKTXTextureDesc(FileStream* pStream, TextureDesc* pOutDesc)
-	//	{
-	//#define RETURN_IF_FAILED(exp) \
-	//if (!(exp))                   \
-	//{                             \
-	//	return false;             \
-	//}
-	//
-	//		RETURN_IF_FAILED(pStream);
-	//
-	//		ssize_t ktxDataSize = sgfs_get_stream_file_size(pStream);
-	//		RETURN_IF_FAILED(ktxDataSize <= UINT32_MAX);
-	//
-	//		TinyKtx_Callbacks callbacks
-	//		{
-	//			[](void* user, char const* msg) { LOGF(eERROR, msg); },
-	//			[](void* user, size_t size) { return tf_malloc(size); },
-	//			[](void* user, void* memory) { tf_free(memory); },
-	//			[](void* user, void* buffer, size_t byteCount) { return fsReadFromStream((FileStream*)user, buffer, (ssize_t)byteCount); },
-	//			[](void* user, int64_t offset) { return fsSeekStream((FileStream*)user, SBO_START_OF_FILE, (ssize_t)offset); },
-	//			[](void* user) { return (int64_t)fsGetStreamSeekPosition((FileStream*)user); }
-	//		};
-	//
-	//		TinyKtx_ContextHandle ctx = TinyKtx_CreateContext(&callbacks, (void*)pStream);
-	//		bool headerOkay = TinyKtx_ReadHeader(ctx);
-	//		if (!headerOkay)
-	//		{
-	//			TinyKtx_DestroyContext(ctx);
-	//			return false;
-	//		}
-	//
-	//		TextureDesc& textureDesc = *pOutDesc;
-	//		textureDesc.mWidth = TinyKtx_Width(ctx);
-	//		textureDesc.mHeight = TinyKtx_Height(ctx);
-	//		textureDesc.mDepth = max(1U, TinyKtx_Depth(ctx));
-	//		textureDesc.mArraySize = max(1U, TinyKtx_ArraySlices(ctx));
-	//		textureDesc.mMipLevels = max(1U, TinyKtx_NumberOfMipmaps(ctx));
-	//		textureDesc.mFormat = TinyImageFormat_FromTinyKtxFormat(TinyKtx_GetFormat(ctx));
-	//		textureDesc.mDescriptors = DESCRIPTOR_TYPE_TEXTURE;
-	//		textureDesc.mSampleCount = SAMPLE_COUNT_1;
-	//
-	//		if (textureDesc.mFormat == TinyImageFormat_UNDEFINED)
-	//		{
-	//			TinyKtx_DestroyContext(ctx);
-	//			return false;
-	//		}
-	//
-	//		if (TinyKtx_IsCubemap(ctx))
-	//		{
-	//			textureDesc.mArraySize *= 6;
-	//			textureDesc.mDescriptors |= DESCRIPTOR_TYPE_TEXTURE_CUBE;
-	//		}
-	//
-	//		TinyKtx_DestroyContext(ctx);
-	//
-	//		return true;
-	//	}
+	//KTX Loading
+	static bool load_ktx_texture(FileStream* pStream, TextureCreateDesc* pOutDesc)
+	{
+#define RETURN_IF_FAILED(exp) \
+		if (!(exp))                   \
+		{                             \
+			return false;             \
+		}
+		RETURN_IF_FAILED(pStream);
+	
+		ssize_t ktxDataSize = sgfs_get_stream_file_size(pStream);
+		RETURN_IF_FAILED(ktxDataSize <= UINT32_MAX);
+	
+		TinyKtx_Callbacks callbacks
+		{
+			[](void* user, char const* msg) { SG_LOG_ERROR(msg); },
+			[](void* user, size_t size) { return sg_malloc(size); },
+			[](void* user, void* memory) { sg_free(memory); },
+			[](void* user, void* buffer, size_t byteCount) { return sgfs_read_from_stream((FileStream*)user, buffer, (ssize_t)byteCount); },
+			[](void* user, int64_t offset) { return sgfs_seek_stream((FileStream*)user, SG_SBO_START_OF_FILE, (ssize_t)offset); },
+			[](void* user) { return (int64_t)sgfs_get_offset_stream_position((FileStream*)user); }
+		};
+	
+		TinyKtx_ContextHandle ctx = TinyKtx_CreateContext(&callbacks, (void*)pStream);
+		bool headerOkay = TinyKtx_ReadHeader(ctx);
+		if (!headerOkay)
+		{
+			TinyKtx_DestroyContext(ctx);
+			return false;
+		}
+	
+		TextureCreateDesc& textureDesc = *pOutDesc;
+		textureDesc.width = TinyKtx_Width(ctx);
+		textureDesc.height = TinyKtx_Height(ctx);
+		textureDesc.depth = eastl::max(1U, TinyKtx_Depth(ctx));
+		textureDesc.arraySize = eastl::max(1U, TinyKtx_ArraySlices(ctx));
+		textureDesc.mipLevels = eastl::max(1U, TinyKtx_NumberOfMipmaps(ctx));
+		textureDesc.format = TinyImageFormat_FromTinyKtxFormat(TinyKtx_GetFormat(ctx));
+		textureDesc.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
+		textureDesc.sampleCount = SG_SAMPLE_COUNT_1;
+	
+		if (textureDesc.format == TinyImageFormat_UNDEFINED)
+		{
+			TinyKtx_DestroyContext(ctx);
+			return false;
+		}
+	
+		if (TinyKtx_IsCubemap(ctx))
+		{
+			textureDesc.arraySize *= 6;
+			textureDesc.descriptors |= SG_DESCRIPTOR_TYPE_TEXTURE_CUBE;
+		}
+	
+		TinyKtx_DestroyContext(ctx);
+	
+		return true;
+	}
 
 	// BASIS Loading
 //	static bool loadBASISTextureDesc(FileStream* pStream, TextureDesc* pOutDesc, void** ppOutData, uint32_t* pOutDataSize)
