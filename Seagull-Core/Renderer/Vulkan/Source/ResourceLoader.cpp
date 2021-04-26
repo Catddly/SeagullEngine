@@ -83,7 +83,6 @@ namespace SG
 	extern void cmd_update_buffer(Cmd* pCmd, Buffer* pBuffer, uint64_t dstOffset, Buffer* pSrcBuffer, uint64_t srcOffset, uint64_t size);
 	// copy read-in buffer to image
 	extern void cmd_update_subresource(Cmd* pCmd, Texture* pTexture, Buffer* pSrcBuffer, const SubresourceDataDesc* pSubresourceDesc);
-
 }
 
 // Xbox, Orbis, Prospero, iOS have unified memory

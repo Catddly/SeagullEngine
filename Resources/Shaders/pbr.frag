@@ -26,6 +26,13 @@ layout(set = 1, binding = 3) uniform MaterialData
     float smoothness;
 } mat;
 
+layout(std140, push_constant) uniform PushConsts 
+{
+    layout (offset = 0) mat4 model;
+} pushConsts;
+
+layout (set = 0, binding = 0) uniform samplerCube samplerIrradiance;
+
 layout(location = 0) in vec2 inTexCoord;
 layout(location = 1) in vec3 inNormalW;
 layout(location = 2) in vec3 inPosW;
@@ -44,6 +51,11 @@ float D_GGX(float dotNH, float roughness)
 vec3 F_Schlick(float cosTheta, vec3 F0)
 {
 	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0); // ?? should be dotVH?
+}
+
+vec3 F_SchlickR(float cosTheta, vec3 F0, float roughness)
+{
+	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
 float G_SchlicksmithGGX(float dotNL, float dotNV, float roughness)
@@ -85,6 +97,18 @@ vec3 specularBRDF(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float roughne
 	}
 
 	return color;
+}
+
+// From http://filmicgames.com/archives/75
+vec3 Uncharted2Tonemap(vec3 x)
+{
+	float A = 0.15;
+	float B = 0.50;
+	float C = 0.10;
+	float D = 0.20;
+	float E = 0.02;
+	float F = 0.30;
+	return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F))-E/F;
 }
 
 void main()
@@ -133,9 +157,29 @@ void main()
 		// light 2 end
 	}
 
+	// IBL
+	//vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	//vec3 reflection = prefilteredReflection(R, roughness).rgb;
+	vec3 samplerN = mat3(pushConsts.model) * N;
+	vec3 irradiance = texture(samplerIrradiance, samplerN).rgb;
+	vec3 diffuse = irradiance * mat.color;
+
+	vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);
+
+	// ambient part
+	vec3 kd = 1.0 - F;
+	kd *= 1.0 - metallic;	  
+	vec3 ambient = (kd * diffuse); // should add specular here
+
 	// fixed ambient
-	vec3 ambient = vec3(0.05, 0.05, 0.05);
+	//vec3 ambient = vec3(0.05, 0.05, 0.05);
     vec3 color = Lo + ambient;
+
+	// tone mapping
+	color = Uncharted2Tonemap(color * 4.5);
+	color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
+	// gamma correction
+	color = pow(color, vec3(1.0f / 2.2));
 
 	outColor = vec4(color, 1.0);
 }

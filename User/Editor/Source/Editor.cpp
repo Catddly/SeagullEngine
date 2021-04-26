@@ -216,10 +216,10 @@ public:
 
 	virtual bool OnLoad() override
 	{
-		DescriptorSetCreateDesc descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
+		DescriptorSetCreateDesc descriptorSetCreate = { mPbrRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mDescriptorSet);
-		descriptorSetCreate = { mRoomRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
-		add_descriptor_set(mRenderer, &descriptorSetCreate, &mRoomUboDescriptorSet);
+		descriptorSetCreate = { mPbrRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT };
+		add_descriptor_set(mRenderer, &descriptorSetCreate, &mModelUboDescSet);
 
 		if (!CreateSwapChain())
 			return false;
@@ -248,7 +248,7 @@ public:
 			DescriptorData bufferUpdate[1] = {};
 			bufferUpdate[0].name = "ubo";
 			bufferUpdate[0].ppBuffers = &mRoomUniformBuffer[i];
-			update_descriptor_set(mRenderer, i, mRoomUboDescriptorSet, 1, bufferUpdate);
+			update_descriptor_set(mRenderer, i, mModelUboDescSet, 1, bufferUpdate);
 		}
 
 		return true;
@@ -263,11 +263,11 @@ public:
 		remove_render_target(mRenderer, mRt);
 		remove_render_target(mRenderer, mDepthBuffer);
 
-		remove_pipeline(mRenderer, mDefaultPipeline);
+		remove_pipeline(mRenderer, mPbrPipeline);
 		remove_swapchain(mRenderer, mSwapChain);
 
 		remove_descriptor_set(mRenderer, mDescriptorSet);
-		remove_descriptor_set(mRenderer, mRoomUboDescriptorSet);
+		remove_descriptor_set(mRenderer, mModelUboDescSet);
 
 		return true;
 	}
@@ -378,17 +378,17 @@ public:
 				cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 				cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
 
-				cmd_bind_pipeline(cmd, mDefaultPipeline);
+				cmd_bind_pipeline(cmd, mPbrPipeline);
 				cmd_bind_descriptor_set(cmd, 0, mDescriptorSet);
-				cmd_bind_descriptor_set(cmd, mCurrentIndex, mRoomUboDescriptorSet);
+				cmd_bind_descriptor_set(cmd, mCurrentIndex, mModelUboDescSet);
 
-				cmd_bind_index_buffer(cmd, mRoomGeo->pIndexBuffer, mRoomGeo->indexType, 0);
-				Buffer* vertexBuffer[] = { mRoomGeo->pVertexBuffers[0] };
-				cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mRoomGeo->vertexStrides, nullptr);
+				cmd_bind_index_buffer(cmd, mModelGeo->pIndexBuffer, mModelGeo->indexType, 0);
+				Buffer* vertexBuffer[] = { mModelGeo->pVertexBuffers[0] };
+				cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mModelGeo->vertexStrides, nullptr);
 
-				for (uint32_t i = 0; i < mRoomGeo->drawArgCount; i++)
+				for (uint32_t i = 0; i < mModelGeo->drawArgCount; i++)
 				{
-					IndirectDrawIndexArguments& cmdDraw = mRoomGeo->pDrawArgs[i];
+					IndirectDrawIndexArguments& cmdDraw = mModelGeo->pDrawArgs[i];
 					cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
 				}
 			cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
@@ -518,8 +518,8 @@ private:
 		graphicPipe.sampleCount = mSwapChain->ppRenderTargets[0]->sampleCount;
 		graphicPipe.sampleQuality = mSwapChain->ppRenderTargets[0]->sampleQuality;
 
-		graphicPipe.pRootSignature = mRoomRootSignature;
-		graphicPipe.pShaderProgram = mDefaultShader;
+		graphicPipe.pRootSignature = mPbrRootSignature;
+		graphicPipe.pShaderProgram = mPbrShader;
 
 		graphicPipe.pVertexLayout = &vertexLayout;
 		graphicPipe.pRasterizerState = &rasterizeState;
@@ -527,9 +527,9 @@ private:
 		graphicPipe.depthStencilFormat = mDepthBuffer->format;
 
 		graphicPipe.pBlendState = &blendStateDesc;
-		add_pipeline(mRenderer, &pipelineCreate, &mDefaultPipeline);
+		add_pipeline(mRenderer, &pipelineCreate, &mPbrPipeline);
 
-		return mDefaultPipeline != nullptr;
+		return mPbrPipeline != nullptr;
 	}
 
 	bool CreateDepthBuffer()
@@ -633,14 +633,14 @@ private:
 
 		GeometryLoadDesc geoCreate = {};
 		geoCreate.fileName = "model.gltf";
-		geoCreate.ppGeometry = &mRoomGeo;
+		geoCreate.ppGeometry = &mModelGeo;
 		geoCreate.pVertexLayout = &mRoomGeoVertexLayout;
 		add_resource(&geoCreate, nullptr);
 
 		ShaderLoadDesc loadBasicShader = {};
 		loadBasicShader.stages[0] = { "triangle.vert", nullptr, 0, "main" };
 		loadBasicShader.stages[1] = { "triangle.frag", nullptr, 0, "main" };
-		add_shader(mRenderer, &loadBasicShader, &mDefaultShader);
+		add_shader(mRenderer, &loadBasicShader, &mPbrShader);
 
 		SamplerCreateDesc samplerCreate = {};
 		samplerCreate.addressU = SG_ADDRESS_MODE_CLAMP_TO_BORDER;
@@ -651,7 +651,7 @@ private:
 		samplerCreate.mipMapMode = SG_MIPMAP_MODE_LINEAR;
 		add_sampler(mRenderer, &samplerCreate, &mSampler);
 
-		Shader* submitShaders[] = { mDefaultShader };
+		Shader* submitShaders[] = { mPbrShader };
 		const char* staticSamplers[] = { "Sampler" };
 		RootSignatureCreateDesc rootSignatureCreate = {};
 		rootSignatureCreate.staticSamplerCount = COUNT_OF(staticSamplers);
@@ -659,7 +659,7 @@ private:
 		rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
 		rootSignatureCreate.ppShaders = submitShaders;
 		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
-		add_root_signature(mRenderer, &rootSignatureCreate, &mRoomRootSignature);
+		add_root_signature(mRenderer, &rootSignatureCreate, &mPbrRootSignature);
 
 		BufferLoadDesc uboCreate;
 		uboCreate.desc.descriptors = SG_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -682,18 +682,18 @@ private:
 		remove_resource(mTexture);
 		remove_resource(mLogoTex);
 
-		remove_resource(mRoomGeo);
+		remove_resource(mModelGeo);
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			remove_resource(mRoomUniformBuffer[i]);
 		}
 
 		remove_sampler(mRenderer, mSampler);
-		remove_shader(mRenderer, mDefaultShader);
+		remove_shader(mRenderer, mPbrShader);
 
 		exit_resource_loader_interface(mRenderer);
 
-		remove_root_signature(mRenderer, mRoomRootSignature);
+		remove_root_signature(mRenderer, mPbrRootSignature);
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; ++i)
 		{
@@ -845,24 +845,24 @@ private:
 	Semaphore* mRenderCompleteSemaphores[IMAGE_COUNT] = { 0 };
 	Semaphore* mImageAcquiredSemaphore = { 0 };
 
-	Shader* mDefaultShader = nullptr;
+	Shader* mPbrShader = nullptr;
 	Sampler* mSampler = nullptr;
 
 	Texture* mTexture = nullptr;
 	Texture* mLogoTex = nullptr;
-	RootSignature* mRoomRootSignature = nullptr;
+	RootSignature* mPbrRootSignature = nullptr;
 	DescriptorSet* mDescriptorSet = nullptr;
-	Pipeline* mDefaultPipeline = nullptr;
+	Pipeline* mPbrPipeline = nullptr;
 
 	/// this texture is use for getting the current present rt in the swapchain
 	RenderTarget* mDepthBuffer = nullptr;
 
 	VertexLayout mRoomGeoVertexLayout = {};
-	Geometry* mRoomGeo = nullptr;
+	Geometry* mModelGeo = nullptr;
 
 	Buffer* mRoomUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
 	UniformBuffer mModelData;
-	DescriptorSet* mRoomUboDescriptorSet = nullptr;
+	DescriptorSet* mModelUboDescSet = nullptr;
 
 	uint32_t mCurrentIndex = 0;
 

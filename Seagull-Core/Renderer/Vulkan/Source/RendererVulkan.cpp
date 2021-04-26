@@ -4420,6 +4420,38 @@ void cmd_update_subresource(Cmd* pCmd, Texture* pTexture, Buffer* pSrcBuffer, co
 	}
 }
 
+// copy image to image
+void cmd_image_blit(Cmd* cmd, Texture* pSrcTex, Texture* pDstTex, const CopyImageDesc* pSubresourceDesc)
+{
+	// Copy region for transfer from framebuffer to cube face
+	VkImageCopy copyRegion = {};
+
+	copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copyRegion.srcSubresource.baseArrayLayer = 0;
+	copyRegion.srcSubresource.mipLevel = 0;
+	copyRegion.srcSubresource.layerCount = 1;
+	copyRegion.srcOffset = { 0, 0, 0 };
+
+	copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copyRegion.dstSubresource.baseArrayLayer = pSubresourceDesc->arrayLayer;
+	copyRegion.dstSubresource.mipLevel = pSubresourceDesc->mipLevel;
+	copyRegion.dstSubresource.layerCount = pSubresourceDesc->layerCount;
+	copyRegion.dstOffset = { 0, 0, 0 };
+
+	copyRegion.extent.width = pSubresourceDesc->width;
+	copyRegion.extent.height = pSubresourceDesc->height;
+	copyRegion.extent.depth = pSubresourceDesc->depth;
+
+	vkCmdCopyImage(
+		cmd->pVkCmdBuf,
+		pSrcTex->pVkImage,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		pDstTex->pVkImage,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&copyRegion);
+}
+
 void cmd_bind_descriptor_set(Cmd* pCmd, uint32_t index, DescriptorSet* pDescriptorSet)
 {
 	ASSERT(pCmd);

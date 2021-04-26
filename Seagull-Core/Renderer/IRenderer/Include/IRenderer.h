@@ -246,6 +246,17 @@ namespace SG
 		SG_RESOURCE_BUFFER_ALIGNMENT = 4U,
 	} DefaultResourceAlignment;
 
+	typedef struct CopyImageDesc
+	{
+		uint32_t arrayLayer;
+		uint32_t layerCount;
+		uint32_t mipLevel;
+		uint32_t offset;
+		uint32_t width;
+		uint32_t height;
+		uint32_t depth;
+	} CopyImageDesc;
+
 #pragma region (Blending)
 
 	static const int BLEND_RED = 0x1;
@@ -2278,6 +2289,8 @@ namespace SG
 	SG_RENDER_API void SG_CALLCONV cmd_draw_indexed(Cmd* pCmd, uint32_t indexCount, uint32_t firstIndex, uint32_t firstVertex);
 	SG_RENDER_API void SG_CALLCONV cmd_draw_indexed_instanced(Cmd* pCmd, uint32_t indexCount, uint32_t firstIndex, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
 	SG_RENDER_API void SG_CALLCONV cmd_dispatch(Cmd* pCmd, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
+
+	SG_RENDER_API void SG_CALLCONV cmd_image_blit(Cmd* cmd, Texture* pSrcTex, Texture* pDstTex, const CopyImageDesc* pSubresourceDesc);
 
 	// barrier transition command
 	SG_RENDER_API void SG_CALLCONV cmd_resource_barrier(Cmd* pCmd, uint32_t bufferBarrierCount, BufferBarrier* pBufferBarriers, uint32_t textureBarrierCount, TextureBarrier* pTextureBarriers, uint32_t rtBarrierCount, RenderTargetBarrier* pRtBarriers);
