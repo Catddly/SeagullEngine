@@ -5,6 +5,8 @@ bin-int/
 Bin/
 Bin-int/
 
+Resources/
+
 # Prerequisites
 *.d
 
