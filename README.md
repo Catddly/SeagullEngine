@@ -25,7 +25,10 @@ https://github.com/ConfettiFX/The-Forge
 
 ## Building
 
-Open the Scripts folder, and run the GenerateProject-Win.bat.  
+First, you need to download the [resources](https://github.com/ILLmew/SeagullEngine/releases) for seagull to use. Extract it to the root folder
+of the Seagull Engine.
+
+Last, Open the Scripts folder, and run the GenerateProject-Win.bat.  
 After that, you will see the Seagull.sln in the root directory.  
 Open the solution file, build the whole solution and you are ready to go!
 
