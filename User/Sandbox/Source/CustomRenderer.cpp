@@ -210,6 +210,7 @@ public:
 		RegisterCameraControls();
 
 		GenerateIrradianceCubeMap();
+		GeneratePrefilterCubeMap();
 
 		return true;
 	}
@@ -232,7 +233,7 @@ public:
 	{
 		DescriptorSetCreateDesc descriptorSetCreate = { mSkyboxRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mSkyboxTexDescSet);
-		descriptorSetCreate = { mPbrRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
+		descriptorSetCreate = { mPbrRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 2 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mModelTexDescSet);
 		descriptorSetCreate = { mPbrRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_PER_FRAME, IMAGE_COUNT * 2 };
 		add_descriptor_set(mRenderer, &descriptorSetCreate, &mModelUboDescSet);
@@ -269,7 +270,9 @@ public:
 		DescriptorData modelUpdateData[2] = {};
 		modelUpdateData[0].name = "samplerIrradiance";
 		modelUpdateData[0].ppTextures = &mIrradianceCubeMap->pTexture;
-		update_descriptor_set(mRenderer, 0, mModelTexDescSet, 1, modelUpdateData); // update the cubemap
+		modelUpdateData[1].name = "samplerPrefilter";
+		modelUpdateData[1].ppTextures = &mPrefilterCubeMap->pTexture;
+		update_descriptor_set(mRenderer, 0, mModelTexDescSet, 2, modelUpdateData); // update the cubemap
 
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
@@ -1076,10 +1079,11 @@ private:
 		add_root_signature(mRenderer, &rootSignatureCreate, &mSkyboxRootSignature);
 
 		Shader* submitShaders[] = { mPbrShader };
-		const char* modelStaticSamplers[] = { "samplerIrradiance" };
+		const char* modelStaticSamplers[] = { "samplerIrradiance", "samplerPrefilter" };
+		Sampler* submitSamplers[] = { mSampler, mSampler };
 		rootSignatureCreate = {};
-		rootSignatureCreate.staticSamplerCount = 1;
-		rootSignatureCreate.ppStaticSamplers = &mSampler;
+		rootSignatureCreate.staticSamplerCount = 2;
+		rootSignatureCreate.ppStaticSamplers = submitSamplers;
 		rootSignatureCreate.ppStaticSamplerNames = modelStaticSamplers;
 		rootSignatureCreate.ppShaders = submitShaders;
 		rootSignatureCreate.shaderCount = COUNT_OF(submitShaders);
@@ -1514,9 +1518,9 @@ private:
 
 		struct PushLauout
 		{
-			Matrix4 mvp;
-			float roughness;
-			uint32_t numSamples = 32u;
+			Matrix4 mvp = Matrix4(1.0);
+			float roughness = 0.0f;
+			float numSamples = 32.0f;
 		};
 
 		eastl::vector<Matrix4> matrices = {
