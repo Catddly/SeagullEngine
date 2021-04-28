@@ -130,7 +130,6 @@ public:
 		mMainGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
 		mMainGui->AddWidget(LabelWidget("TestWindow1"));
 		mMainGui->AddWidget(ImageWidget("Logo", (void*)mLogoTex, { 256, 256 }));
-		//mViewport = mMainGui->AddWidget(ViewportWidget("IrradianceCube", { 128, 128 }));
 
 		mSecondGui = mUiMiddleware.AddGuiComponent("Settings", &guiDesc);
 		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
@@ -210,7 +209,7 @@ public:
 
 		RegisterCameraControls();
 
-		GenerateResources();
+		GenerateIrradianceCubeMap();
 
 		return true;
 	}
@@ -225,6 +224,7 @@ public:
 		mUiMiddleware.OnExit();
 
 		remove_render_target(mRenderer, mIrradianceCubeMap);
+		remove_render_target(mRenderer, mPrefilterCubeMap);
 		RemoveRenderResource();
 	}
 
@@ -797,6 +797,68 @@ private:
 		return mIrradianceCubePipeline != nullptr;
 	}
 
+	bool CreatePrefilterPipeline()
+	{
+		VertexLayout vertexLayout = {};
+		vertexLayout.attribCount = 3;
+
+		vertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
+		vertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
+		vertexLayout.attribs[0].binding = 0;
+		vertexLayout.attribs[0].location = 0;
+		vertexLayout.attribs[0].offset = 0;
+
+		vertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
+		vertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
+		vertexLayout.attribs[1].binding = 0;
+		vertexLayout.attribs[1].location = 1;
+		vertexLayout.attribs[1].offset = 3 * sizeof(float);
+
+		vertexLayout.attribs[2].semantic = SG_SEMANTIC_NORMAL;
+		vertexLayout.attribs[2].format = TinyImageFormat_R32G32B32_SFLOAT;
+		vertexLayout.attribs[2].binding = 0;
+		vertexLayout.attribs[2].location = 2;
+		vertexLayout.attribs[2].offset = 5 * sizeof(float);
+
+		RasterizerStateDesc rasterizeState = {};
+		rasterizeState.cullMode = SG_CULL_MODE_NONE;
+		//rasterizeState.frontFace = SG_FRONT_FACE_CCW;
+
+		DepthStateDesc depthStateDesc = {};
+		depthStateDesc.depthTest = false;
+		depthStateDesc.depthWrite = false;
+		depthStateDesc.depthFunc = SG_COMPARE_MODE_LEQUAL;
+
+		BlendStateDesc blendStateDesc = {};
+		blendStateDesc.srcFactors[0] = SG_BLEND_CONST_ONE;
+		blendStateDesc.srcAlphaFactors[0] = SG_BLEND_CONST_ONE;
+		blendStateDesc.renderTargetMask = SG_BLEND_STATE_TARGET_0;
+		blendStateDesc.masks[0] = SG_BLEND_COLOR_MASK_ALL;
+
+		PipelineCreateDesc pipelineCreate = {};
+		pipelineCreate.type = SG_PIPELINE_TYPE_GRAPHICS;
+		GraphicsPipelineDesc& graphicPipe = pipelineCreate.graphicsDesc;
+		graphicPipe.primitiveTopo = SG_PRIMITIVE_TOPO_TRI_LIST;
+		graphicPipe.renderTargetCount = 1;
+
+		graphicPipe.pColorFormats = &mPrefilterCubeBuffer->format;
+		graphicPipe.pDepthState = &depthStateDesc;
+
+		graphicPipe.sampleCount = mPrefilterCubeBuffer->sampleCount;
+		graphicPipe.sampleQuality = mPrefilterCubeBuffer->sampleQuality;
+
+		graphicPipe.pRootSignature = mPrefilterRootSignature;
+		graphicPipe.pShaderProgram = mPrefilterShader;
+
+		graphicPipe.pVertexLayout = &vertexLayout;
+		graphicPipe.pRasterizerState = &rasterizeState;
+
+		graphicPipe.pBlendState = &blendStateDesc;
+		add_pipeline(mRenderer, &pipelineCreate, &mPrefilterCubePipeline);
+
+		return mPrefilterCubePipeline != nullptr;
+	}
+
 	bool CreateDepthBuffer()
 	{
 		RenderTargetCreateDesc depthRT = {};
@@ -825,8 +887,8 @@ private:
 		irradianceCubeRT.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
 		irradianceCubeRT.format = TinyImageFormat_R32G32B32A32_SFLOAT;
 		irradianceCubeRT.startState = SG_RESOURCE_STATE_COPY_SOURCE;
-		irradianceCubeRT.width = 128;
-		irradianceCubeRT.height = 128;
+		irradianceCubeRT.width = 64;
+		irradianceCubeRT.height = 64;
 		irradianceCubeRT.mipLevels = 1;
 		irradianceCubeRT.sampleCount = SG_SAMPLE_COUNT_1;
 		irradianceCubeRT.sampleQuality = 0;
@@ -836,9 +898,29 @@ private:
 		return mIrradianceCubeBuffer != nullptr;
 	}
 
+	bool CreatePrefilterBuffer()
+	{
+		RenderTargetCreateDesc prefilterCubeRT = {};
+		prefilterCubeRT.arraySize = 1;
+		prefilterCubeRT.clearValue = { { 1.0f, 0 } };
+		prefilterCubeRT.depth = 1;
+		prefilterCubeRT.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE;
+		prefilterCubeRT.format = TinyImageFormat_R16G16B16A16_SFLOAT;
+		prefilterCubeRT.startState = SG_RESOURCE_STATE_COPY_SOURCE;
+		prefilterCubeRT.width = 512;
+		prefilterCubeRT.height = 512;
+		prefilterCubeRT.mipLevels = 1;
+		prefilterCubeRT.sampleCount = SG_SAMPLE_COUNT_1;
+		prefilterCubeRT.sampleQuality = 0;
+		prefilterCubeRT.name = "PrefilterCubeBuffer";
+
+		add_render_target(mRenderer, &prefilterCubeRT, &mPrefilterCubeBuffer);
+		return mPrefilterCubeBuffer != nullptr;
+	}
+
 	bool CreateIrradianceCubeMap()
 	{
-		const int32_t dim = 128;
+		const int32_t dim = 64;
 		const uint32_t numMips = static_cast<uint32_t>(floor(log2(dim))) + 1;
 
 		RenderTargetCreateDesc irradianceCubeRT = {};
@@ -848,8 +930,8 @@ private:
 		irradianceCubeRT.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE_CUBE;
 		irradianceCubeRT.format = TinyImageFormat_R32G32B32A32_SFLOAT;
 		irradianceCubeRT.startState = SG_RESOURCE_STATE_SHADER_RESOURCE;
-		irradianceCubeRT.width = 128;
-		irradianceCubeRT.height = 128;
+		irradianceCubeRT.width = dim;
+		irradianceCubeRT.height = dim;
 		irradianceCubeRT.mipLevels = numMips;
 		irradianceCubeRT.sampleCount = SG_SAMPLE_COUNT_1;
 		irradianceCubeRT.sampleQuality = 0;
@@ -857,6 +939,29 @@ private:
 
 		add_render_target(mRenderer, &irradianceCubeRT, &mIrradianceCubeMap);
 		return mIrradianceCubeMap != nullptr;
+	}
+
+	bool CreatePrefilterCubeMap()
+	{
+		const int32_t dim = 512;
+		const uint32_t numMips = static_cast<uint32_t>(floor(log2(dim))) + 1;
+
+		RenderTargetCreateDesc prefilterCubeRT = {};
+		prefilterCubeRT.arraySize = 6;
+		prefilterCubeRT.clearValue = { { 1.0f, 0 } };
+		prefilterCubeRT.depth = 1;
+		prefilterCubeRT.descriptors = SG_DESCRIPTOR_TYPE_TEXTURE_CUBE;
+		prefilterCubeRT.format = TinyImageFormat_R16G16B16A16_SFLOAT;
+		prefilterCubeRT.startState = SG_RESOURCE_STATE_SHADER_RESOURCE;
+		prefilterCubeRT.width = dim;
+		prefilterCubeRT.height = dim;
+		prefilterCubeRT.mipLevels = numMips;
+		prefilterCubeRT.sampleCount = SG_SAMPLE_COUNT_1;
+		prefilterCubeRT.sampleQuality = 0;
+		prefilterCubeRT.name = "PrefilterCubeMap";
+
+		add_render_target(mRenderer, &prefilterCubeRT, &mPrefilterCubeMap);
+		return mPrefilterCubeMap != nullptr;
 	}
 
 	bool CreateRenderResource()
@@ -892,10 +997,6 @@ private:
 		}
 		add_semaphore(mRenderer, &mImageAcquiredSemaphore);
 
-		//ResourceLoaderDesc loaderDesc;
-		//loaderDesc.singleThreaded = true;
-		//loaderDesc.bufferCount = 1;
-		//loaderDesc.bufferSize = 1024 * 64;
 		init_resource_loader_interface(mRenderer);
 
 		TextureLoadDesc textureCreate = {};
@@ -1251,9 +1352,9 @@ private:
 		end_update_resource(&uboUpdate, nullptr);
 	}
 
-	void GenerateResources()
+	void GenerateIrradianceCubeMap()
 	{
-		const int32_t dim = 128;
+		const int32_t dim = 64;
 		const uint32_t numMips = static_cast<uint32_t>(floor(log2(dim))) + 1;
 
 		eastl::vector<Matrix4> matrices = {
@@ -1405,6 +1506,163 @@ private:
 		remove_render_target(mRenderer, mIrradianceCubeBuffer);
 		remove_pipeline(mRenderer, mIrradianceCubePipeline);
 	}
+
+	void GeneratePrefilterCubeMap()
+	{
+		const int32_t dim = 512;
+		const uint32_t numMips = static_cast<uint32_t>(floor(log2(dim))) + 1;
+
+		struct PushLauout
+		{
+			Matrix4 mvp;
+			float roughness;
+			uint32_t numSamples = 32u;
+		};
+
+		eastl::vector<Matrix4> matrices = {
+			// POSITIVE_X
+			glm::rotate(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
+			// NEGATIVE_X
+			glm::rotate(glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
+			// POSITIVE_Y
+			glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f + 180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
+			// NEGATIVE_Y
+			glm::rotate(glm::mat4(1.0f), glm::radians(90.0f + 180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
+			// POSITIVE_Z
+			glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
+			// NEGATIVE_Z
+			glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+		};
+
+		ShaderLoadDesc loadBasicShader = {};
+		loadBasicShader.stages[0] = { "prefilterCube.vert", nullptr, 0, "main" };
+		loadBasicShader.stages[1] = { "prefilterCube.frag", nullptr, 0, "main" };
+		add_shader(mRenderer, &loadBasicShader, &mPrefilterShader);
+
+		Shader* submitShader[] = { mPrefilterShader };
+		const char* staticSamplers[] = { "skyboxCubeMap" };
+		RootSignatureCreateDesc rootSignatureCreate = {};
+		rootSignatureCreate.staticSamplerCount = 1;
+		rootSignatureCreate.ppStaticSamplers = &mSampler;
+		rootSignatureCreate.ppStaticSamplerNames = staticSamplers;
+		rootSignatureCreate.ppShaders = submitShader;
+		rootSignatureCreate.shaderCount = COUNT_OF(submitShader);
+		add_root_signature(mRenderer, &rootSignatureCreate, &mPrefilterRootSignature);
+
+		DescriptorSetCreateDesc descriptorSetCreate = { mPrefilterRootSignature, SG_DESCRIPTOR_UPDATE_FREQ_NONE, 1 };
+		add_descriptor_set(mRenderer, &descriptorSetCreate, &mPrefilterTexDescSet);
+
+		wait_for_all_resource_loads();
+
+		DescriptorData updateData[2] = {};
+		updateData[0].name = "skyboxCubeMap";
+		updateData[0].ppTextures = &mSkyboxCubeMap;
+		update_descriptor_set(mRenderer, 0, mPrefilterTexDescSet, 1, updateData); // update the cubemap
+
+		CreatePrefilterBuffer();
+		CreatePrefilterCubeMap();
+		CreatePrefilterPipeline();
+
+		/// begin draw
+		FenceStatus fenceStatus;
+
+		reset_command_pool(mRenderer, mCmdPools[0]);
+
+		Cmd* tempCmd = nullptr;
+		CmdCreateDesc cmdCreate = {};
+		cmdCreate.pPool = mCmdPools[0];
+		add_cmd(mRenderer, &cmdCreate, &tempCmd);
+
+		PushLauout pushConsts;
+
+		// begin command buffer
+		begin_cmd(tempCmd);
+
+		RenderTargetBarrier renderTargetBarriers;
+
+		LoadActionsDesc loadAction = {};
+		loadAction.loadActionsColor[0] = SG_LOAD_ACTION_CLEAR;
+		loadAction.clearColorValues[0].r = 0.0f;
+		loadAction.clearColorValues[0].g = 0.0f;
+		loadAction.clearColorValues[0].b = 0.0f;
+		loadAction.clearColorValues[0].a = 1.0f;
+
+		renderTargetBarriers = { mPrefilterCubeMap, SG_RESOURCE_STATE_SHADER_RESOURCE, SG_RESOURCE_STATE_COPY_DEST };
+		cmd_resource_barrier(tempCmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
+
+		for (int i = 0; i < numMips; i++) // for each mip-level
+		{
+			pushConsts.roughness = (float)i / (float)(numMips - 1);
+			for (int j = 0; j < 6; j++) // for each side of the cube map
+			{
+				renderTargetBarriers = { mPrefilterCubeBuffer, SG_RESOURCE_STATE_COPY_SOURCE, SG_RESOURCE_STATE_RENDER_TARGET };
+				cmd_resource_barrier(tempCmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
+
+				auto width = static_cast<float>(dim * std::pow(0.5f, i));
+				auto height = static_cast<float>(dim * std::pow(0.5f, i));
+				cmd_set_viewport(tempCmd, 0, 0, width, height, 0.0f, 1.0f);
+				cmd_set_scissor(tempCmd, 0, 0, width, height);
+
+				cmd_bind_render_targets(tempCmd, 1, &mPrefilterCubeBuffer, nullptr, &loadAction, nullptr, nullptr, -1, -1);
+					pushConsts.mvp = glm::perspective((float)(PI / 2.0), 1.0f, 0.1f, 512.0f) * matrices[j];
+					cmd_bind_push_constants(tempCmd, mPrefilterRootSignature, "pushConsts", &pushConsts);
+
+					cmd_bind_pipeline(tempCmd, mPrefilterCubePipeline);
+					cmd_bind_descriptor_set(tempCmd, 0, mPrefilterTexDescSet);
+
+					cmd_bind_index_buffer(tempCmd, mSkyboxGeo->pIndexBuffer, mSkyboxGeo->indexType, 0);
+					Buffer* skyboxVertexBuffer[] = { mSkyboxGeo->pVertexBuffers[0] };
+					cmd_bind_vertex_buffer(tempCmd, 1, skyboxVertexBuffer, mSkyboxGeo->vertexStrides, nullptr);
+
+					for (uint32_t i = 0; i < mSkyboxGeo->drawArgCount; i++)
+					{
+						IndirectDrawIndexArguments& cmdDraw = mSkyboxGeo->pDrawArgs[i];
+						cmd_draw_indexed(tempCmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
+					}
+				cmd_bind_render_targets(tempCmd, 0, nullptr, nullptr, nullptr, nullptr, nullptr, -1, -1);
+
+				renderTargetBarriers = { mPrefilterCubeBuffer, SG_RESOURCE_STATE_RENDER_TARGET, SG_RESOURCE_STATE_COPY_SOURCE };
+				cmd_resource_barrier(tempCmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
+
+				CopyImageDesc imageBlit = {};
+				imageBlit.arrayLayer = j;
+				imageBlit.layerCount = 1;
+				imageBlit.mipLevel = i;
+				imageBlit.offset = 0;
+				imageBlit.width = static_cast<uint32_t>(width);
+				imageBlit.height = static_cast<uint32_t>(height);
+				imageBlit.depth = 1;
+				cmd_image_blit(tempCmd, mPrefilterCubeBuffer->pTexture, mPrefilterCubeMap->pTexture, &imageBlit);
+			}
+		}
+
+		renderTargetBarriers = { mPrefilterCubeMap, SG_RESOURCE_STATE_COPY_DEST, SG_RESOURCE_STATE_SHADER_RESOURCE };
+		cmd_resource_barrier(tempCmd, 0, nullptr, 0, nullptr, 1, &renderTargetBarriers);
+
+		end_cmd(tempCmd);
+
+		Fence* tempFence = nullptr;
+		add_fence(mRenderer, &tempFence);
+
+		QueueSubmitDesc submitDesc = {};
+		submitDesc.cmdCount = 1;
+		submitDesc.signalSemaphoreCount = 0;
+		submitDesc.waitSemaphoreCount = 0;
+		submitDesc.ppCmds = &tempCmd;
+		submitDesc.pSignalFence = tempFence;
+		queue_submit(mGraphicQueue, &submitDesc);
+
+		wait_for_fences(mRenderer, 1, &tempFence);
+		remove_fence(mRenderer, tempFence);
+		/// end draw
+
+		remove_cmd(mRenderer, tempCmd);
+		remove_descriptor_set(mRenderer, mPrefilterTexDescSet);
+		remove_root_signature(mRenderer, mPrefilterRootSignature);
+		remove_shader(mRenderer, mPrefilterShader);
+		remove_render_target(mRenderer, mPrefilterCubeBuffer);
+		remove_pipeline(mRenderer, mPrefilterCubePipeline);
+	}
 private:
 	Renderer* mRenderer = nullptr;
 	Queue* mGraphicQueue = nullptr;
@@ -1416,12 +1674,14 @@ private:
 	/// this texture is use for getting the current present rt in the swapchain
 	RenderTarget* mDepthBuffer = nullptr;
 
-	//Sampler* mIrradianceSampler = nullptr;
 	RenderTarget* mIrradianceCubeBuffer = nullptr;
 	RootSignature* mIrradianceRootSignature = nullptr;
-	//DescriptorSet* mIrradianceUboDescSet = nullptr;
 	DescriptorSet* mIrradianceTexDescSet = nullptr;
 	Pipeline* mIrradianceCubePipeline = nullptr;
+	RenderTarget* mPrefilterCubeBuffer = nullptr;
+	RootSignature* mPrefilterRootSignature = nullptr;
+	DescriptorSet* mPrefilterTexDescSet = nullptr;
+	Pipeline* mPrefilterCubePipeline = nullptr;
 
 	Fence* mRenderCompleteFences[IMAGE_COUNT] = { 0 };
 	Semaphore* mRenderCompleteSemaphores[IMAGE_COUNT] = { 0 };
@@ -1431,12 +1691,14 @@ private:
 	Shader* mPbrShader = nullptr;
 	Shader* mLightShader = nullptr;
 	Shader* mIrradianceShader = nullptr;
+	Shader* mPrefilterShader = nullptr;
 	Texture* mLogoTex = nullptr;
 
 	// combined image sampler
 	Sampler* mSampler = nullptr;
 	Texture* mSkyboxCubeMap = nullptr;
-	RenderTarget* mIrradianceCubeMap = nullptr;
+	RenderTarget* mIrradianceCubeMap = nullptr; // for ambient
+	RenderTarget* mPrefilterCubeMap = nullptr;  // for specular
 
 	RootSignature* mSkyboxRootSignature = nullptr;
 	DescriptorSet* mSkyboxUboDescSet = nullptr;
