@@ -418,23 +418,6 @@ public:
 		cmd_bind_render_targets(cmd, 1, &renderTarget, mDepthBuffer, &loadAction, nullptr, nullptr, -1, -1);
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			cmd_set_scissor(cmd, 0, 0, renderTarget->width, renderTarget->height);
-			if (gDrawLightProxyGeom)
-			{
-				/// light proxy start
-				cmd_bind_pipeline(cmd, mLightProxyGeomPipeline);
-				cmd_bind_descriptor_set(cmd, mCurrentIndex, mLightProxyGeomUboDescSet);
-
-				cmd_bind_index_buffer(cmd, mSkyboxGeo->pIndexBuffer, mSkyboxGeo->indexType, 0);
-				Buffer* skyboxVertexBuffer[] = { mSkyboxGeo->pVertexBuffers[0] };
-				cmd_bind_vertex_buffer(cmd, 1, skyboxVertexBuffer, mSkyboxGeo->vertexStrides, nullptr);
-
-				for (uint32_t i = 0; i < mSkyboxGeo->drawArgCount; i++)
-				{
-					IndirectDrawIndexArguments& cmdDraw = mSkyboxGeo->pDrawArgs[i];
-					cmd_draw_indexed_instanced(cmd, mSkyboxGeo->indexCount, 0, 2, 0, 0);
-				}
-				/// light proxy end
-			}
 
 			/// geom start
 			cmd_bind_push_constants(cmd, mPbrRootSignature, "pushConsts", &mPbrSamplerData);
@@ -471,6 +454,24 @@ public:
 			}
 			cmd_set_viewport(cmd, 0.0f, 0.0f, (float)renderTarget->width, (float)renderTarget->height, 0.0f, 1.0f);
 			/// skybox end
+
+			if (gDrawLightProxyGeom)
+			{
+				/// light proxy start
+				cmd_bind_pipeline(cmd, mLightProxyGeomPipeline);
+				cmd_bind_descriptor_set(cmd, mCurrentIndex, mLightProxyGeomUboDescSet);
+
+				cmd_bind_index_buffer(cmd, mSkyboxGeo->pIndexBuffer, mSkyboxGeo->indexType, 0);
+				Buffer* skyboxVertexBuffer[] = { mSkyboxGeo->pVertexBuffers[0] };
+				cmd_bind_vertex_buffer(cmd, 1, skyboxVertexBuffer, mSkyboxGeo->vertexStrides, nullptr);
+
+				for (uint32_t i = 0; i < mSkyboxGeo->drawArgCount; i++)
+				{
+					IndirectDrawIndexArguments& cmdDraw = mSkyboxGeo->pDrawArgs[i];
+					cmd_draw_indexed_instanced(cmd, mSkyboxGeo->indexCount, 0, 2, 0, 0);
+				}
+				/// light proxy end
+			}
 		cmd_bind_render_targets(cmd, 0, nullptr, 0, nullptr, nullptr, nullptr, -1, -1);
 
 		cmd_bind_render_targets(cmd, 1, &renderTarget, nullptr, nullptr, nullptr, nullptr, -1, -1);
@@ -1035,7 +1036,7 @@ private:
 		roomGeoVertexLayout.attribs[2].offset = 5 * sizeof(float);
 
 		GeometryLoadDesc geoCreate = {};
-		geoCreate.fileName = "sphere.gltf";
+		geoCreate.fileName = "model.gltf";
 		geoCreate.ppGeometry = &mModelGeo;
 		geoCreate.pVertexLayout = &roomGeoVertexLayout;
 		add_resource(&geoCreate, nullptr);
