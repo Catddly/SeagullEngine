@@ -4,6 +4,8 @@ using namespace SG;
 #include "CustomLighting/Light.h"
 #include "CustomLighting/Material.h"
 
+#include <commdlg.h>
+
 #define IMAGE_COUNT 2
 
 #define COUNT_OF(a) (sizeof(a) / sizeof(a[0]))
@@ -78,6 +80,72 @@ ColorSliderWidget   gColorSliderMat("Color", &gMaterialColor);
 SliderFloatWidget   gSliderMat("Metallic", &gMaterialData.metallic, 0.0f, 1.0f);
 SliderFloatWidget   gSliderSmoo("Smoothness", &gMaterialData.smoothness, 0.0f, 1.0f);
 
+Geometry* gDynamicGeo = nullptr;
+Geometry* gDeleteGeo  = nullptr;
+HWND      gCurrWindowHandle = NULL;
+uint32_t  gCurrentIndex = 0;
+int32_t   gDeleteIndex = -1;
+void LoadGeometry()
+{
+	if (gDynamicGeo)
+	{
+		gDeleteGeo = gDynamicGeo;
+		gDynamicGeo = nullptr;
+		gDeleteIndex = gCurrentIndex;
+	}
+
+	VertexLayout geoVertexLayout;
+	geoVertexLayout.attribCount = 3;
+
+	geoVertexLayout.attribs[0].semantic = SG_SEMANTIC_POSITION;
+	geoVertexLayout.attribs[0].format = TinyImageFormat_R32G32B32_SFLOAT;
+	geoVertexLayout.attribs[0].binding = 0;
+	geoVertexLayout.attribs[0].location = 0;
+	geoVertexLayout.attribs[0].offset = 0;
+
+	geoVertexLayout.attribs[1].semantic = SG_SEMANTIC_TEXCOORD0;
+	geoVertexLayout.attribs[1].format = TinyImageFormat_R32G32_SFLOAT;
+	geoVertexLayout.attribs[1].binding = 0;
+	geoVertexLayout.attribs[1].location = 1;
+	geoVertexLayout.attribs[1].offset = 3 * sizeof(float);
+
+	geoVertexLayout.attribs[2].semantic = SG_SEMANTIC_NORMAL;
+	geoVertexLayout.attribs[2].format = TinyImageFormat_R32G32B32_SFLOAT;
+	geoVertexLayout.attribs[2].binding = 0;
+	geoVertexLayout.attribs[2].location = 2;
+	geoVertexLayout.attribs[2].offset = 5 * sizeof(float);
+
+	OPENFILENAMEA ofn;        // common dialog box structure
+	CHAR szFile[260] = { 0 }; // if using TCHAR macros
+	const char* filter = "Model (*.gltf)\0*.gltf\0";
+	eastl::string filepath;
+
+	ZeroMemory(&ofn, sizeof(OPENFILENAMEA));
+	ofn.lStructSize = sizeof(OPENFILENAMEA);
+	ofn.hwndOwner = gCurrWindowHandle;
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = sizeof(szFile);
+	ofn.lpstrFilter = filter;
+	ofn.nFilterIndex = 1;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+	if (::GetOpenFileNameA(&ofn) == TRUE)
+	{
+		//SG_LOG_DEBUG(ofn.lpstrFile);
+		filepath = ofn.lpstrFile;
+	}
+	char token = '/\\';
+	size_t lastToken = filepath.find_last_of(token);
+	eastl::string fileName = filepath.substr(lastToken + 1, filepath.size() - lastToken);
+
+	GeometryLoadDesc geoCreate = {};
+	geoCreate.fileName = fileName.c_str();
+	geoCreate.ppGeometry = &gDynamicGeo;
+	geoCreate.pVertexLayout = &geoVertexLayout;
+	add_resource(&geoCreate, nullptr);
+
+	wait_for_all_resource_loads();
+}
+
 class CustomRenderer : public IApp
 {
 public:
@@ -110,6 +178,8 @@ public:
 			glm::rotate(Matrix4(1.0f), glm::radians(0.0f), { 0.0f, 1.0f, 0.0f }) *
 			glm::rotate(Matrix4(1.0f), glm::radians(270.0f), { 0.0f, 0.0f, -1.0f });
 
+		gCurrWindowHandle = (HWND)mWindow->handle.window;
+
 		if (!CreateRenderResource())
 			return false;
 
@@ -133,6 +203,10 @@ public:
 
 		mSecondGui = mUiMiddleware.AddGuiComponent("Settings", &guiDesc);
 		mSecondGui->flags ^= SG_GUI_FLAGS_ALWAYS_AUTO_RESIZE;
+		ButtonWidget loadGeo("Load Model");
+		loadGeo.pOnEdited = LoadGeometry;
+		mSecondGui->AddWidget(loadGeo);
+		mSecondGui->AddWidget(SeparatorWidget());
 		ButtonWidget buttonRotate("Toggle Rotate");
 		buttonRotate.pOnEdited = ToggleRotate;
 		mSecondGui->AddWidget(buttonRotate);
@@ -380,8 +454,8 @@ public:
 
 		// get the render target from the swapchain
 		RenderTarget* renderTarget = mSwapChain->ppRenderTargets[imageIndex];
-		Semaphore* renderCompleteSemaphore = mRenderCompleteSemaphores[mCurrentIndex];
-		Fence* renderCompleteFence = mRenderCompleteFences[mCurrentIndex];
+		Semaphore* renderCompleteSemaphore = mRenderCompleteSemaphores[gCurrentIndex];
+		Fence* renderCompleteFence = mRenderCompleteFences[gCurrentIndex];
 
 		FenceStatus fenceStatus;
 		get_fence_status(mRenderer, renderCompleteFence, &fenceStatus);
@@ -389,9 +463,9 @@ public:
 			wait_for_fences(mRenderer, 1, &renderCompleteFence);
 
 		// reset command pool for this frame 
-		reset_command_pool(mRenderer, mCmdPools[mCurrentIndex]);
+		reset_command_pool(mRenderer, mCmdPools[gCurrentIndex]);
 
-		Cmd* cmd = mCmds[mCurrentIndex];
+		Cmd* cmd = mCmds[gCurrentIndex];
 
 		// begin command buffer
 		begin_cmd(cmd);
@@ -423,15 +497,15 @@ public:
 			cmd_bind_push_constants(cmd, mPbrRootSignature, "pushConsts", &mPbrSamplerData);
 			cmd_bind_pipeline(cmd, mPbrPipeline);
 			cmd_bind_descriptor_set(cmd, 0, mModelTexDescSet);
-			cmd_bind_descriptor_set(cmd, mCurrentIndex, mModelUboDescSet);
+			cmd_bind_descriptor_set(cmd, gCurrentIndex, mModelUboDescSet);
 
-			cmd_bind_index_buffer(cmd, mModelGeo->pIndexBuffer, mModelGeo->indexType, 0);
-			Buffer* vertexBuffer[] = { mModelGeo->pVertexBuffers[0] };
-			cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, mModelGeo->vertexStrides, nullptr);
+			cmd_bind_index_buffer(cmd, gDynamicGeo->pIndexBuffer, gDynamicGeo->indexType, 0);
+			Buffer* vertexBuffer[] = { gDynamicGeo->pVertexBuffers[0] };
+			cmd_bind_vertex_buffer(cmd, 1, vertexBuffer, gDynamicGeo->vertexStrides, nullptr);
 
-			for (uint32_t i = 0; i < mModelGeo->drawArgCount; i++)
+			for (uint32_t i = 0; i < gDynamicGeo->drawArgCount; i++)
 			{
-				IndirectDrawIndexArguments& cmdDraw = mModelGeo->pDrawArgs[i];
+				IndirectDrawIndexArguments& cmdDraw = gDynamicGeo->pDrawArgs[i];
 				cmd_draw_indexed(cmd, cmdDraw.indexCount, cmdDraw.startIndex, cmdDraw.vertexOffset);
 			}
 			/// geom end
@@ -441,7 +515,7 @@ public:
 			cmd_bind_push_constants(cmd, mSkyboxRootSignature, "pushConsts", &mSkyboxData);
 			cmd_bind_pipeline(cmd, mSkyboxPipeline);
 			cmd_bind_descriptor_set(cmd, 0, mSkyboxTexDescSet); // just the skybox texture
-			cmd_bind_descriptor_set(cmd, mCurrentIndex, mSkyboxUboDescSet);
+			cmd_bind_descriptor_set(cmd, gCurrentIndex, mSkyboxUboDescSet);
 
 			cmd_bind_index_buffer(cmd, mSkyboxGeo->pIndexBuffer, mSkyboxGeo->indexType, 0);
 			Buffer* skyboxVertexBuffer[] = { mSkyboxGeo->pVertexBuffers[0] };
@@ -459,7 +533,7 @@ public:
 			{
 				/// light proxy start
 				cmd_bind_pipeline(cmd, mLightProxyGeomPipeline);
-				cmd_bind_descriptor_set(cmd, mCurrentIndex, mLightProxyGeomUboDescSet);
+				cmd_bind_descriptor_set(cmd, gCurrentIndex, mLightProxyGeomUboDescSet);
 
 				cmd_bind_index_buffer(cmd, mSkyboxGeo->pIndexBuffer, mSkyboxGeo->indexType, 0);
 				Buffer* skyboxVertexBuffer[] = { mSkyboxGeo->pVertexBuffers[0] };
@@ -513,7 +587,14 @@ public:
 			mSettings.resetGraphic = true;
 		}
 
-		mCurrentIndex = (mCurrentIndex + 1) % IMAGE_COUNT;
+		if (gDeleteGeo && gDeleteIndex != -1 && ((gDeleteIndex + 1) % IMAGE_COUNT) == gCurrentIndex)
+		{
+			remove_resource(gDeleteGeo);
+			gDeleteGeo = nullptr;
+			gDeleteIndex = -1;
+		}
+
+		gCurrentIndex = (gCurrentIndex + 1) % IMAGE_COUNT;
 
 		return true;
 	}
@@ -1037,7 +1118,7 @@ private:
 
 		GeometryLoadDesc geoCreate = {};
 		geoCreate.fileName = "model.gltf";
-		geoCreate.ppGeometry = &mModelGeo;
+		geoCreate.ppGeometry = &gDynamicGeo;
 		geoCreate.pVertexLayout = &roomGeoVertexLayout;
 		add_resource(&geoCreate, nullptr);
 
@@ -1168,7 +1249,7 @@ private:
 		remove_resource(mLogoTex);
 
 		remove_resource(mSkyboxGeo);
-		remove_resource(mModelGeo);
+		remove_resource(gDynamicGeo);
 		for (uint32_t i = 0; i < IMAGE_COUNT; i++)
 		{
 			remove_resource(mRoomUniformBuffer[i]);
@@ -1326,32 +1407,32 @@ private:
 	void UpdateResoureces()
 	{
 		BufferUpdateDesc uboUpdate = {};
-		uboUpdate.pBuffer = mRoomUniformBuffer[mCurrentIndex];
+		uboUpdate.pBuffer = mRoomUniformBuffer[gCurrentIndex];
 		begin_update_resource(&uboUpdate);
 		*(UniformBuffer*)uboUpdate.pMappedData = mModelData;
 		end_update_resource(&uboUpdate, nullptr);
 
-		uboUpdate.pBuffer = mCubeUniformBuffer[mCurrentIndex];
+		uboUpdate.pBuffer = mCubeUniformBuffer[gCurrentIndex];
 		begin_update_resource(&uboUpdate);
 		*(LightProxyData*)uboUpdate.pMappedData = mLightData;
 		end_update_resource(&uboUpdate, nullptr);
 
-		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex][0];
+		uboUpdate.pBuffer = mLightUniformBuffer[gCurrentIndex][0];
 		begin_update_resource(&uboUpdate);
 		*(PointLight*)uboUpdate.pMappedData = gDefaultLight1;
 		end_update_resource(&uboUpdate, nullptr);
 
-		uboUpdate.pBuffer = mLightUniformBuffer[mCurrentIndex][1];
+		uboUpdate.pBuffer = mLightUniformBuffer[gCurrentIndex][1];
 		begin_update_resource(&uboUpdate);
 		*(PointLight*)uboUpdate.pMappedData = gDefaultLight2;
 		end_update_resource(&uboUpdate, nullptr);
 
-		uboUpdate.pBuffer = mCameraUniformBuffer[mCurrentIndex];
+		uboUpdate.pBuffer = mCameraUniformBuffer[gCurrentIndex];
 		begin_update_resource(&uboUpdate);
 		*(CameraUbo*)uboUpdate.pMappedData = mCameraData;
 		end_update_resource(&uboUpdate, nullptr);
 
-		uboUpdate.pBuffer = mMaterialUniformBuffer[mCurrentIndex];
+		uboUpdate.pBuffer = mMaterialUniformBuffer[gCurrentIndex];
 		begin_update_resource(&uboUpdate);
 		*(MaterialData*)uboUpdate.pMappedData = gMaterialData;
 		end_update_resource(&uboUpdate, nullptr);
@@ -1719,7 +1800,7 @@ private:
 	DescriptorSet* mLightProxyGeomUboDescSet = nullptr;
 	Pipeline* mLightProxyGeomPipeline = nullptr;
 
-	Geometry* mModelGeo = nullptr;
+	//Geometry* mModelGeo = nullptr;
 	Geometry* mSkyboxGeo = nullptr;
 
 	Buffer* mCameraUniformBuffer[IMAGE_COUNT] = { nullptr, nullptr };
@@ -1733,8 +1814,6 @@ private:
 	UniformBuffer  mSkyboxData;
 	UniformBuffer  mPbrSamplerData;
 	LightProxyData mLightData;
-
-	uint32_t mCurrentIndex = 0;
 
 	// Gui
 	UIMiddleware  mUiMiddleware;
