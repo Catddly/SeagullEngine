@@ -161,6 +161,8 @@ public:
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_ANIMATIONS, "Animation");
 		sgfs_set_path_for_resource_dir(pSystemFileIO, SG_RM_CONTENT, SG_RD_SCRIPTS, "Scripts");
 
+		//set_window_size(mWindow, 1368, 912);
+
 		gDefaultLight1.color = { 1.0f, 1.0f, 1.0f };
 		gDefaultLight1.intensity = 0.75f;
 		gDefaultLight1.position = { 0.0f, 0.0f, 1.0f };
@@ -414,12 +416,19 @@ public:
 
 		static float time = 0.0f;
 		static float rotateTime = 0.0f;
+		static int direction = 1;
 		time += deltaTime;
 
 		if (gIsRotating)
-			rotateTime += deltaTime;
+			rotateTime += deltaTime * direction;
 
-		mModelData.model = glm::rotate(Matrix4(1.0f), glm::radians(rotateTime * 90.0f + 145.0f), { 0.0f, 0.0f, 1.0f }) *
+		float rotatedDegreed = rotateTime * 90.0f;
+		if (rotatedDegreed >= 360.0f || rotatedDegreed < 0.0f)
+		{
+			direction *= -1;
+		}
+
+		mModelData.model = glm::rotate(Matrix4(1.0f), glm::radians(rotatedDegreed), { 0.0f, 0.0f, 1.0f }) *
 			glm::scale(Matrix4(1.0f), { 0.3f, 0.3f, 0.3f });
 
 		gDefaultLight1.color = UintToVec4Color(gLightColor1) / 255.0f;

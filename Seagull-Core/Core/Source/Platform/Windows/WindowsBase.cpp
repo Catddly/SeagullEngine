@@ -991,10 +991,12 @@ namespace SG
 
 		if (pSettings->width <= 0 || pSettings->height <= 0)
 		{
-			RectDescription rect = {};
-			get_recommanded_resolution(&rect);
-			pSettings->width = get_rect_width(rect);
-			pSettings->height = get_rect_height(rect);
+			//RectDescription rect = {};
+			//get_recommanded_resolution(&rect);
+			//pSettings->width = get_rect_width(rect);
+			//pSettings->height = get_rect_height(rect);
+			pSettings->width = 1368;
+			pSettings->height = 912;
 		}
 
 		MonitorDescription* monitor = get_monitor(pSettings->monitorIndex);
